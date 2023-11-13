@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "lanco-bot"
+version = "0.1.0"
+description = ""
+authors = ["Nate Shoffner <nate.shoffner@gmail.com>"]
+readme = "README.md"
+packages = [{include = "lanco_bot"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+"discord.py" = "^2.3.2"
+lcwc = "^0.9.2"
+pydantic = "^2.4.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
