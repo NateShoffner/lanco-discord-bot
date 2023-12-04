@@ -2,7 +2,6 @@ import datetime
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from sys import version_info as sysv
 import lcwc
 import aiohttp
 from lcwc.category import IncidentCategory
@@ -11,7 +10,13 @@ from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
 from cogs.lancocog import LancoCog
 
 
+
 class Incidents(LancoCog):
+
+    incidents_group = app_commands.Group(
+        name="incidents", description="Incident commands"
+    )
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -108,7 +113,7 @@ class Incidents(LancoCog):
 
         return (embed, None)
 
-    @app_commands.command(name="status2", description="Show LCWC cog status")
+    @incidents_group.command(name="status", description="Show LCWC cog status")
     async def status(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="Status", description="Incident Cog Status", color=0x00FF00
