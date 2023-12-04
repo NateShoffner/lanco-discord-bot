@@ -6,15 +6,27 @@ from sys import version_info as sysv
 from cogs.lancocog import LancoCog
 
 
+
+
 class Tools(LancoCog):
+
+    tools_group = app_commands.Group(name="tools", description="Tool commands")
+    
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name="ping")
-    async def ping(self, ctx):
-        await ctx.send(f"🏓 {round(self.bot.latency * 1000)} ms.")
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("Tools cog loaded")
+        await super().on_ready()
 
-    @app_commands.command(name="status", description="Show bot status")
+    @tools_group.command(name="ping", description="Ping the bot")
+    async def ping(self, interaction: discord.Interaction):
+        lat = round(self.bot.latency * 1000)
+        embed = discord.Embed(title="Pong!", description=f"🏓 {lat} ms", color=0x00FF00)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @tools_group.command(name="status", description="Show bot status")
     async def status(self, interaction: discord.Interaction):
         embed = discord.Embed(title="Status", description="Bot Status", color=0x00FF00)
         embed.add_field(name="Python", value=f"{sysv.major}.{sysv.minor}.{sysv.micro}")
