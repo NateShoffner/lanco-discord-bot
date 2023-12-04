@@ -5,7 +5,6 @@ import logging
 from discord.ext import commands
 from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
-from cogs.tools.tools import Tools
 
 load_dotenv()
 
@@ -35,7 +34,6 @@ def init_logging():
 
 
 async def load_cogs(bot: commands.Bot, reload: bool = False):
-    t = Tools(bot)
     cogs_dir = "./app/cogs"
     for entry in os.scandir(cogs_dir):
         entry_path = os.path.join(entry.path, f"{entry.name}.py")
@@ -68,12 +66,13 @@ async def sync(ctx):
         logger.error(e)
 
 
-@bot.tree.command(name="ping")
-async def ping(interaction: discord.Interaction):
+@bot.tree.command(name="about")
+async def about(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="Pong!", description=f"Latency: {round(bot.latency * 1000)}ms"
+        title="About LancoBot",
+        description=f"✨ Fun fact: I'm from Lancaster ✨\n\nContribute: https://github.com/NateShoffner/Lanco-Bot",
     )
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @commands.command(name="reloadall", hidden=True)
