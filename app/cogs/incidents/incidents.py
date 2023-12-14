@@ -194,6 +194,24 @@ class Incidents(LancoCog):
             "Incidents feed enabled", ephemeral=True
         )
 
+    @incidents_group.command(
+        name="disable", description="Disable Lancaster incidents feed"
+    )
+    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
+    async def disable(self, interaction: discord.Interaction):
+        channel_id = interaction.channel.id
+        incident_config, created = IncidentConfig.get_or_create(
+            guild_id=interaction.guild.id,
+            channel_id=channel_id,
+        )
+        incident_config.enabled = False
+        incident_config.save()
+
+        await interaction.response.send_message(
+            "Incidents feed disabled", ephemeral=True
+        )
+
     @incidents_group.command(name="status", description="Show LCWC cog status")
     async def status(self, interaction: discord.Interaction):
         embed = discord.Embed(
