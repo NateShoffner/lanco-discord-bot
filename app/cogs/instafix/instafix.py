@@ -24,7 +24,9 @@ class InstaFix(LancoCog):
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def enable(self, interaction: discord.Interaction):
-        instafix_config, created = InstaFixConfig.get_or_create(guild_id=interaction.guild.id)
+        instafix_config, created = InstaFixConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         instafix_config.enabled = True
         instafix_config.save()
 
@@ -34,7 +36,9 @@ class InstaFix(LancoCog):
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def disable(self, interaction: discord.Interaction):
-        instafix_config, created = InstaFixConfig.get_or_create(guild_id=interaction.guild.id)
+        instafix_config, created = InstaFixConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         instafix_config.enabled = False
         instafix_config.save()
 
@@ -52,7 +56,7 @@ class InstaFix(LancoCog):
 
             link = message.content.split(" ")[0]
             link = link.replace("instagram.com", "ddinstagram.com")
-            await message.channel.send(link)
+            await message.reply(link)
 
 
 async def setup(bot):

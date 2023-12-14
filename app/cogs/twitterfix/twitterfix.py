@@ -56,7 +56,7 @@ class TwitterFix(LancoCog):
 
             link = message.content.split(" ")[0]
             link = link.replace("twitter.com", "fxtwitter.com")
-            await message.channel.send(link)
+            await message.reply(link)
 
 
 async def setup(bot):
