@@ -99,7 +99,7 @@ class Incidents(LancoCog):
         incident_time = incident.date.astimezone(self.est)
 
         embed = discord.Embed(
-            title=f"Active {str(incident.category.value)} Incident",
+            title=f"{emoji_map[incident.category]} Active {str(incident.category.value)} Incident",
             color=color_map[incident.category],
             url=maps_url,
             timestamp=incident_time,
@@ -109,11 +109,6 @@ class Incidents(LancoCog):
         if incident.intersection:
             full_location = f"{incident.intersection}\n{full_location}"
 
-        embed.add_field(
-            name="Category",
-            value=f"{emoji_map[incident.category]} {str(incident.category.value)} Incident",
-            inline=False,
-        )
         embed.add_field(name="Location", value=f"{full_location}", inline=False)
         embed.add_field(
             name="Description", value=f"{incident.description}", inline=False
@@ -130,7 +125,7 @@ class Incidents(LancoCog):
         )
 
         embed.set_footer(
-            text=f"Incident: {incident.number} | Priority: {incident.priority}"
+            text=f"Incident: {incident.number} • Priority: {incident.priority}"
         )
 
         embed.set_image(url="attachment://map.png")
@@ -229,7 +224,7 @@ class Incidents(LancoCog):
             name="Package Version", value=f"{self.get_lcwc_version()}", inline=False
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     lcwc_dist = None
 
