@@ -11,3 +11,6 @@ class LancoCog(commands.Cog):
 
     def __get_cog_name(self):
         return self.__class__.__name__
+
+    def get_cog_data_directory(self):
+        return f"data/{self.__get_cog_name()}"

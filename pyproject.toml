@@ -13,6 +13,8 @@ lcwc = "^0.9.2"
 pydantic = "^2.4.2"
 peewee = "^3.17.0"
 python-dotenv = "^1.0.0"
+aiofiles = "^23.2.1"
+pytz = "^2023.3.post1"
 
 
 [build-system]

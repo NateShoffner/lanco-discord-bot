@@ -22,6 +22,9 @@ database.connect()
 # TODO probably a better way to inject a database into a cog
 bot.database = database
 
+if not os.path.exists("./data"):
+    os.makedirs("./data")
+
 
 def init_logging():
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
