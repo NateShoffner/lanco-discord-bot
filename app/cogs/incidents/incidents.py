@@ -94,7 +94,7 @@ class Incidents(LancoCog):
         map_image = await self.get_map(incident)
         map_attachment = discord.File(map_image, filename="map.png")
 
-        maps_url = f"https://www.google.com/maps/search/?api=1&query={incident.coordinates.longitude},{incident.coordinates.latitude}"
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={incident.coordinates.latitude},{incident.coordinates.longitude}"
 
         incident_time = incident.date.astimezone(self.est)
 
