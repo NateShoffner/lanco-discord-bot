@@ -19,7 +19,7 @@ def get_commit_hash():
     if not commit_hash:
         try:
             commit_hash = (
-                subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+                subprocess.check_output(["git", "rev-parse", "HEAD"])
                 .decode("utf-8")
                 .strip()
             )

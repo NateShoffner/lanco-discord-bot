@@ -35,7 +35,7 @@ class Tools(LancoCog):
         embed.add_field(name="Guilds", value=f"{len(self.bot.guilds)}")
         embed.add_field(name="Users", value=f"{len(self.bot.users)}")
         embed.add_field(name="Commands", value=f"{len(self.bot.commands)}")
-        embed.add_field(name="Cogs", value=f"{len(self.bot.cogs)}")
+        embed.add_field(name="Slash Commands", value=f"{len(self.bot.tree.get_commands())}")
         embed.add_field(name="Latency", value=f"{round(self.bot.latency * 1000)}ms")
 
         cog_names = [cog.__class__.__name__ for cog in self.bot.cogs.values()]
