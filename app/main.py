@@ -75,13 +75,19 @@ async def sync(ctx):
         logger.error(e)
 
 
-@bot.tree.command(name="about")
+@bot.tree.command(name="about", description="Some basic info about the bot")
 async def about(interaction: discord.Interaction):
+    fun_facts = [
+        "🤖 I'm a bot created for the Lancaster Discord",
+        "✨ I'm from B̶e̶r̶k̶s̶ Lancaster ✨",
+        "🖥️ I'm open-source, check out my code at https://github.com/NateShoffner/Lanco-Bot",
+    ]
+
     embed = discord.Embed(
-        title="About LancoBot",
-        description=f"✨ Fun fact: I'm from Lancaster ✨\n\nContribute: https://github.com/NateShoffner/Lanco-Bot",
+        title=f"About {bot.user.name}",
+        description="\n\n".join([f"{fact}" for fact in fun_facts]),
     )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
 
 
 @commands.command(name="reloadall", hidden=True)
