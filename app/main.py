@@ -5,13 +5,22 @@ import logging
 from discord.ext import commands
 from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
+from peewee import *
+from db import database_proxy
 
 load_dotenv()
 
 logger = logging.getLogger()
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("."), intents=intents)
+bot = commands.Bot(command_prefix=".", intents=intents)
+
+database = SqliteDatabase(os.getenv("SQLITE_DB"))
+database_proxy.initialize(database)
+database.connect()
+
+# TODO probably a better way to inject a database into a cog
+bot.database = database
 
 
 def init_logging():
