@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Nate Shoffner <nate.shoffner@gmail.com>"]
 readme = "README.md"
-packages = [{include = "lanco_bot"}]
+packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -15,6 +15,7 @@ peewee = "^3.17.0"
 python-dotenv = "^1.0.0"
 aiofiles = "^23.2.1"
 pytz = "^2023.3.post1"
+toml = "^0.10.2"
 
 
 [build-system]

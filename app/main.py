@@ -6,6 +6,7 @@ from discord.ext import commands
 from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
 from peewee import *
+from utils.dist_utils import get_bot_version, get_commit_hash
 from db import database_proxy
 
 load_dotenv()
@@ -21,6 +22,10 @@ database.connect()
 
 # TODO probably a better way to inject a database into a cog
 bot.database = database
+
+# TODO set these as env during build
+bot.version = get_bot_version()
+bot.commit = get_commit_hash()
 
 if not os.path.exists("./data"):
     os.makedirs("./data")
