@@ -88,7 +88,7 @@ async def about(interaction: discord.Interaction):
     fun_facts = [
         "🤖 I'm a bot created for the Lancaster Discord",
         "✨ I'm from B̶e̶r̶k̶s̶ Lancaster ✨",
-        "🖥️ I'm open-source, check out my code at https://github.com/NateShoffner/Lanco-Bot",
+        "🖥️ I'm open-source, check out my code at https://github.com/NateShoffner/Lanco-Discord-Bot",
     ]
 
     embed = discord.Embed(
