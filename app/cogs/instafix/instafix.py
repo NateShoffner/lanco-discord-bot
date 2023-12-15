@@ -1,3 +1,4 @@
+import re
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -10,6 +11,8 @@ class InstaFix(LancoCog):
     instafix_group = app_commands.Group(
         name="instafix", description="InstaFix commands"
     )
+
+    instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/\S+")
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -49,14 +52,14 @@ class InstaFix(LancoCog):
         if message.author.bot:
             return
 
-        if "instagram.com" in message.content:
+        match = self.instagram_url_pattern.search(message.content)
+        if match:
             instafix_config = InstaFixConfig.get_or_none(guild_id=message.guild.id)
             if not instafix_config or not instafix_config.enabled:
                 return
 
-            link = message.content.split(" ")[0]
-            link = link.replace("instagram.com", "ddinstagram.com")
-            await message.reply(link)
+            fixed = match.group(0).replace("instagram.com", "ddinstagram.com")
+            await message.reply(fixed)
 
 
 async def setup(bot):

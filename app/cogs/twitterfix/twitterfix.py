@@ -1,3 +1,4 @@
+import re
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -10,6 +11,8 @@ class TwitterFix(LancoCog):
     twitterfix_group = app_commands.Group(
         name="twitterfix", description="TwitterFix commands"
     )
+
+    twitter_url_pattern = re.compile(r"https?://(?:www\.)?twitter\.com/\S+")
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -49,14 +52,14 @@ class TwitterFix(LancoCog):
         if message.author.bot:
             return
 
-        if "twitter.com" in message.content:
+        match = self.twitter_url_pattern.search(message.content)
+        if match:
             twitterfix_config = TwitterFixConfig.get_or_none(guild_id=message.guild.id)
             if not twitterfix_config or not twitterfix_config.enabled:
                 return
 
-            link = message.content.split(" ")[0]
-            link = link.replace("twitter.com", "fxtwitter.com")
-            await message.reply(link)
+            fixed = match.group(0).replace("twitter.com", "fxtwitter.com")
+            await message.reply(fixed)
 
 
 async def setup(bot):
