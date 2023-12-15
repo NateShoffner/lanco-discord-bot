@@ -88,7 +88,7 @@ async def about(interaction: discord.Interaction):
     fun_facts = [
         "🤖 I'm a bot created for the Lancaster Discord",
         "✨ I'm from B̶e̶r̶k̶s̶ Lancaster ✨",
-        "🖥️ I'm open-source, check out my code at https://github.com/NateShoffner/Lanco-Discord-Bot",
+        "🖥️ I'm open-source, check out my code on [GitHub](https://github.com/NateShoffner/Lanco-Discord-Bot)",
     ]
 
     embed = discord.Embed(
@@ -122,7 +122,7 @@ async def main():
     init_logging()
     await load_cogs(bot)
 
-    await bot.start(os.environ["DISCORD_TOKEN"])
+    await bot.start(os.getenv("DISCORD_TOKEN"))
 
 
 if __name__ == "__main__":
