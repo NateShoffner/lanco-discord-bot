@@ -177,11 +177,10 @@ class Incidents(LancoCog):
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def enable(self, interaction: discord.Interaction):
-        channel_id = interaction.channel.id
         incident_config, created = IncidentConfig.get_or_create(
-            guild_id=interaction.guild.id,
-            channel_id=channel_id,
+            guild_id=interaction.guild.id
         )
+        incident_config.channel_id = interaction.channel.id
         incident_config.enabled = True
         incident_config.save()
 
@@ -195,10 +194,8 @@ class Incidents(LancoCog):
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def disable(self, interaction: discord.Interaction):
-        channel_id = interaction.channel.id
         incident_config, created = IncidentConfig.get_or_create(
-            guild_id=interaction.guild.id,
-            channel_id=channel_id,
+            guild_id=interaction.guild.id
         )
         incident_config.enabled = False
         incident_config.save()
