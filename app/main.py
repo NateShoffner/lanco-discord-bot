@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 import discord
 import logging
@@ -26,6 +27,8 @@ bot.database = database
 # TODO set these as env during build
 bot.version = get_bot_version()
 bot.commit = get_commit_hash()
+
+bot.start_time = datetime.datetime.now()
 
 if not os.path.exists("./data"):
     os.makedirs("./data")

@@ -1,3 +1,4 @@
+import datetime
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -35,8 +36,15 @@ class Tools(LancoCog):
         embed.add_field(name="Guilds", value=f"{len(self.bot.guilds)}")
         embed.add_field(name="Users", value=f"{len(self.bot.users)}")
         embed.add_field(name="Commands", value=f"{len(self.bot.commands)}")
-        embed.add_field(name="Slash Commands", value=f"{len(self.bot.tree.get_commands())}")
+        embed.add_field(
+            name="Slash Commands", value=f"{len(self.bot.tree.get_commands())}"
+        )
         embed.add_field(name="Latency", value=f"{round(self.bot.latency * 1000)}ms")
+        uptime = datetime.datetime.now() - self.bot.start_time
+        embed.add_field(
+            name="Uptime",
+            value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
+        )
 
         cog_names = [cog.__class__.__name__ for cog in self.bot.cogs.values()]
         embed.add_field(
