@@ -42,9 +42,7 @@ class Commands(LancoCog):
             command_response=command_response,
         )
 
-        await interaction.response.send_message(
-            f"Created command {command_name}", ephemeral=True
-        )
+        await interaction.response.send_message(f"Created command {command_name}")
 
     @commands_group.command(name="delete", description="Delete a custom command")
     @commands.has_permissions(administrator=True)
@@ -55,9 +53,7 @@ class Commands(LancoCog):
         )
         command.delete_instance()
 
-        await interaction.response.send_message(
-            f"Deleted command {command_name}", ephemeral=True
-        )
+        await interaction.response.send_message(f"Deleted command {command_name}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
