@@ -47,11 +47,7 @@ class Tools(LancoCog):
         )
 
         cog_names = [cog.__class__.__name__ for cog in self.bot.cogs.values()]
-        embed.add_field(
-            name=f"Cogs ({len(self.bot.cogs)})",
-            value="\n".join(cog_names),
-            inline=False,
-        )
+        embed.add_field(name=f"Cogs ({len(cog_names)})", value=", ".join(cog_names))
 
         embed.set_footer(
             text=f"Version: {self.bot.version} | Commit: {self.bot.commit[:7]}"
