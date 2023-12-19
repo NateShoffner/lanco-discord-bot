@@ -12,7 +12,7 @@ class InstaFix(LancoCog):
         name="instafix", description="InstaFix commands"
     )
 
-    instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/\S+")
+    instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+")
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
