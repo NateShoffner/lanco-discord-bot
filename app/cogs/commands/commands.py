@@ -55,6 +55,27 @@ class Commands(LancoCog):
 
         await interaction.response.send_message(f"Deleted command {command_name}")
 
+    @commands_group.command(name="edit", description="Edit a custom command")
+    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
+    async def edit(
+        self, interaction: discord.Interaction, command_name: str, command_response: str
+    ):
+        command = CustomCommands.get_or_none(
+            guild_id=interaction.guild_id, command_name=command_name.lower()
+        )
+
+        if not command:
+            await interaction.response.send_message(
+                f"Command {command_name} does not exist", ephemeral=True
+            )
+            return
+
+        command.command_response = command_response
+        command.save()
+
+        await interaction.response.send_message(f"Edited command {command_name}")
+
     @commands_group.command(name="list", description="List all custom commands")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
