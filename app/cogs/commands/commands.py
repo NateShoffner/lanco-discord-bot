@@ -55,6 +55,26 @@ class Commands(LancoCog):
 
         await interaction.response.send_message(f"Deleted command {command_name}")
 
+    @commands_group.command(name="list", description="List all custom commands")
+    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
+    async def list(self, interaction: discord.Interaction):
+        commands = CustomCommands.select().where(
+            CustomCommands.guild_id == interaction.guild_id
+        )
+
+        if not commands:
+            await interaction.response.send_message("No commands found")
+            return
+
+        # TODO pagination
+        embed = discord.Embed(title="Custom commands for this server")
+        embed.description = "\n".join(
+            f"{i+1}: {command.command_name}" for i, command in enumerate(commands)
+        )
+
+        await interaction.response.send_message(embed=embed)
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         # TODO commands should perhaps be registered within the bot, but this works for now
