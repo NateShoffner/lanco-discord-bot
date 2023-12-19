@@ -61,6 +61,10 @@ class TwitterFix(LancoCog):
             fixed = match.group(0).replace("twitter.com", "fxtwitter.com")
             await message.reply(fixed)
 
+            # suppress the original embed if we can
+            if message.channel.permissions_for(message.guild.me).manage_messages:
+                await message.edit(suppress=True)
+
 
 async def setup(bot):
     await bot.add_cog(TwitterFix(bot))
