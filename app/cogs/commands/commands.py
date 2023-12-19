@@ -29,7 +29,7 @@ class Commands(LancoCog):
         self, interaction: discord.Interaction, command_name: str, command_response: str
     ):
         if CustomCommands.get_or_none(
-            guild_id=interaction.guild_id, command_name=command_name
+            guild_id=interaction.guild_id, command_name=command_name.lower()
         ):
             await interaction.response.send_message(
                 f"Command {command_name} already exists", ephemeral=True
@@ -38,7 +38,7 @@ class Commands(LancoCog):
 
         command = CustomCommands.create(
             guild_id=interaction.guild_id,
-            command_name=command_name,
+            command_name=command_name.lower(),
             command_response=command_response,
         )
 
@@ -49,7 +49,7 @@ class Commands(LancoCog):
     @commands.is_owner()
     async def delete(self, interaction: discord.Interaction, command_name: str):
         command = CustomCommands.get(
-            guild_id=interaction.guild_id, command_name=command_name
+            guild_id=interaction.guild_id, command_name=command_name.lower()
         )
         command.delete_instance()
 
@@ -65,7 +65,7 @@ class Commands(LancoCog):
         if message.content.startswith(self.bot.command_prefix):
             command_name = message.content[len(self.bot.command_prefix) :]
             command = CustomCommands.get_or_none(
-                guild_id=message.guild.id, command_name=command_name
+                guild_id=message.guild.id, command_name=command_name.lower()
             )
 
             if command:
