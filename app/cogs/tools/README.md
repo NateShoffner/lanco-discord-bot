@@ -1,3 +1,0 @@
-### Tools
-
-Bot diagnostic tools.

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from peewee import *
 from utils.dist_utils import get_bot_version, get_commit_hash
 from db import database_proxy
+from sys import version_info as sysv
 
 load_dotenv()
 
@@ -98,6 +99,41 @@ async def about(interaction: discord.Interaction):
         title=f"About {bot.user.name}",
         description="\n\n".join([f"{fact}" for fact in fun_facts]),
     )
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="ping", description="Ping the bot")
+async def ping(interaction: discord.Interaction):
+    lat = round(bot.latency * 1000)
+    embed = discord.Embed(title="Pong!", description=f"🏓 {lat} ms", color=0x00FF00)
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="status", description="Show bot status")
+async def status(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title=f"{bot.user.name} Status",
+        description=f"Various diagnostic information",
+        color=0x00FF00,
+    )
+    embed.add_field(name="Python", value=f"{sysv.major}.{sysv.minor}.{sysv.micro}")
+    embed.add_field(name="Discord.py", value=f"{discord.__version__}")
+    embed.add_field(name="Guilds", value=f"{len(bot.guilds)}")
+    embed.add_field(name="Users", value=f"{len(bot.users)}")
+    embed.add_field(name="Commands", value=f"{len(bot.commands)}")
+    embed.add_field(name="Slash Commands", value=f"{len(bot.tree.get_commands())}")
+    embed.add_field(name="Latency", value=f"{round(bot.latency * 1000)}ms")
+    uptime = datetime.datetime.now() - bot.start_time
+    embed.add_field(
+        name="Uptime",
+        value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
+    )
+
+    cog_names = [cog.__class__.__name__ for cog in bot.cogs.values()]
+    embed.add_field(name=f"Cogs ({len(cog_names)})", value=", ".join(cog_names))
+
+    embed.set_footer(text=f"Version: {bot.version} | Commit: {bot.commit[:7]}")
+
     await interaction.response.send_message(embed=embed)
 
 
