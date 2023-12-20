@@ -124,9 +124,7 @@ class Incidents(LancoCog):
             inline=True,
         )
 
-        embed.set_footer(
-            text=f"Incident: {incident.number} • Priority: {incident.priority}"
-        )
+        embed.set_footer(text=f"#{incident.number} • Priority: {incident.priority}")
 
         embed.set_image(url="attachment://map.png")
 
@@ -222,6 +220,21 @@ class Incidents(LancoCog):
         )
 
         await interaction.response.send_message(embed=embed)
+
+    @incidents_group.command(name="view", description="View incident details")
+    async def view(self, interaction: discord.Interaction, incident_number: int):
+        incident = next(
+            (i for i in self.active_incidents if i.number == incident_number), None
+        )
+
+        if not incident:
+            await interaction.response.send_message(
+                f"Could not find incident #{incident_number} in the active incidents list"
+            )
+            return
+
+        embed, map_attachment = await self.build_incident_embed(incident)
+        await interaction.response.send_message(file=map_attachment, embed=embed)
 
     lcwc_dist = None
 
