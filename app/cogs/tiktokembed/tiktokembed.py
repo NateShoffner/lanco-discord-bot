@@ -2,14 +2,14 @@ import re
 import discord
 from discord.ext import commands
 from discord import app_commands
-from .models import TikTokFixConfig
+from .models import TikTokEmbedConfig
 
 from cogs.lancocog import LancoCog
 
 
-class TikTokFix(LancoCog):
-    tiktokfix_group = app_commands.Group(
-        name="tiktokfix", description="TikTokFix commands"
+class TikTokEmbed(LancoCog):
+    tiktok_embed_group = app_commands.Group(
+        name="tiktokembed", description="TikTokEmbed commands"
     )
 
     tiktok_url_pattern = re.compile(r"https?://(?:www\.)?tiktok\.com/\S+")
@@ -17,31 +17,31 @@ class TikTokFix(LancoCog):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot = bot
-        self.bot.database.create_tables([TikTokFixConfig])
+        self.bot.database.create_tables([TikTokEmbedConfig])
 
-    @tiktokfix_group.command(name="enable", description="Enable TikTokFix")
+    @tiktok_embed_group.command(name="enable", description="Enable TikTokEmbed")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def enable(self, interaction: discord.Interaction):
-        tiktoktfix_config, created = TikTokFixConfig.get_or_create(
+        tiktoktfix_config, created = TikTokEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         tiktoktfix_config.enabled = True
         tiktoktfix_config.save()
 
-        await interaction.response.send_message("TikTokFix enabled", ephemeral=True)
+        await interaction.response.send_message("TikTokEmbed enabled", ephemeral=True)
 
-    @tiktokfix_group.command(name="disable", description="Disable TikTokFix")
+    @tiktok_embed_group.command(name="disable", description="Disable TikTokEmbed")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def disable(self, interaction: discord.Interaction):
-        tiktoktfix_config, created = TikTokFixConfig.get_or_create(
+        tiktoktfix_config, created = TikTokEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         tiktoktfix_config.enabled = False
         tiktoktfix_config.save()
 
-        await interaction.response.send_message("TikTokFix disabled", ephemeral=True)
+        await interaction.response.send_message("TikTokEmbed disabled", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -50,7 +50,7 @@ class TikTokFix(LancoCog):
 
         match = self.tiktok_url_pattern.search(message.content)
         if match:
-            tiktoktfix_config = TikTokFixConfig.get_or_none(guild_id=message.guild.id)
+            tiktoktfix_config = TikTokEmbedConfig.get_or_none(guild_id=message.guild.id)
             if not tiktoktfix_config or not tiktoktfix_config.enabled:
                 return
 
@@ -63,4 +63,4 @@ class TikTokFix(LancoCog):
 
 
 async def setup(bot):
-    await bot.add_cog(TikTokFix(bot))
+    await bot.add_cog(TikTokEmbed(bot))

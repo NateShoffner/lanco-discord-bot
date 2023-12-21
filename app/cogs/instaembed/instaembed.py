@@ -9,7 +9,7 @@ from cogs.lancocog import LancoCog
 
 class InstaEmbed(LancoCog):
     insta_embed_group = app_commands.Group(
-        name="insta_embed", description="InstaEmbed commands"
+        name="instaembed", description="InstaEmbed commands"
     )
 
     instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+")
