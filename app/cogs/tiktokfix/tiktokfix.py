@@ -15,13 +15,9 @@ class TikTokFix(LancoCog):
     tiktok_url_pattern = re.compile(r"https?://(?:www\.)?tiktok\.com/\S+")
 
     def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
         self.bot = bot
         self.bot.database.create_tables([TikTokFixConfig])
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print("TikTokFix cog loaded")
-        await super().on_ready()
 
     @tiktokfix_group.command(name="enable", description="Enable TikTokFix")
     @commands.has_permissions(administrator=True)

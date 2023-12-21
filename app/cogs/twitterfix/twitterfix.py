@@ -15,13 +15,9 @@ class TwitterFix(LancoCog):
     twitter_url_pattern = re.compile(r"https?://(?:www\.)?twitter\.com/\S+")
 
     def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
         self.bot = bot
         self.bot.database.create_tables([TwitterFixConfig])
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print("TwitterFix cog loaded")
-        await super().on_ready()
 
     @twitterfix_group.command(name="enable", description="Enable TwitterFix")
     @commands.has_permissions(administrator=True)

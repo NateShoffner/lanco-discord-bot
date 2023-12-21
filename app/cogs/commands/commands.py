@@ -13,14 +13,9 @@ class Commands(LancoCog):
     )
 
     def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
         self.bot = bot
-
         self.bot.database.create_tables([CustomCommands])
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print("Commands cog loaded")
-        await super().on_ready()
 
     @commands_group.command(name="create", description="Create a custom command")
     @commands.has_permissions(administrator=True)

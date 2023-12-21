@@ -15,13 +15,9 @@ class InstaFix(LancoCog):
     instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+")
 
     def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
         self.bot = bot
         self.bot.database.create_tables([InstaFixConfig])
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print("InstaFix cog loaded")
-        await super().on_ready()
 
     @instafix_group.command(name="enable", description="Enable InstaFix")
     @commands.has_permissions(administrator=True)

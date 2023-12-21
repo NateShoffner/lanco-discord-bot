@@ -22,6 +22,7 @@ class Incidents(LancoCog):
     est = pytz.timezone("US/Eastern")
 
     def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
         self.bot = bot
 
         self.bot.database.create_tables([IncidentConfig])
@@ -33,14 +34,13 @@ class Incidents(LancoCog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Incidents cog loaded")
         await super().on_ready()
         self.get_incidents.change_interval(seconds=5)
         self.get_incidents.start()
 
     @tasks.loop(seconds=10)
     async def get_incidents(self):
-        print("Getting incidents")
+        self.logger.info("Getting incidents")
         async with aiohttp.ClientSession() as session:
             try:
                 self.last_sync_attempt = datetime.datetime.now()
@@ -49,7 +49,7 @@ class Incidents(LancoCog):
                 )
                 self.last_successful_sync = datetime.datetime.now()
             except Exception as e:
-                print(f"Error getting incidents: {e}")
+                self.logger.error(f"Error getting incidents: {e}")
                 return
 
             for incident in incidents:
@@ -65,7 +65,9 @@ class Incidents(LancoCog):
                     ):
                         continue
 
-                    print(f"New incident: {incident.number} for {guild.guild_id}")
+                    self.logger.info(
+                        f"New incident: {incident.number} for {guild.guild_id}"
+                    )
                     embed, map_attachment = await self.build_incident_embed(incident)
                     message = await self.bot.get_channel(guild.channel_id).send(
                         file=map_attachment, embed=embed

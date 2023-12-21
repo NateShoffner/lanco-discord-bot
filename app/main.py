@@ -59,14 +59,14 @@ async def load_cogs(bot: commands.Bot, reload: bool = False):
     for entry in os.scandir(cogs_dir):
         entry_path = os.path.join(entry.path, f"{entry.name}.py")
         if os.path.isfile(entry_path):
-            print(f"Loading {entry.name}: {entry_path}")
+            logger.info(f"Loading {entry.name}: {entry_path}")
             try:
                 if reload:
                     await bot.reload_extension(f"cogs.{entry.name}.{entry.name}")
                 else:
                     await bot.load_extension(f"cogs.{entry.name}.{entry.name}")
             except Exception as e:
-                print(f"Failed to load cog {entry.name}: {e}")
+                logger.error(f"Failed to load cog {entry.name}: {e}")
 
 
 @bot.event
