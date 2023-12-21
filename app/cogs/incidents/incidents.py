@@ -28,7 +28,8 @@ class Incidents(LancoCog):
 
         self.client = Client()
         self.active_incidents = []
-        self.last_updated = None
+        self.last_sync_attempt = None
+        self.last_successful_sync = None
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -41,7 +42,15 @@ class Incidents(LancoCog):
     async def get_incidents(self):
         print("Getting incidents")
         async with aiohttp.ClientSession() as session:
-            incidents = await self.client.get_incidents(session)
+            try:
+                self.last_sync_attempt = datetime.datetime.now()
+                incidents = await self.client.get_incidents(
+                    session, throw_on_error=True
+                )
+                self.last_successful_sync = datetime.datetime.now()
+            except Exception as e:
+                print(f"Error getting incidents: {e}")
+                return
 
             for incident in incidents:
                 subbed_guilds = IncidentConfig.select().where(
@@ -65,10 +74,7 @@ class Incidents(LancoCog):
                     guild.last_known_incident = incident.number
                     guild.save()
 
-                self.last_updated = datetime.datetime.now()
-                self.active_incidents = incidents
-
-        self.last_updated = datetime.datetime.now()
+            self.active_incidents = incidents
 
     async def build_incident_embed(self, incident: Incident) -> discord.Embed:
         """Builds an embed for the given incident
@@ -211,8 +217,13 @@ class Incidents(LancoCog):
             name="Active Incidents", value=f"{len(self.active_incidents)}", inline=False
         )
         embed.add_field(
-            name="Last Updated",
-            value=f'{self.last_updated.astimezone(self.est).strftime("%m/%d/%Y, %H:%M:%S") or "Never"}',
+            name="Last Sync Attempt",
+            value=f'{self.last_sync_attempt.astimezone(self.est).strftime("%m/%d/%Y, %H:%M:%S") if self.last_sync_attempt else  "Never"}',
+            inline=False,
+        )
+        embed.add_field(
+            name="Last Successful Sync",
+            value=f'{self.last_successful_sync.astimezone(self.est).strftime("%m/%d/%Y, %H:%M:%S") if self.last_successful_sync else "Never"}',
             inline=False,
         )
         embed.add_field(
