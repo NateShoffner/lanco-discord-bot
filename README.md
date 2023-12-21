@@ -8,7 +8,7 @@ Commmunity Discord bot for the Lancaster County Discord server.
 
 - [Incident Reporting](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/incidents) - Report emergency services incidents throughout Lancaster County.
 - [Custom Commands](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/commands) - Create custom commands for your server.
-- [TwitterFix](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterfix) - Fix Twitter embeds in Discord.
+- [TwitterEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed) - Fix Twitter embeds in Discord.
 - [InstaEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/instaembed) - Fix Instagram embeds in Discord.
 - [TikTokEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed) - Fix TikTok embeds in Discord.
 
