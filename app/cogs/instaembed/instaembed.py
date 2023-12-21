@@ -2,14 +2,14 @@ import re
 import discord
 from discord.ext import commands
 from discord import app_commands
-from .models import InstaFixConfig
+from .models import InstaEmbedConfig
 
 from cogs.lancocog import LancoCog
 
 
-class InstaFix(LancoCog):
-    instafix_group = app_commands.Group(
-        name="instafix", description="InstaFix commands"
+class InstaEmbed(LancoCog):
+    insta_embed_group = app_commands.Group(
+        name="insta_embed", description="InstaEmbed commands"
     )
 
     instagram_url_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+")
@@ -17,31 +17,31 @@ class InstaFix(LancoCog):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot = bot
-        self.bot.database.create_tables([InstaFixConfig])
+        self.bot.database.create_tables([InstaEmbedConfig])
 
-    @instafix_group.command(name="enable", description="Enable InstaFix")
+    @insta_embed_group.command(name="enable", description="Enable InstaEmbed")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def enable(self, interaction: discord.Interaction):
-        instafix_config, created = InstaFixConfig.get_or_create(
+        insta_embed_config, created = InstaEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
-        instafix_config.enabled = True
-        instafix_config.save()
+        insta_embed_config.enabled = True
+        insta_embed_config.save()
 
-        await interaction.response.send_message("InstaFix enabled", ephemeral=True)
+        await interaction.response.send_message("InstaEmbed enabled", ephemeral=True)
 
-    @instafix_group.command(name="disable", description="Disable InstaFix")
+    @insta_embed_group.command(name="disable", description="Disable InstaEmbed")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def disable(self, interaction: discord.Interaction):
-        instafix_config, created = InstaFixConfig.get_or_create(
+        insta_embed_config, created = InstaEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
-        instafix_config.enabled = False
-        instafix_config.save()
+        insta_embed_config.enabled = False
+        insta_embed_config.save()
 
-        await interaction.response.send_message("InstaFix disabled", ephemeral=True)
+        await interaction.response.send_message("InstaEmbed disabled", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -50,8 +50,8 @@ class InstaFix(LancoCog):
 
         match = self.instagram_url_pattern.search(message.content)
         if match:
-            instafix_config = InstaFixConfig.get_or_none(guild_id=message.guild.id)
-            if not instafix_config or not instafix_config.enabled:
+            insta_embed_config = InstaEmbedConfig.get_or_none(guild_id=message.guild.id)
+            if not insta_embed_config or not insta_embed_config.enabled:
                 return
 
             fixed = match.group(0).replace("instagram.com", "ddinstagram.com")
@@ -63,4 +63,4 @@ class InstaFix(LancoCog):
 
 
 async def setup(bot):
-    await bot.add_cog(InstaFix(bot))
+    await bot.add_cog(InstaEmbed(bot))
