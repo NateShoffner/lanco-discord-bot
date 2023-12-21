@@ -9,13 +9,17 @@ packages = [{include = "app"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 "discord.py" = "^2.3.2"
-lcwc = "^0.12.2"
+lcwc = "0.12.3"
 pydantic = "^2.4.2"
 peewee = "^3.17.0"
 python-dotenv = "^1.0.0"
 aiofiles = "^23.2.1"
 pytz = "^2023.3.post1"
 toml = "^0.10.2"
+googlemaps = "^4.10.0"
+confusables = "^1.2.0"
+nest-asyncio = "^1.5.8"
+asyncpraw = "*"
 
 
 [build-system]
