@@ -81,7 +81,7 @@ class Incidents(LancoCog):
         async with aiohttp.ClientSession() as session:
             try:
                 self.last_sync_attempt = datetime.datetime.now()
-                if self.current_client is ArcGISClient:
+                if isinstance(self.current_client, ArcGISClient):
                     incidents = await self.current_client.get_incidents(
                         session, throw_on_error=True
                     )
@@ -98,7 +98,7 @@ class Incidents(LancoCog):
                 )
 
                 for guild in subbed_guilds:
-                    if self.current_client is ArcGISClient:
+                    if isinstance(self.current_client, ArcGISClient):
                         # TODO shouldn't need to do this after upstream fix is applied fix out of order incidents
                         if (
                             guild.last_known_incident
@@ -162,7 +162,7 @@ class Incidents(LancoCog):
         map_image = await self.get_map(incident)
         map_attachment = discord.File(map_image, filename="map.png")
 
-        if incident is ArcGISIncident:
+        if isinstance(incident, ArcGISIncident):
             maps_url = f"https://www.google.com/maps/search/?api=1&query={incident.coordinates.latitude},{incident.coordinates.longitude}"
         else:
             coords = self.geocoder.get_coordinates(incident)
@@ -189,7 +189,7 @@ class Incidents(LancoCog):
             name="Description", value=f"{incident.description}", inline=False
         )
 
-        if incident is ArcGISIncident:
+        if isinstance(incident, ArcGISIncident):
             embed.add_field(name="Agency", value=f"{incident.agency}", inline=False)
 
         embed.add_field(
@@ -200,7 +200,7 @@ class Incidents(LancoCog):
             inline=True,
         )
 
-        if incident is ArcGISIncident:
+        if isinstance(incident, ArcGISIncident):
             embed.set_footer(text=f"#{incident.number} • Priority: {incident.priority}")
 
         embed.set_image(url="attachment://map.png")
@@ -213,7 +213,7 @@ class Incidents(LancoCog):
         map_width = 400
         map_height = 300
 
-        if incident is ArcGISIncident:
+        if isinstance(incident, ArcGISIncident):
             lat = incident.coordinates.latitude
             lng = incident.coordinates.longitude
         else:
@@ -235,7 +235,7 @@ class Incidents(LancoCog):
 
         url = f"https://maps.googleapis.com/maps/api/staticmap?{urlencode(url_params)}"
 
-        if incident is ArcGISIncident:
+        if isinstance(incident, ArcGISIncident):
             filename = f"{incident.number}.png"
         else:
             filename = f"ts_{incident.date.timestamp()}.png"
@@ -316,7 +316,7 @@ class Incidents(LancoCog):
 
     @incidents_group.command(name="view", description="View incident details")
     async def view(self, interaction: discord.Interaction, incident_number: int):
-        if not self.current_client is ArcGISClient:
+        if not isinstance(self.current_client, ArcGISClient):
             await interaction.response.send_message(
                 "This command is only available when using the ArcGIS client"
             )
