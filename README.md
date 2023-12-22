@@ -11,6 +11,7 @@ Commmunity Discord bot for the Lancaster County Discord server.
 - [TwitterEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed) - Fix Twitter embeds in Discord.
 - [InstaEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/instaembed) - Fix Instagram embeds in Discord.
 - [TikTokEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed) - Fix TikTok embeds in Discord.
+- [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser) - Lancaster County/City tailored GeoGuessr.
 
 🚀 Installation
 ----------------
