@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import re
+from typing import Optional
+import uuid
 
 
 @dataclass
@@ -28,14 +30,15 @@ class GuessResult:
 
 @dataclass
 class GeoGuesserLocation:
-    """A random location within a bounding box"""
+    """A GeoGuesser location"""
 
     initial_location: Coordinates
     """ The initial coordinates of the location before road snapping """
     road_coords: Coordinates
     """ The coordinates of the snapped road """
-    street_view: str
-    """ The street view photo URL """
+
+    id: Optional[uuid.UUID] = None
+    """ The ID of the location """
 
 
 class Mode:
@@ -86,6 +89,9 @@ class Round:
     def get_top_guessers(self) -> [int]:
         """Returns the user_id's of the top guessers"""
         top_guessers = []
+
+        if len(self.guesses) == 0:
+            return top_guessers
 
         sorted_guesses = sorted(
             self.guesses.items(), key=lambda x: x[1].score, reverse=True

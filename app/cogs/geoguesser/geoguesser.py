@@ -9,7 +9,10 @@ from discord import app_commands
 from discord.ui import View, Select
 
 import googlemaps
-from .models import Mode
+
+from .dbmodels import GeoguesserLocation as LocationModel
+from .locationutils import LocationUtils
+from .models import Coordinates, GeoGuesserLocation, Mode
 from .session import GameSession
 
 from cogs.lancocog import LancoCog
@@ -53,6 +56,58 @@ class GeoGuesser(LancoCog):
         super().__init__(bot)
         self.bot = bot
         self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
+        self.location_utils = LocationUtils(self.gmaps)
+        self.bot.database.create_tables([LocationModel])
+
+    def get_street_view_cache_path(self, location: GeoGuesserLocation) -> str:
+        """Returns the path to the cached street view image"""
+
+        cache_dir = os.path.join(self.get_cog_data_directory(), "streetview_cache")
+        cached_image_path = os.path.join(cache_dir, f"{location.id}.jpg")
+
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+
+        return cached_image_path
+
+    async def load_locations_from_db(
+        self, mode: Mode, count: int
+    ) -> list[GeoGuesserLocation]:
+        """Loads the locations from the database"""
+        db_locations = (
+            LocationModel.select()
+            .where(LocationModel.mode == mode.name)
+            .order_by(self.bot.database.random())
+            .limit(count)
+        )
+
+        locations = []
+        for location in db_locations:
+            locations.append(
+                GeoGuesserLocation(
+                    Coordinates(location.initial_lat, location.initial_lng),
+                    Coordinates(location.road_lat, location.road_lng),
+                    id=location.id,
+                )
+            )
+
+        # attempt to cache the street view images
+        # TODO if an image fetch fails, we need to get a new location from the db
+
+        for location in locations:
+            cached_image_path = self.get_street_view_cache_path(location)
+
+            if not os.path.exists(cached_image_path):
+                async with aiohttp.ClientSession() as s:
+                    street_view_url = self.location_utils.get_street_view_url(
+                        location.road_coords
+                    )
+                    async with s.get(street_view_url) as resp:
+                        if resp.status == 200:
+                            with open(cached_image_path, "wb") as f:
+                                f.write(await resp.read())
+
+        return locations
 
     def get_session(self, channel: discord.TextChannel) -> GameSession:
         """Gets the active session for the given channel"""
@@ -65,6 +120,17 @@ class GeoGuesser(LancoCog):
         await interaction.channel.typing()
         await interaction.response.defer()
         await self.initialize_session(mode, interaction.channel, interaction.user)
+
+    def build_modes_select(self) -> Select:
+        """Builds the selection prompt for the modes"""
+        options = []
+        for mode in self.modes:
+            options.append(
+                discord.SelectOption(label=mode.name, emoji=mode.icon, value=mode.name)
+            )
+
+        select = Select(placeholder="Choose a Mode", options=options)
+        return select
 
     @geoguesser_group.command(
         name="start", description="Start a new GeoGuesser session"
@@ -81,19 +147,51 @@ class GeoGuesser(LancoCog):
 
         self.sessions_starting.append(interaction.channel.id)
 
-        options = []
-        for mode in self.modes:
-            options.append(
-                discord.SelectOption(label=mode.name, emoji=mode.icon, value=mode.name)
-            )
-
-        select = Select(placeholder="Choose a Mode", options=options)
+        select = self.build_modes_select()
         select.callback = self.callback
 
         view = View()
         view.add_item(select)
 
         await interaction.channel.typing()
+        await interaction.response.send_message(view=view)
+
+    async def population_callback(self, interaction: discord.Interaction):
+        """Callback for the population select"""
+        mode_value = interaction.data["values"][0]
+        mode = next((mode for mode in self.modes if mode.name == mode_value), None)
+
+        await interaction.channel.typing()
+        await interaction.response.defer()
+
+        # TODO make population count configurable
+        locations = await self.location_utils.get_geoguesser_locations(mode, 200)
+
+        with self.bot.database.atomic():
+            for location in locations:
+                LocationModel.create(
+                    mode=mode.name,
+                    initial_lat=location.initial_location.lat,
+                    initial_lng=location.initial_location.lng,
+                    road_lat=location.road_coords.lat,
+                    road_lng=location.road_coords.lng,
+                )
+
+        await interaction.channel.send("Done")
+
+    @geoguesser_group.command(
+        name="populate", description="Populate the database with locations"
+    )
+    @commands.is_owner()
+    async def populate(self, interaction: discord.Interaction):
+        """Populates the database with locations"""
+        select = self.build_modes_select()
+
+        select.callback = self.population_callback
+
+        view = View()
+        view.add_item(select)
+
         await interaction.response.send_message(view=view)
 
     @geoguesser_group.command(
@@ -181,16 +279,12 @@ class GeoGuesser(LancoCog):
         self, mode: Mode, channel: discord.TextChannel, host: discord.Member
     ):
         """Initializes a new GeoGuesser session"""
-        session = GameSession(
-            mode,
-            channel,
-            host,
-            self.gmaps,
-        )
+        session = GameSession(mode, channel, host, self.gmaps, self.location_utils)
 
         self.sessions_starting.remove(channel.id)
         self.active_sessions[channel.id] = session
-        await session.init()
+        locations = await self.load_locations_from_db(mode, 500)
+        session.init(locations)
 
         rules = [
             f"Try to guess the location of the photo, the closer you are the more points you get",
@@ -303,20 +397,9 @@ class GeoGuesser(LancoCog):
         if not current_round:
             return
 
-        cache_dir = os.path.join(self.get_cog_data_directory(), "streetview_cache")
-        road_coords_str = f"{current_round.location.road_coords.lat},{current_round.location.road_coords.lng}"
-        cached_image_path = os.path.join(cache_dir, f"{road_coords_str}.jpg")
-
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir)
-
-        if not os.path.exists(cached_image_path):
-            async with aiohttp.ClientSession() as s:
-                async with s.get(current_round.location.street_view) as resp:
-                    if resp.status == 200:
-                        with open(cached_image_path, "wb") as f:
-                            f.write(await resp.read())
-
+        cached_image_path = cached_image_path = self.get_street_view_cache_path(
+            current_round.location
+        )
         embed = discord.Embed(
             title=f"Round {session.current_round + 1}",
             description=f"You have **{self.GUESS_TIME}** seconds to guess the location of the photo below",
