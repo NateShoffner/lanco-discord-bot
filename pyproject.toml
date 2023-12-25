@@ -20,6 +20,7 @@ googlemaps = "^4.10.0"
 confusables = "^1.2.0"
 nest-asyncio = "^1.5.8"
 asyncpraw = "*"
+zalgo-text = "^0.6"
 
 
 [build-system]

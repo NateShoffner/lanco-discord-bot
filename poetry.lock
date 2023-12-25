@@ -1019,7 +1019,18 @@ files = [
 idna = ">=2.0"
 multidict = ">=4.0"
 
+[[package]]
+name = "zalgo-text"
+version = "0.6"
+description = "̖̘A ̩̼͜͡ś̛̺̦̃m̡̥̫a̛̳̹l̵̷͐ͪl ̶̫l̞̆̇i͈̫br̮̗͘a͇͗̌r̝ͨ͜͜y ̼̃ͅṯ̴̯́͒ͩo ̷̘ćͫr͕̎͆é͋a̛̳͈͗͜tͫͮe ̵̳͗̍͡z̴͇̗a̮̹ͬl̛͒̐ģ̏o ́͡ͅs̜͗̂t̙̬͟͢ý̶̹l̪ȩ͍͓̄̾͠d ̵̷̠̌t̸͈̖́̎͢e̸̓̓x̮ͮt."
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "zalgo_text-0.6.tar.gz", hash = "sha256:4917b5053a014e3251e95e2f6fd32ed29770ccc2d89921dcab147eb8fc6be224"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "49e3dc21747f8a21a2e8a1da72fe0e7b129f805ac4e56f9ea0a696665405cec0"
+content-hash = "d901480ec95d748279335ceacc623a8560a4d433e73d0b21a87ca080cdea1e7c"
