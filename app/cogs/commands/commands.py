@@ -72,8 +72,6 @@ class Commands(LancoCog):
         await interaction.response.send_message(f"Edited command {command_name}")
 
     @commands_group.command(name="list", description="List all custom commands")
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
     async def list(self, interaction: discord.Interaction):
         commands = CustomCommands.select().where(
             CustomCommands.guild_id == interaction.guild_id
