@@ -97,6 +97,9 @@ class Commands(LancoCog):
 
         if message.author.bot:
             return
+        
+        if not isinstance(message.channel, discord.TextChannel):
+            return
 
         if message.content.startswith(self.bot.command_prefix):
             command_name = message.content[len(self.bot.command_prefix) :]
