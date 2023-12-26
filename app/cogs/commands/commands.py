@@ -46,8 +46,12 @@ class Commands(LancoCog):
         command = CustomCommands.get(
             guild_id=interaction.guild_id, command_name=command_name.lower()
         )
+        if not command:
+            await interaction.response.send_message(
+                f"Command {command_name} does not exist", ephemeral=True
+            )
+            return
         command.delete_instance()
-
         await interaction.response.send_message(f"Deleted command {command_name}")
 
     @commands_group.command(name="edit", description="Edit a custom command")
@@ -95,7 +99,7 @@ class Commands(LancoCog):
 
         if message.author.bot:
             return
-        
+
         if not isinstance(message.channel, discord.TextChannel):
             return
 
