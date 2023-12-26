@@ -100,7 +100,7 @@ class Commands(LancoCog):
         if message.author.bot:
             return
 
-        if not isinstance(message.channel, discord.TextChannel):
+        if isinstance(message.channel, discord.DMChannel):
             return
 
         if message.content.startswith(self.bot.command_prefix):
