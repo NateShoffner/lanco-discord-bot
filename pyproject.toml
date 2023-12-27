@@ -21,6 +21,7 @@ confusables = "^1.2.0"
 nest-asyncio = "^1.5.8"
 asyncpraw = "*"
 zalgo-text = "^0.6"
+cachetools = "^5.3.2"
 
 
 [build-system]
