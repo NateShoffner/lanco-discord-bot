@@ -48,3 +48,30 @@ If you need help with the bot join the [Lancaster County Discord](https://discor
 -------------------
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+⚙️ Cog Development
+-------------------
+
+To create a new cog, create a new folder in the [cogs](app/cogs) directory with the name of your cog and an entrypoint script within it with the same name as the folder.
+
+```bash
+mkdir app/cogs/yourcog
+touch app/cogs/yourcog/yourcog.py
+```
+
+All cogs should inherit from the [LancoCog](app/cogs/lancocog.py) class.
+
+```python
+import discord
+from discord.ext import commands
+from cogs.lancocog import LancoCog
+
+class YourCog(LancoCog):
+
+    def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
+        self.bot = bot
+
+async def setup(bot):
+    await bot.add_cog(YourCog(bot))
+```
