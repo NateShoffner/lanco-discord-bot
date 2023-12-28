@@ -16,14 +16,16 @@ class ChatRelay(LancoCog):
     async def set_recepient_channel(self, ctx: commands.Context, channel_id: int):
         self.recepient_channel_id = channel_id
         channel = self.bot.get_channel(self.recepient_channel_id)
+        if not channel:
+            await ctx.send("Channel not found")
+            return
         await ctx.send(f"Recepient channel set to {channel.mention}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        if message.author.id == self.bot.owner_id:
-            return
+
         if not isinstance(message.channel, discord.DMChannel):
             return
         if not self.recepient_channel_id:
