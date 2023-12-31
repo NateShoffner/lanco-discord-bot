@@ -21,7 +21,11 @@ class Commands(LancoCog):
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
     async def create(
-        self, interaction: discord.Interaction, command_name: str, command_response: str
+        self,
+        interaction: discord.Interaction,
+        command_name: str,
+        command_response: str,
+        channel: discord.TextChannel = None,
     ):
         if CustomCommands.get_or_none(
             guild_id=interaction.guild_id, command_name=command_name.lower()
@@ -35,6 +39,7 @@ class Commands(LancoCog):
             guild_id=interaction.guild_id,
             command_name=command_name.lower(),
             command_response=command_response,
+            channel_id=channel.id if channel else None,
         )
 
         await interaction.response.send_message(f"Created command {command_name}")
@@ -42,9 +47,16 @@ class Commands(LancoCog):
     @commands_group.command(name="delete", description="Delete a custom command")
     @commands.has_permissions(administrator=True)
     @commands.is_owner()
-    async def delete(self, interaction: discord.Interaction, command_name: str):
+    async def delete(
+        self,
+        interaction: discord.Interaction,
+        command_name: str,
+        channel: discord.TextChannel = None,
+    ):
         command = CustomCommands.get(
-            guild_id=interaction.guild_id, command_name=command_name.lower()
+            guild_id=interaction.guild_id,
+            command_name=command_name.lower(),
+            channel_id=channel.id if channel else None,
         )
         if not command:
             await interaction.response.send_message(
@@ -110,6 +122,12 @@ class Commands(LancoCog):
             )
 
             if command:
+                if (
+                    command.channel_id is not None
+                    and command.channel_id != message.channel.id
+                ):
+                    return
+
                 await message.channel.send(command.command_response)
 
 
