@@ -14,6 +14,7 @@ Commmunity Discord bot for the Lancaster County Discord server.
 - [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser) - Lancaster County/City tailored GeoGuessr.
 - [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper) - Find bars within Lancaster City.
 - [BusFinder](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/busfinder) - Find RRTA bus schedules and plan trips.
+- [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather) - Get the current weather and forecast for any location.
 
 🚀 Installation
 ----------------
