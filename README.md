@@ -71,7 +71,6 @@ class YourCog(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
 
 async def setup(bot):
     await bot.add_cog(YourCog(bot))
