@@ -13,6 +13,7 @@ class TwitterEmbed(LancoCog):
     )
 
     twitter_url_pattern = re.compile(r"https?://(?:www\.)?twitter\.com/\S+")
+    x_url_pattern = re.compile(r"https?://(?:www\.)?x\.com/\S+")
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -29,7 +30,7 @@ class TwitterEmbed(LancoCog):
         twitterembed_config.enabled = True
         twitterembed_config.save()
 
-        await interaction.response.send_message("TwitterEmbed enabled", ephemeral=True)
+        await interaction.response.send_message("TwitterEmbed enabled")
 
     @twitter_embed_group.command(name="disable", description="Disable TwitterEmbed")
     @commands.has_permissions(administrator=True)
@@ -41,20 +42,26 @@ class TwitterEmbed(LancoCog):
         twitterembed_config.enabled = False
         twitterembed_config.save()
 
-        await interaction.response.send_message("TwitterEmbed disabled", ephemeral=True)
+        await interaction.response.send_message("TwitterEmbed disabled")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
 
-        match = self.twitter_url_pattern.search(message.content)
-        if match:
-            twitterembed_config = TwitterEmbedConfig.get_or_none(guild_id=message.guild.id)
+        twitter_match = self.twitter_url_pattern.search(message.content)
+        x_match = self.x_url_pattern.search(message.content)
+        if twitter_match or x_match:
+            twitterembed_config = TwitterEmbedConfig.get_or_none(
+                guild_id=message.guild.id
+            )
             if not twitterembed_config or not twitterembed_config.enabled:
                 return
 
-            fixed = match.group(0).replace("twitter.com", "fxtwitter.com")
+            if twitter_match:
+                fixed = twitter_match.group(0).replace("twitter.com", "fxtwitter.com")
+            if x_match:
+                fixed = x_match.group(0).replace("x.com", "fxtwitter.com")
             await message.reply(fixed)
 
             # suppress the original embed if we can
