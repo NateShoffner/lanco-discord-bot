@@ -79,7 +79,7 @@ class Weather(LancoCog):
         if weather.detailed_status.lower() != weather.status.lower():
             desc += f" ({weather.detailed_status})"
 
-        fahrenheit = fahrenheit
+        fahrenheit = int(weather.temperature("fahrenheit")["temp"])
         if fahrenheit > 60:
             await ctx.send("It's warm")
         elif fahrenheit > 40:
@@ -95,7 +95,7 @@ class Weather(LancoCog):
 
         embed.add_field(
             name="Temperature",
-            value=f"{int(weather.temperature('fahrenheit')['temp'])}°F (Feels like {int(weather.temperature('fahrenheit')['feels_like'])}°F)",
+            value=f"{fahrenheit}°F (Feels like {int(weather.temperature('fahrenheit')['feels_like'])}°F)",
             inline=False,
         )
         embed.add_field(
