@@ -79,13 +79,14 @@ class Weather(LancoCog):
         if weather.detailed_status.lower() != weather.status.lower():
             desc += f" ({weather.detailed_status})"
 
-        if int(weather.temperature('fahrenheit')['temp']) > 60:
-          await ctx.send("It's warm")
-        elif int(weather.temperature('fahrenheit')['temp']) > 40:
-          await ctx.send("It's hoodie weather")
+        fahrenheit = fahrenheit
+        if fahrenheit > 60:
+            await ctx.send("It's warm")
+        elif fahrenheit > 40:
+            await ctx.send("It's hoodie weather")
         else:
-          await ctx.send("It's fucking cold")
-        
+            await ctx.send("It's fucking cold")
+
         embed = discord.Embed(
             title=f"Weather in {location}",
             description=desc,
