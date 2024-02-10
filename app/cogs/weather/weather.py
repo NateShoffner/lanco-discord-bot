@@ -1,12 +1,9 @@
 import os
-from turtle import color
 import cachetools
 import discord
 import pyowm
 from opencage.geocoder import OpenCageGeocode
-
 from discord.ext import commands
-from pyrsistent import discard
 from cogs.lancocog import LancoCog
 
 
