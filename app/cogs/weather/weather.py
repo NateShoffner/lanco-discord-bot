@@ -2,6 +2,7 @@ import os
 import cachetools
 import discord
 import pyowm
+import random
 from opencage.geocoder import OpenCageGeocode
 from discord.ext import commands
 from cogs.lancocog import LancoCog
@@ -77,19 +78,24 @@ class Weather(LancoCog):
             desc += f" ({weather.detailed_status})"
 
         fahrenheit = int(weather.temperature("fahrenheit")["temp"])
-        if fahrenheit > 60:
-            await ctx.send("It's warm")
+        if fahrenheit > 80:
+            fun = [":swimmer: :sun: :hot_face:",]
+        elif 60 <= fahrenheit <= 80:
+            fun = ["It's warm :t_shirt:",]
         elif fahrenheit > 40:
-            await ctx.send("It's hoodie weather")
+            fun = ["It's hoodie weather", "Bonfire weather :fire:"]
         else:
-            await ctx.send("It's fucking cold")
-
+            fun = ["It's fucking cold :coldface:", "frigid"]
         embed = discord.Embed(
             title=f"Weather in {location}",
             description=desc,
             color=color_map[weather.weather_icon_name[:2]],
         )
-
+        embed.add_field(
+            name="",
+            value=f"{random.choice(fun)}",
+            inline=False,
+        )
         embed.add_field(
             name="Temperature",
             value=f"{fahrenheit}°F (Feels like {int(weather.temperature('fahrenheit')['feels_like'])}°F)",
