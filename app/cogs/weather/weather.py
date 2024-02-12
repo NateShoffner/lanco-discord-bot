@@ -85,7 +85,7 @@ class Weather(LancoCog):
         elif fahrenheit > 40:
             fun = ["It's hoodie weather", "Bonfire weather :fire:"]
         else:
-            fun = ["It's fucking cold :coldface:", "frigid"] # Russ is pretty awesome
+            fun = ["It's fucking cold :coldface:", "frigid"]
         embed = discord.Embed(
             title=f"Weather in {location}",
             description=desc,
