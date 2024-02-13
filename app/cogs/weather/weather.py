@@ -43,7 +43,6 @@ class Weather(LancoCog):
             return self.weather_statuses[coords]
 
         result = self.owm.weather_manager().weather_at_coords(coords[0], coords[1])
-
         if result:
             self.weather_statuses[coords] = result.weather
             return result.weather
@@ -60,13 +59,11 @@ class Weather(LancoCog):
         """Get the weather for a location"""
         air_status = await self.get_airstatus(location)
         weather = await self.get_weather(location)
-        
 
         if not weather:
             await ctx.send("Could not find weather for that location")
             return
-
-
+            
         icon_url = (
             f"http://openweathermap.org/img/wn/{weather.weather_icon_name}@2x.png"
         )
