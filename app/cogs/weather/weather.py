@@ -92,7 +92,7 @@ class Weather(LancoCog):
         elif fahrenheit > 40:
             fun = ["It's hoodie weather", "Bonfire weather :fire:"]
         else:
-            fun = ["It's fucking cold :coldface:", "frigid"]
+            fun = ["It's fucking cold :cold_face:", "frigid"]
         embed = discord.Embed(
             title=f"Weather in {location}",
             description=desc,
@@ -119,7 +119,6 @@ class Weather(LancoCog):
         if air_status:
             concern = ["Good", "Moderate", "Unhealthy for sensitive groups", "Unhealthy", "Very unhealthy", "Hazardous"]
             embed.add_field(name="AQI", value=f"Level {air_status.aqi} {concern[air_status.aqi - 1]}", inline=False)
-
 
         embed.set_thumbnail(url=icon_url)
         await ctx.send(embed=embed)
