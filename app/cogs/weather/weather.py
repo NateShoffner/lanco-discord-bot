@@ -50,7 +50,6 @@ class Weather(LancoCog):
     async def get_airstatus(self, location):
         """Get the Air Quality Index for a location"""
         coords = await self.get_coords(location)
-
         air_status = self.owm.airpollution_manager().air_quality_at_coords(coords[0], coords[1])
         return air_status
 
