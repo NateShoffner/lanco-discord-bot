@@ -43,19 +43,29 @@ class Weather(LancoCog):
             return self.weather_statuses[coords]
 
         result = self.owm.weather_manager().weather_at_coords(coords[0], coords[1])
+
         if result:
             self.weather_statuses[coords] = result.weather
             return result.weather
         return None
+    async def get_airstatus(self, location):
+        """Get the Air Quality Index for a location"""
+        coords = await self.get_coords(location)
+
+        air_status = self.owm.airpollution_manager().air_quality_at_coords(coords[0], coords[1])
+        return air_status
 
     @commands.hybrid_command()
     async def weather(self, ctx: commands.Context, location: str = "Lancaster, PA"):
         """Get the weather for a location"""
+        air_status = await self.get_airstatus(location)
         weather = await self.get_weather(location)
+        
 
         if not weather:
             await ctx.send("Could not find weather for that location")
             return
+
 
         icon_url = (
             f"http://openweathermap.org/img/wn/{weather.weather_icon_name}@2x.png"
@@ -109,10 +119,13 @@ class Weather(LancoCog):
         embed.add_field(
             name="Pressure", value=f"{weather.pressure['press']} hPa", inline=False
         )
+        if air_status:
+            concern = ["Good", "Moderate", "Unhealthy for sensitive groups", "Unhealthy", "Very unhealthy", "Hazardous"]
+            embed.add_field(name="AQI", value=f"Level {air_status.aqi} {concern[air_status.aqi - 1]}", inline=False)
+
+
         embed.set_thumbnail(url=icon_url)
-
         await ctx.send(embed=embed)
-
 
 async def setup(bot):
     await bot.add_cog(Weather(bot))
