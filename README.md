@@ -15,6 +15,7 @@ Commmunity Discord bot for the Lancaster County Discord server.
 - [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper) - Find bars within Lancaster City.
 - [BusFinder](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/busfinder) - Find RRTA bus schedules and plan trips.
 - [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather) - Get the current weather and forecast for any location.
+- [AnimeToday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/animetoday) - Display an anime screenshot featuring the current date every morning in a specified channel.
 
 🚀 Installation
 ----------------
