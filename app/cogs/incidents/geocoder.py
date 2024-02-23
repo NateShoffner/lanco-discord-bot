@@ -20,7 +20,7 @@ class IncidentGeocoder:
         :rtype: str
         """
         if incident.intersection is None:
-            self.logger.debug(f"No intersection found for incident: {incident.number}")
+            self.logger.debug(f"No intersection found for incident: {incident}")
             return None
 
         addr = f"{incident.intersection}, {incident.municipality}, LANCASTER COUNTY, PA"
