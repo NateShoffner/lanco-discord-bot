@@ -99,9 +99,16 @@ class Commands(LancoCog):
 
         # TODO pagination
         embed = discord.Embed(title="Custom commands for this server")
-        embed.description = "\n".join(
-            f"{i+1}: {command.command_name}" for i, command in enumerate(commands)
-        )
+
+        desc = ""
+        for i, command in enumerate(commands):
+            desc += f"{i+1}: {command.command_name}"
+            if command.channel_id:
+                channel = self.bot.get_channel(command.channel_id)
+                desc += f" (#{channel.name})"
+            desc += "\n"
+
+        embed.description = desc
 
         await interaction.response.send_message(embed=embed)
 
