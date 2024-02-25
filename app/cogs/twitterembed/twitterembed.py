@@ -12,8 +12,8 @@ class TwitterEmbed(LancoCog):
         name="twitterembed", description="TwitterEmbed commands"
     )
 
-    twitter_url_pattern = re.compile(r"https?://(?:www\.)?twitter\.com/\S+")
-    x_url_pattern = re.compile(r"https?://(?:www\.)?x\.com/\S+")
+    twitter_url_pattern = re.compile(r"https?://(?:www\.)?twitter\.com/([a-zA-Z0-9]+)/status/([0-9]+)\S+")
+    x_url_pattern = re.compile(r"https?://(?:www\.)?x\.com/([a-zA-Z0-9]+)/status/([0-9]+)\S+")
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
