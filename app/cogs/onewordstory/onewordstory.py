@@ -48,20 +48,25 @@ class OneWordStory(LancoCog):
         if not story:
             return
 
+        # ignore native commands
         if message.content.startswith(self.bot.command_prefix) and len(message.content) > 1:
             return
         
+        # ignore commands from other bots
         known_command_prefixes = [
+            '!', # Default
             'T!' # Tatsu
         ]
-
         if message.content.lower().startswith(tuple(prefix.lower() for prefix in known_command_prefixes)):
             return
 
+        # ignore subsequent words from the same author
         if story.is_last_author(message.author):
             return
 
         words = message.content.split()
+
+        # ignore messages with more than one word
         if len(words) > 1:
             return
 
