@@ -47,6 +47,16 @@ class OneWordStory(LancoCog):
         if not story:
             return
 
+        if message.content.startswith(self.bot.command_prefix) and len(message.content) > 1:
+            return
+        
+        known_command_prefixes = [
+            'T!' # Tatsu
+        ]
+
+        if message.content.lower().startswith(tuple(prefix.lower() for prefix in known_command_prefixes)):
+            return
+
         if story.is_last_author(message.author):
             return
 
