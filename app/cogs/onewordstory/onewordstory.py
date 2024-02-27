@@ -6,9 +6,11 @@ from cogs.lancocog import LancoCog
 
 
 class Story:
-    def __init__(self, owner: User, origin: TextChannel):
+
+    def __init__(self, owner: User, origin: TextChannel, max_length: int):
         self.owner = owner
         self.origin = origin
+        self.max_length = max_length
         self.started = datetime.datetime.now()
         self.words = []
         self.last_author = None
@@ -30,7 +32,6 @@ class Story:
 
 
 class OneWordStory(LancoCog):
-    MAX_STORY_LENGTH = 100
 
     story_group = app_commands.Group(name="story", description="One Word Story")
 
@@ -76,7 +77,7 @@ class OneWordStory(LancoCog):
         story.add_word(message.author, new_word)
         await message.add_reaction("✅")
 
-        if story.get_word_count() >= self.MAX_STORY_LENGTH:
+        if story.get_word_count() >= story.max_length:
             await message.channel.send(embed=self.create_story_embed(story, True))
             del self.stories[message.channel.id]
             return
@@ -111,14 +112,14 @@ class OneWordStory(LancoCog):
         del self.stories[interaction.channel_id]
 
     @story_group.command(name="start", description="Start a new story")
-    async def start_story(self, interaction: discord.Interaction):
+    async def start_story(self, interaction: discord.Interaction, max_length: int = 100):
         if self.get_story(interaction.channel_id):
             await interaction.response.send_message(
                 "A story is already in progress in this channel"
             )
             return
 
-        story = Story(interaction.user, interaction.channel)
+        story = Story(interaction.user, interaction.channel, max_length)
         self.stories[interaction.channel_id] = story
 
         desc = [
@@ -127,7 +128,8 @@ class OneWordStory(LancoCog):
             "**Rules:**",
             "* The story must be written one word at a time",
             "* You must wait for someone else to write a word before you can write another",
-            f"* The story will end after **{self.MAX_STORY_LENGTH}** words or when the owner stops it",
+            "* You can end a sentence with a punctuation mark to start a new sentence",
+            f"* The story will end after **{story.max_length}** words or when the owner stops it",
         ]
 
         embed = discord.Embed(
@@ -140,7 +142,7 @@ class OneWordStory(LancoCog):
 
     def create_story_embed(self, story: Story, finished: bool = False):
         title = "The current story is" if not finished else "The final story was"
-        desc = f"{title}:\n\n{story.get_story()}\n\nWord Count: {story.get_word_count()} / {self.MAX_STORY_LENGTH}"
+        desc = f"{title}:\n\n{story.get_story()}\n\nWord Count: {story.get_word_count()} / {story.max_length}"
         embed = discord.Embed(description=desc, color=discord.Color.blue())
         embed.set_author(
             name=story.owner.display_name, icon_url=story.owner.display_avatar
