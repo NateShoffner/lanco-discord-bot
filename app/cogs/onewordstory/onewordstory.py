@@ -135,7 +135,7 @@ class OneWordStory(LancoCog):
         embed.set_author(
             name=story.owner.display_name, icon_url=story.owner.display_avatar
         )
-        embed.set_footer(text=f"Last Updated by {story.owner.display_name}")
+        embed.set_footer(text=f"Last Updated by {story.last_author.display_name}")
         embed.timestamp = story.last_updated
         return embed
 
