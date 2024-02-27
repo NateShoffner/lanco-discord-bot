@@ -74,6 +74,15 @@ class OneWordStory(LancoCog):
         if ends_with_punctuation:
             await message.channel.send(embed=self.create_story_embed(story))
 
+    @story_group.command(name="status", description="Get the current story status")
+    async def story_status(self, interaction: discord.Interaction):
+        story = self.get_story(interaction.channel_id)
+        if not story:
+            await interaction.response.send_message("No story in progress")
+            return
+
+        await interaction.response.send_message(embed=self.create_story_embed(story))
+
     @story_group.command(name="stop", description="Stop the current story")
     async def stop_story(self, interaction: discord.Interaction):
         story = self.get_story(interaction.channel_id)
