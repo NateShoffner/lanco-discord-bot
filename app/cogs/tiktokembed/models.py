@@ -1,11 +1,7 @@
 from peewee import *
+from cogs.common.embedfixcog import EmbedFixConfigBase
 
-from db import BaseModel
 
-
-class TikTokEmbedConfig(BaseModel):
-    guild_id = IntegerField(unique=True)
-    enabled = BooleanField(default=False)
-
+class TikTokEmbedConfig(EmbedFixConfigBase):
     class Meta:
         table_name = "tiktokembed_config"

@@ -1,11 +1,7 @@
 from peewee import *
+from cogs.common.embedfixcog import EmbedFixConfigBase
 
-from db import BaseModel
 
-
-class TwitterEmbedConfig(BaseModel):
-    guild_id = IntegerField(unique=True)
-    enabled = BooleanField(default=False)
-
+class TwitterEmbedConfig(EmbedFixConfigBase):
     class Meta:
         table_name = "twitterembed_config"

@@ -1,11 +1,6 @@
-from peewee import *
-
-from db import BaseModel
+from cogs.common.embedfixcog import EmbedFixConfigBase
 
 
-class InstaEmbedConfig(BaseModel):
-    guild_id = IntegerField(unique=True)
-    enabled = BooleanField(default=False)
-
+class InstaEmbedConfig(EmbedFixConfigBase):
     class Meta:
         table_name = "instaembed_config"
