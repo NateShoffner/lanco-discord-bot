@@ -6,7 +6,6 @@ from cogs.lancocog import LancoCog
 
 
 class Story:
-
     def __init__(self, owner: User, origin: TextChannel, max_length: int):
         self.owner = owner
         self.origin = origin
@@ -32,7 +31,6 @@ class Story:
 
 
 class OneWordStory(LancoCog):
-
     story_group = app_commands.Group(name="story", description="One Word Story")
 
     def __init__(self, bot: commands.Bot):
@@ -49,15 +47,17 @@ class OneWordStory(LancoCog):
             return
 
         # ignore native commands
-        if message.content.startswith(self.bot.command_prefix) and len(message.content) > 1:
+        if (
+            message.content.startswith(self.bot.command_prefix)
+            and len(message.content) > 1
+        ):
             return
-        
+
         # ignore commands from other bots
-        known_command_prefixes = [
-            '!', # Default
-            'T!' # Tatsu
-        ]
-        if message.content.lower().startswith(tuple(prefix.lower() for prefix in known_command_prefixes)):
+        known_command_prefixes = ["!", "T!"]  # Default  # Tatsu
+        if message.content.lower().startswith(
+            tuple(prefix.lower() for prefix in known_command_prefixes)
+        ):
             return
 
         # ignore subsequent words from the same author
@@ -67,7 +67,7 @@ class OneWordStory(LancoCog):
         words = message.content.split()
 
         # ignore messages with more than one word
-        if len(words) > 1:
+        if len(words) != 1:
             return
 
         new_word = words[0]
@@ -117,7 +117,9 @@ class OneWordStory(LancoCog):
         del self.stories[interaction.channel_id]
 
     @story_group.command(name="start", description="Start a new story")
-    async def start_story(self, interaction: discord.Interaction, max_length: int = 100):
+    async def start_story(
+        self, interaction: discord.Interaction, max_length: int = 100
+    ):
         if self.get_story(interaction.channel_id):
             await interaction.response.send_message(
                 "A story is already in progress in this channel"
