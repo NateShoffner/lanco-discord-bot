@@ -129,10 +129,22 @@ async def status(interaction: discord.Interaction):
         value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
     )
 
-    cog_names = [cog.__class__.__name__ for cog in bot.cogs.values()]
+    cog_names = [cog.get_cog_name() for cog in bot.cogs.values()]
     embed.add_field(name=f"Cogs ({len(cog_names)})", value=", ".join(cog_names))
 
     embed.set_footer(text=f"Version: {bot.version} | Commit: {bot.commit[:7]}")
+
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="cogs", description="List loaded cogs")
+async def cogs(interaction: discord.Interaction):
+    cogs = bot.cogs.values()
+    cog_list = ""
+    for cog in cogs:
+        cog_list += f"{cog.qualified_name} - {cog.description}\n"
+    embed = discord.Embed(
+        title=f"Loaded Cogs: {len(cogs)}", description=f"```{cog_list}```", color=0x00FF00
+    )
 
     await interaction.response.send_message(embed=embed)
 
