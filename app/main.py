@@ -1,6 +1,8 @@
 import asyncio
 import datetime
 import os
+from typing import Optional
+from dataclasses import dataclass
 import discord
 import logging
 from discord.ext import commands
@@ -34,6 +36,8 @@ bot.start_time = datetime.datetime.now()
 if not os.path.exists("./data"):
     os.makedirs("./data")
 
+COGS_DIR = "./app/cogs"
+
 
 def init_logging():
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -54,19 +58,74 @@ def init_logging():
     logger.setLevel(logging.INFO)
 
 
-async def load_cogs(bot: commands.Bot, reload: bool = False):
-    cogs_dir = "./app/cogs"
-    for entry in os.scandir(cogs_dir):
-        entry_path = os.path.join(entry.path, f"{entry.name}.py")
-        if os.path.isfile(entry_path):
-            logger.info(f"Loading {entry.name}: {entry_path}")
+@dataclass
+class CogDefinition:
+    path: str
+    name: str
+    qualified_name: str
+    entry_point: str
+
+
+def get_cog_def(name: str) -> CogDefinition:
+    path = os.path.join(COGS_DIR, name)
+    qualified_name = f"cogs.{name}.{name}"
+    entry_point = f"{path}/{name}.py"
+    return CogDefinition(path, name, qualified_name, entry_point)
+
+
+@dataclass
+class CogLoadResult:
+    definition: CogDefinition
+    loaded: bool = False
+    reloaded: bool = False
+    error: Optional[str] = None
+
+
+async def load_cog(bot: commands.Bot, cog_def: CogDefinition) -> CogLoadResult:
+    """Load a single cog."""
+
+    current_loaded_cog_names = list(bot.cogs)
+    is_already_loaded = False
+
+    # we have to inspect the names manually because some cogs might use the name decorator to change the name
+    for name in current_loaded_cog_names:
+        c = bot.get_cog(name)
+        true_name = c.__class__.__name__
+        if true_name.lower() == cog_def.name.lower():
+            is_already_loaded = True
+            break
+
+    result = CogLoadResult(cog_def)
+
+    try:
+        if is_already_loaded:
+            logger.info(f"Reloading {cog_def.name}: {cog_def.path}")
+            await bot.reload_extension(f"cogs.{cog_def.name}.{cog_def.name}")
+            result.reloaded = True
+        else:
+            logger.info(f"Loading {cog_def.name}: {cog_def.path}")
+            await bot.load_extension(f"cogs.{cog_def.name}.{cog_def.name}")
+            result.loaded = True
+    except Exception as e:
+        logger.error(f"Failed to load cog {cog_def.name}: {e}")
+        result.error = str(e)
+
+    return result
+
+
+async def load_cogs(bot: commands.Bot) -> list[CogLoadResult]:
+    """Load all cogs in the `./cogs` directory."""
+    results = []
+    for entry in os.scandir(COGS_DIR):
+        cog_def = get_cog_def(entry.name)
+        if os.path.isfile(cog_def.entry_point):
+            result = CogLoadResult(cog_def)
             try:
-                if reload:
-                    await bot.reload_extension(f"cogs.{entry.name}.{entry.name}")
-                else:
-                    await bot.load_extension(f"cogs.{entry.name}.{entry.name}")
-            except Exception as e:
-                logger.error(f"Failed to load cog {entry.name}: {e}")
+                result = await load_cog(bot, cog_def)
+            except:
+                pass
+            results.append(result)
+    return results
 
 
 @bot.event
@@ -74,7 +133,6 @@ async def on_ready():
     logger.info(f"{bot.user} is now running!")
 
 
-# TODO doesn't work unless mentioned explicitly
 @bot.command(name="sync")
 @commands.is_owner()
 async def sync(ctx):
@@ -136,6 +194,7 @@ async def status(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
+
 @bot.tree.command(name="cogs", description="List loaded cogs")
 async def cogs(interaction: discord.Interaction):
     cogs = bot.cogs.values()
@@ -143,30 +202,72 @@ async def cogs(interaction: discord.Interaction):
     for cog in cogs:
         cog_list += f"{cog.qualified_name} - {cog.description}\n"
     embed = discord.Embed(
-        title=f"Loaded Cogs: {len(cogs)}", description=f"```{cog_list}```", color=0x00FF00
+        title=f"Loaded Cogs: {len(cogs)}",
+        description=f"```{cog_list}```",
+        color=0x00FF00,
     )
 
     await interaction.response.send_message(embed=embed)
 
 
-@commands.command(name="reloadall", hidden=True)
+@bot.tree.command(name="reload", description="Reload a cog")
 @commands.is_owner()
-async def reload_all(self, ctx):
-    """This commands reloads all the cogs in the `./cogs` folder.
+async def reload_cog(interaction: discord.Interaction, cog_name: str):
+    cog_def = get_cog_def(cog_name)
+    result = await load_cog(bot, cog_def)
 
-    Note:
-        This command can be used only from the bot owner.
-        This command is hidden from the help menu.
-        This command deletes its messages after 20 seconds."""
+    embed = discord.Embed(
+        title=f'Reloading Cog: "{cog_def.name}"',
+        color=0x00FF00,
+    )
 
-    message = await ctx.send("Reloading...")
-    await ctx.message.delete()
-    try:
-        await load_cogs(self.bot, reload=True)
-    except Exception as exc:
-        await message.edit(content=f"An error has occurred: {exc}", delete_after=20)
-    else:
-        await message.edit(content="All cogs have been reloaded.", delete_after=20)
+    if result.loaded:
+        embed.description = f"Loaded {cog_def.name}"
+    elif result.reloaded:
+        embed.description = f"Reloaded {cog_def.name}"
+    elif result.error:
+        embed.description = f"Error loading {cog_def.name}: ```{result.error}```"
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="reloadall")
+@commands.is_owner()
+async def reload_all(interaction: discord.Interaction):
+    """This commands reloads all the cogs in the `./cogs` folder."""
+
+    embed = discord.Embed(
+        title=f"[Re]-Loaded Cogs",
+        color=0x00FF00,
+    )
+
+    results = await load_cogs(bot)
+
+    reloaded_cogs = [result.definition.name for result in results if result.reloaded]
+    loaded_cogs = [result.definition.name for result in results if result.loaded]
+    errored_cogs = [result.definition.name for result in results if result.error]
+
+    reload_value = "None"
+    if len(reloaded_cogs) > 0:
+        reload_value = f"```{', '.join(reloaded_cogs)}```"
+    embed.add_field(
+        name=f"Reloaded {len(reloaded_cogs)}:", value=reload_value, inline=False
+    )
+
+    load_value = "None"
+    if len(loaded_cogs) > 0:
+        load_value = f"```{', '.join(loaded_cogs)}```"
+    embed.add_field(name=f"Loaded {len(loaded_cogs)}:", value=load_value, inline=False)
+
+    error_value = "None"
+    if len(errored_cogs) > 0:
+        error_value = f"```{', '.join(errored_cogs)}```\n\n"
+        error_value += "Run the `/reload cog_name` command for more info"
+    embed.add_field(
+        name=f"Errors {len(errored_cogs)}:", value=error_value, inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 
 async def main():
