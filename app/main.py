@@ -81,20 +81,22 @@ class CogLoadResult:
     error: Optional[str] = None
 
 
-async def load_cog(bot: commands.Bot, cog_def: CogDefinition) -> CogLoadResult:
-    """Load a single cog."""
-
+def get_cog_by_class_name(class_name: str) -> commands.Cog:
     current_loaded_cog_names = list(bot.cogs)
-    is_already_loaded = False
-
     # we have to inspect the names manually because some cogs might use the name decorator to change the name
     for name in current_loaded_cog_names:
         c = bot.get_cog(name)
         true_name = c.__class__.__name__
-        if true_name.lower() == cog_def.name.lower():
-            is_already_loaded = True
-            break
+        if true_name.lower() == class_name.lower():
+            return c
 
+    return None
+
+
+async def load_cog(bot: commands.Bot, cog_def: CogDefinition) -> CogLoadResult:
+    """Load a single cog."""
+
+    is_already_loaded = get_cog_by_class_name(cog_def.name) is not None
     result = CogLoadResult(cog_def)
 
     try:
@@ -266,6 +268,31 @@ async def reload_all(interaction: discord.Interaction):
     embed.add_field(
         name=f"Errors {len(errored_cogs)}:", value=error_value, inline=False
     )
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="unload")
+@commands.is_owner()
+async def unload_cog(interaction: discord.Interaction, cog_name: str):
+    """Unload a single cog."""
+
+    cog = get_cog_by_class_name(cog_name)
+
+    embed = discord.Embed(
+        title=f"Unloading Cog: {cog_name}",
+        color=0x00FF00,
+    )
+
+    if cog:
+        try:
+            logger.info(f"Unloading {cog_name}")
+            await bot.unload_extension(f"cogs.{cog_name}.{cog_name}")
+            embed.description = f"Unloaded {cog_name}"
+        except Exception as e:
+            embed.description = f"Error unloading {cog_name}: ```{e}```"
+    else:
+        embed.description = f"Cog {cog_name} not found"
 
     await interaction.response.send_message(embed=embed)
 
