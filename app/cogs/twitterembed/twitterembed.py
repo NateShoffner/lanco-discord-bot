@@ -5,7 +5,9 @@ from .models import TwitterEmbedConfig
 from cogs.common.embedfixcog import EmbedFixCog
 
 
-class TwitterEmbed(EmbedFixCog):
+class TwitterEmbed(
+    EmbedFixCog, name="Twitter/X Embed Fix", description="Fix Twitter/X embeds"
+):
     g = app_commands.Group(name="twitterembed", description="TwitterEmbed commands")
 
     def __init__(self, bot: commands.Bot):
@@ -15,7 +17,7 @@ class TwitterEmbed(EmbedFixCog):
             [
                 EmbedFixCog.PatternReplacement(
                     re.compile(
-                        r"https?://(?:www\.)?twitter\.com/([a-zA-Z0-9]+)/status/([0-9]+)\S+"
+                        r"https?://(?:www\.)?twitter\.com/([a-zA-Z0-9_]+)/status/([0-9]+)\S+"
                     ),
                     "twitter.com",
                     "fxtwitter.com",
