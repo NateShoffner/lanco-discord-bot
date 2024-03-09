@@ -72,7 +72,7 @@ import discord
 from discord.ext import commands
 from cogs.lancocog import LancoCog
 
-class YourCog(LancoCog):
+class YourCog(LancoCog, name="YourCog", description="Your cog description."):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
