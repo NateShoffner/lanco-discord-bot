@@ -5,7 +5,6 @@ import os
 from asyncpraw.models import Submission
 from discord.ext import commands, tasks
 from discord import TextChannel, app_commands
-from regex import P
 from .models import RedditFeedConfig
 
 from cogs.lancocog import LancoCog
