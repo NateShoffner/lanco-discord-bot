@@ -203,6 +203,8 @@ class GeoGuesser(LancoCog):
         if not session:
             await interaction.response.send_message("No session is in progress")
             return
+        
+        session.cancel()
 
         await interaction.channel.typing()
         self.active_sessions.pop(interaction.channel.id)
@@ -334,6 +336,9 @@ class GeoGuesser(LancoCog):
 
     async def post_final_results(self, session: GameSession, immediate: bool = False):
         """Posts the final results of the session"""
+        if session.cancelled:
+            return
+
         if not immediate:
             await asyncio.sleep(self.GUESS_TIME)
 
@@ -351,6 +356,9 @@ class GeoGuesser(LancoCog):
 
     async def post_round_results(self, session: GameSession):
         """Posts the results of the current round"""
+        if session.cancelled:
+            return
+        
         await asyncio.sleep(self.GUESS_TIME)
         session.set_idle(True)
 
@@ -381,6 +389,9 @@ class GeoGuesser(LancoCog):
 
     async def post_round_warning(self, session: GameSession):
         """Posts a warning message for the current round"""
+        if session.cancelled:
+            return
+
         await asyncio.sleep(self.WARNING_TIME)
 
         await session.channel.send(
@@ -389,6 +400,9 @@ class GeoGuesser(LancoCog):
 
     async def post_current_round(self, session: GameSession, immediate: bool = False):
         """Posts the current round"""
+        if session.cancelled:
+            return
+
         if not immediate:
             await asyncio.sleep(self.TIME_BETWEEN_ROUNDS)
 

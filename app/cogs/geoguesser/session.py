@@ -27,6 +27,7 @@ class GameSession:
         self.current_round = 0
         self.logger = logging.getLogger(__name__)
         self.idle = False
+        self.cancelled = False
 
     def init(self, locations: list[GeoGuesserLocation]):
         """Loads the locations for the game session"""
@@ -37,6 +38,8 @@ class GameSession:
 
     def has_next_round(self) -> bool:
         """Returns whether or not there is another round"""
+        if self.cancelled:
+            return False
         return self.current_round < (len(self.rounds) - 1)
 
     def next(self):
@@ -45,6 +48,10 @@ class GameSession:
             return None
         self.current_round += 1
         return self.current_round
+    
+    def cancel(self):
+        """Cancels the game session"""
+        self.cancelled = True
 
     def set_idle(self, idle: bool):
         """Sets the idle state of the game session"""
