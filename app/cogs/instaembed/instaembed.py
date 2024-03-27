@@ -17,6 +17,11 @@ class InstaEmbed(EmbedFixCog):
                     re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+"),
                     "instagram.com",
                     "ddinstagram.com",
+                ),
+                EmbedFixCog.PatternReplacement(
+                    re.compile(r"https?://(?:www\.)?instagram\.com/reel/\S+"),
+                    "instagram.com",
+                    "ddinstagram.com",
                 )
             ],
             InstaEmbedConfig,
