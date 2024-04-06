@@ -48,7 +48,7 @@ class GameSession:
             return None
         self.current_round += 1
         return self.current_round
-    
+
     def cancel(self):
         """Cancels the game session"""
         self.cancelled = True

@@ -203,7 +203,7 @@ class GeoGuesser(LancoCog):
         if not session:
             await interaction.response.send_message("No session is in progress")
             return
-        
+
         session.cancel()
 
         await interaction.channel.typing()
@@ -358,7 +358,7 @@ class GeoGuesser(LancoCog):
         """Posts the results of the current round"""
         if session.cancelled:
             return
-        
+
         await asyncio.sleep(self.GUESS_TIME)
         session.set_idle(True)
 

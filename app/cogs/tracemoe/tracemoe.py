@@ -8,7 +8,9 @@ import urllib3
 from cogs.lancocog import LancoCog
 
 
-class TraceMoe(LancoCog):
+class TraceMoe(
+    LancoCog, name="TraceMoe", description="Get the anime from a screenshot"
+):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
@@ -148,7 +150,9 @@ class TraceMoe(LancoCog):
                         if data["error"]:
                             self.logger.error(data["error"])
                             return None
-                        return data["result"][0] # TODO handle multiple results with passable similarity
+                        return data["result"][
+                            0
+                        ]  # TODO handle multiple results with passable similarity
 
 
 async def setup(bot):

@@ -5,7 +5,9 @@ from .models import TikTokEmbedConfig
 from cogs.common.embedfixcog import EmbedFixCog
 
 
-class TikTokEmbed(EmbedFixCog):
+class TikTokEmbed(
+    EmbedFixCog, name="TikTok Embed Fix", description="Fix TikTok embeds"
+):
     g = app_commands.Group(name="tiktokembed", description="TikTokEmbed commands")
 
     def __init__(self, bot: commands.Bot):

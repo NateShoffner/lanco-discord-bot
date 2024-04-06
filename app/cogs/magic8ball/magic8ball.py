@@ -2,8 +2,8 @@ import random
 from discord.ext import commands
 from cogs.lancocog import LancoCog
 
-class Magic8Ball(LancoCog, name="Magic8Ball", description="Magic 8 Ball"):
 
+class Magic8Ball(LancoCog, name="Magic8Ball", description="Magic 8 Ball"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 
@@ -38,6 +38,7 @@ class Magic8Ball(LancoCog, name="Magic8Ball", description="Magic 8 Ball"):
             response_msg = f"Question: {question}\n"
         response_msg += f"Answer: {response}"
         await ctx.send(response_msg)
+
 
 async def setup(bot):
     await bot.add_cog(Magic8Ball(bot))

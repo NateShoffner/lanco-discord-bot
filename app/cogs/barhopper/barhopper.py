@@ -110,7 +110,10 @@ class BarHopper(LancoCog):
         for period in periods:
             if period["close"]["day"] == current_day:
                 closing_time = int(period["close"]["time"])
-                if closing_time - current_time <= 100 and closing_time - current_time > 0:
+                if (
+                    closing_time - current_time <= 100
+                    and closing_time - current_time > 0
+                ):
                     closing_soon = True
                 break
 

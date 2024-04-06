@@ -9,7 +9,9 @@ from .models import SpotifyEmbedConfig
 from cogs.lancocog import LancoCog
 
 
-class SpotifyEmbed(LancoCog):
+class SpotifyEmbed(
+    LancoCog, name="Spotify Embed Fix", description="Fix Spotify embeds"
+):
     embed_group = app_commands.Group(
         name="spotifyembed", description="SpotifyEmbed commands"
     )

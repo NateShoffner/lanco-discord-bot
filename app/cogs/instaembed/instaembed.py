@@ -22,7 +22,7 @@ class InstaEmbed(EmbedFixCog):
                     re.compile(r"https?://(?:www\.)?instagram\.com/reel/\S+"),
                     "instagram.com",
                     "ddinstagram.com",
-                )
+                ),
             ],
             InstaEmbedConfig,
         )
