@@ -6,10 +6,8 @@ from cogs.common.embedfixcog import EmbedFixCog
 
 # TODO - make this configurable for various domains
 
-class PaywallBypass(
-    EmbedFixCog, name="Paywall Bypass", description="Bypass paywalls"
-):
 
+class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass paywalls"):
     g = app_commands.Group(name="paywallbypass", description="PaywallBypass commands")
 
     def __init__(self, bot: commands.Bot):
@@ -18,9 +16,7 @@ class PaywallBypass(
             "Paywall Bypass",
             [
                 EmbedFixCog.PatternReplacement(
-                    re.compile(
-                        r'^(?!12ft.io)https://lancasteronline.com/news/(.+)'
-                    ),
+                    re.compile(r"^(?!12ft.io)https://lancasteronline.com/(.+)"),
                     "https://lancasteronline.com/",
                     "https://12ft.io/https://lancasteronline.com/",
                 ),
@@ -34,6 +30,7 @@ class PaywallBypass(
     )
     async def toggle(self, interaction):
         await super().toggle(interaction)
+
 
 async def setup(bot):
     await bot.add_cog(PaywallBypass(bot))
