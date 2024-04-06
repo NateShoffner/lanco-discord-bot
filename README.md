@@ -55,6 +55,18 @@ If you need help with the bot join the [Lancaster County Discord](https://discor
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+
+📂 Project Structure
+-------------------
+
+    .
+    ├── app                     # Main application directory
+    │   ├── cogs                # Discord cogs
+    │   └── utils               # Utility functions
+    ├── data                    # Data files
+    ├── logs                    # Log files
+    └── migrations              # Database migrations
+
 ⚙️ Cog Development
 -------------------
 
