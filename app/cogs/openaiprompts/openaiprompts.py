@@ -63,9 +63,9 @@ class OpenAIPrompts(
         await ctx.send(tech_response)
 
     @commands.command(name="ai", description="General AI prompt")
-    async def techsupport(self, ctx: commands.Context):
+    async def ai(self, ctx: commands.Context):
         prompt = await self.get_user_prompt(ctx)
-        ai_response = await self.prompt_openai(prompt)
+        ai_response = await self.prompt_openai(prompt)  
         await ctx.send(ai_response)
 
     @commands.command(name="magsupport", description="Provide tech support")
@@ -103,7 +103,6 @@ class OpenAIPrompts(
         await ctx.send(f"Topics found: {', '.join(top_topics)}")
 
     async def get_current_channel_topics(self, channel: TextChannel) -> list[str]:
-        # replace with channel id
         messages = [msg async for msg in channel.history(limit=50, oldest_first=False)]
         messages = [
             m
@@ -143,4 +142,4 @@ class OpenAIPrompts(
 
 
 async def setup(bot):
-    await bot.add_cog(TalkingAbout(bot))
+    await bot.add_cog(OpenAIPrompts(bot))
