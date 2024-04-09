@@ -10,6 +10,4 @@ jobs:
       - uses: psf/black@stable
         with:
           options: "--check --verbose"
-          src: "./app"
-          jupyter: true
-          version: "21.5b1"
+          src: "./app""
