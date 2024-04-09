@@ -79,7 +79,12 @@ class OpenAIPrompts(
     @commands.command(name="ai", description="General AI prompt")
     async def ai(self, ctx: commands.Context):
         prompt = await self.get_user_prompt(ctx)
-        ai_response = await self.prompt_openai(prompt)
+
+        if not prompt:
+            await ctx.send("Please provide a prompt")
+            return
+
+        ai_response = await self.prompt_openai(prompt, max_tokens=400)
         await ctx.send(ai_response)
 
     @commands.command(name="magsupport", description="Provide tech support")
