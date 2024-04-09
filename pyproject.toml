@@ -26,6 +26,7 @@ rrta = "^0.1"
 pyowm = "^3.3.0"
 opencage = "^2.4.0"
 spotipy = "^2.23.0"
+watchfiles = "^0.21.0"
 
 
 [build-system]
