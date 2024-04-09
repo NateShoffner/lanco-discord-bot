@@ -11,7 +11,7 @@ from cogs.lancocog import LancoCog
 
 
 class RedditFeed(LancoCog):
-    reddit_feed_group = app_commands.Group(name="reddit", description="reddit commands")
+    reddit_feed_group = app_commands.Group(name="reddit", description="Poll Reddit for new posts")
 
     UPDATE_INTERVAL = 10  # seconds
     POST_LIMIT = 5  # TODO: make this configurable
