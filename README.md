@@ -1,7 +1,7 @@
 🌹 LancoBot
 ----------------
 
-Commmunity Discord bot for the Lancaster County Discord server.
+Discord bot tailored for Lancaster Count, PA.
 
 🎉 Features
 ----------------
@@ -19,26 +19,47 @@ Commmunity Discord bot for the Lancaster County Discord server.
 - [SpotifyEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spotifyembed) - Alternative Spotify embeds in Discord.
 - [RedditEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditembed) - Fix Reddit embeds in Discord.
 - [OneWordStory](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/onewordstory) - Create a one word story with your friends.
+- [TraceMoe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tracemoe) - Reverse image search for anime screenshots.
+- [Facts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/facts) - Define and display facts.
+- [RedditFeed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditfeed) - Subscribe to subreddits and receive updates in your server.
+- [OpenAIPrompts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/openaiprompts) - Generate creative writing prompts.
+- [Magic8Ball](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/magic8ball) - Ask the Magic 8 Ball a question.
+- [Birthday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/birthday) - Set and display user birthdays.
+- [Google](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/google) - Let me Google that for you.
 
 🚀 Installation
 ----------------
 
-```
+First you will need to clone the repository:
+
+```bash
 git clone https://github.com/NateShoffner/lanco-discord-bot
+```
+
+Next, go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application. Create a bot for the application and copy the token. You will need to add the bot to your server using the OAuth2 URL generated in the portal.
+
+Copy the `.env.default` file and create a `.env` file with your bot token and other settings including the SQLite database path.
+
+The other API keys are optional depending on what cogs you want to enable.
+
+You'll need to install the dependencies using [Poetry](https://python-poetry.org/):
+
+```bash
 cd lanco-discord-bot
 poetry install
 ```
 
-Note: Docker support is coming soon™.
+After installing the dependencies, you can run the bot using the following command:
 
-🚀 Running
-----------------
-
-Copy the .env.default file and create a .env file with your bot token and other settings.
-
-```
+```bash
 poetry run python app/main.py
 ```
+
+### 🐳 Docker
+
+Alternatively, you can use [Docker](https://www.docker.com/) to run the bot via `docker-compose`.
+
+Cogs are generally disabled by default. Please refer to the [cogs](app/cogs) directory for more information on how to use them.
 
 🛠️ Contribute
 -------------------
@@ -69,6 +90,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ⚙️ Cog Development
 -------------------
+
+All features are implemented as cogs in the [cogs](app/cogs) directory.
 
 To create a new cog, create a new folder in the [cogs](app/cogs) directory with the name of your cog and an entrypoint script within it with the same name as the folder.
 
