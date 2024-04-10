@@ -33,6 +33,9 @@ database.connect()
 if not os.path.exists("./data"):
     os.makedirs("./data")
 
+if not os.path.exists("./logs"):
+    os.makedirs("./logs")
+
 COGS_DIR = "app/cogs"
 
 
