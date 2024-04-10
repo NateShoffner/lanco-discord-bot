@@ -21,7 +21,12 @@ logger = logging.getLogger()
 
 intents = discord.Intents.all()
 
-database = SqliteDatabase(os.getenv("SQLITE_DB"))
+db_path = os.getenv("SQLITE_DB")
+db_dir = os.path.dirname(db_path)
+if not os.path.exists(db_dir):
+    os.makedirs(db_dir)
+
+database = SqliteDatabase(db_path)
 database_proxy.initialize(database)
 database.connect()
 
