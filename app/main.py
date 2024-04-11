@@ -1,18 +1,19 @@
 import asyncio
 import datetime
-import os
-from typing import Optional
-from dataclasses import dataclass
-import discord
 import logging
-from discord.ext import commands
+import os
+from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
+from sys import version_info as sysv
+from typing import Optional
+
+import discord
+from cogs.lancocog import CogDefinition, LancoCog, get_cog_def
+from db import database_proxy
+from discord.ext import commands
 from dotenv import load_dotenv
 from peewee import *
-from cogs.lancocog import CogDefinition, LancoCog, get_cog_def
 from utils.dist_utils import get_bot_version, get_commit_hash
-from db import database_proxy
-from sys import version_info as sysv
 from watchfiles import Change, awatch
 
 load_dotenv()

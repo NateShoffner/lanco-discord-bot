@@ -1,26 +1,27 @@
-from dataclasses import dataclass
 import datetime
 import os
+from dataclasses import dataclass
+from urllib.parse import urlencode
+
 import aiofiles
-import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-from discord.ui import View, Select
 import aiohttp
+import discord
 import googlemaps
-from lcwc.category import IncidentCategory
-from lcwc.arcgis import ArcGISClient, ArcGISIncident
-from lcwc.feed import FeedClient, FeedIncident
-from lcwc.client import Client
-from lcwc.incident import Incident
-from lcwc.web import WebClient, WebIncident
+import pkg_resources
 import pytz
+from cogs.lancocog import LancoCog
+from discord import app_commands
+from discord.ext import commands, tasks
+from discord.ui import Select, View
+from lcwc.arcgis import ArcGISClient, ArcGISIncident
+from lcwc.category import IncidentCategory
+from lcwc.client import Client
+from lcwc.feed import FeedClient
+from lcwc.incident import Incident
+from lcwc.web import WebClient
 
 from .geocoder import IncidentGeocoder
 from .models import IncidentConfig, IncidentsGlobalConfig
-from urllib.parse import urlencode
-from cogs.lancocog import LancoCog
-import pkg_resources
 
 
 @dataclass
@@ -194,9 +195,11 @@ class Incidents(LancoCog):
 
         embed.add_field(
             name="Units Assigned",
-            value="None"
-            if len(incident.units) == 0
-            else "\n".join([unit.full_name for unit in incident.units]),
+            value=(
+                "None"
+                if len(incident.units) == 0
+                else "\n".join([unit.full_name for unit in incident.units])
+            ),
             inline=True,
         )
 

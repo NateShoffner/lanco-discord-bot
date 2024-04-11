@@ -1,7 +1,7 @@
-from discord.ext import commands
-from cogs.lancocog import LancoCog
-
 import urllib.parse
+
+from cogs.lancocog import LancoCog
+from discord.ext import commands
 
 
 class Google(LancoCog, name="Google", description="Google commands"):

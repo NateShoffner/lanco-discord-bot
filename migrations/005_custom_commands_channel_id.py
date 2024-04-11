@@ -1,8 +1,9 @@
 # 005_custom_commands_channel_id.py
 
 import os
-from playhouse.migrate import *
+
 from dotenv import load_dotenv
+from playhouse.migrate import *
 
 load_dotenv()
 

@@ -1,6 +1,7 @@
 import random
-from discord.ext import commands
+
 from cogs.lancocog import LancoCog
+from discord.ext import commands
 
 
 class Magic8Ball(LancoCog, name="Magic8Ball", description="Magic 8 Ball"):

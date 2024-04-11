@@ -1,7 +1,9 @@
 import datetime
 import logging
+
 import discord
 import googlemaps
+
 from .locationutils import LocationUtils
 from .models import Coordinates, GeoGuesserLocation, GuessResult, Mode, Round
 

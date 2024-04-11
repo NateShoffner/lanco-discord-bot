@@ -1,8 +1,10 @@
 import re
-from discord.ext import commands
-from discord import app_commands
-from .models import InstaEmbedConfig
+
 from cogs.common.embedfixcog import EmbedFixCog
+from discord import app_commands
+from discord.ext import commands
+
+from .models import InstaEmbedConfig
 
 
 class InstaEmbed(EmbedFixCog):
@@ -14,12 +16,14 @@ class InstaEmbed(EmbedFixCog):
             "Instagram Embed Fix",
             [
                 EmbedFixCog.PatternReplacement(
-                    re.compile(r"https?://(?:www\.)?instagram\.com/p/\S+"),
+                    re.compile(r"https?://(?:www\.)?instagram\.com/p/[a-zA-Z0-9_-]+"),
                     "instagram.com",
                     "ddinstagram.com",
                 ),
                 EmbedFixCog.PatternReplacement(
-                    re.compile(r"https?://(?:www\.)?instagram\.com/reel/\S+"),
+                    re.compile(
+                        r"https?://(?:www\.)?instagram\.com/reel/[a-zA-Z0-9_-]+"
+                    ),
                     "instagram.com",
                     "ddinstagram.com",
                 ),

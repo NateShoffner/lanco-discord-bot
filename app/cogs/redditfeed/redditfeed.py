@@ -1,17 +1,20 @@
 import datetime
+import os
+
 import asyncpraw
 import discord
-import os
 from asyncpraw.models import Submission
-from discord.ext import commands, tasks
-from discord import TextChannel, app_commands
-from .models import RedditFeedConfig
-
 from cogs.lancocog import LancoCog
+from discord import TextChannel, app_commands
+from discord.ext import commands, tasks
+
+from .models import RedditFeedConfig
 
 
 class RedditFeed(LancoCog):
-    reddit_feed_group = app_commands.Group(name="reddit", description="Poll Reddit for new posts")
+    reddit_feed_group = app_commands.Group(
+        name="reddit", description="Poll Reddit for new posts"
+    )
 
     UPDATE_INTERVAL = 10  # seconds
     POST_LIMIT = 5  # TODO: make this configurable

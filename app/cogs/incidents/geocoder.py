@@ -1,6 +1,7 @@
-import googlemaps
 import hashlib
 import logging
+
+import googlemaps
 from lcwc.incident import Incident
 
 

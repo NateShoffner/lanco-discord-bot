@@ -1,8 +1,9 @@
 # 001_change_insta_table_name.py
 
 import os
-from playhouse.migrate import *
+
 from dotenv import load_dotenv
+from playhouse.migrate import *
 
 load_dotenv()
 

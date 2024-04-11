@@ -1,10 +1,12 @@
 import datetime
+
 import discord
-from discord.ext import commands
-from .models import Fact
 from cogs.lancocog import LancoCog
-from peewee import fn
 from discord import app_commands
+from discord.ext import commands
+from peewee import fn
+
+from .models import Fact
 
 
 class FactModal(discord.ui.Modal, title="Fact Info"):

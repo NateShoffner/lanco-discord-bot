@@ -1,10 +1,12 @@
+import urllib.parse
 from os import name
+
 import discord
+from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
-from .models import UserProfile, ProfileLink, UserProfilesConfig
-from cogs.lancocog import LancoCog
-import urllib.parse
+
+from .models import ProfileLink, UserProfile, UserProfilesConfig
 
 
 class ProfileModal(discord.ui.Modal, title="Profile Details"):

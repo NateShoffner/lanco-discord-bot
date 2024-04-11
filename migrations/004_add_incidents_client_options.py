@@ -1,8 +1,9 @@
 # 004_add_incidents_client_options.py
 
 import os
-from playhouse.migrate import *
+
 from dotenv import load_dotenv
+from playhouse.migrate import *
 
 load_dotenv()
 

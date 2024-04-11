@@ -1,8 +1,10 @@
 import re
-from discord.ext import commands
-from discord import app_commands
-from .models import TwitterEmbedConfig
+
 from cogs.common.embedfixcog import EmbedFixCog
+from discord import app_commands
+from discord.ext import commands
+
+from .models import TwitterEmbedConfig
 
 
 class TwitterEmbed(

@@ -1,7 +1,7 @@
-from cmath import cos, sin
 import logging
 import os
 import random
+from cmath import cos, sin
 from urllib.parse import urlencode
 
 import aiohttp

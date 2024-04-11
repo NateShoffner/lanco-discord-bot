@@ -1,8 +1,9 @@
 import re
+
 import discord
-from discord.ext import commands
-from db import BaseModel
 from cogs.lancocog import LancoCog
+from db import BaseModel
+from discord.ext import commands
 from peewee import *
 
 

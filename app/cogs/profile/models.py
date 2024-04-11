@@ -1,7 +1,7 @@
 import datetime
-from peewee import *
 
 from db import BaseModel
+from peewee import *
 
 
 class ProfileLink(BaseModel):

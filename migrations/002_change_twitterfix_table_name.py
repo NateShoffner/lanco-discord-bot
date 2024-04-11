@@ -1,8 +1,9 @@
 # 002_change_twitterfix_table_name.py
 
 import os
-from playhouse.migrate import *
+
 from dotenv import load_dotenv
+from playhouse.migrate import *
 
 load_dotenv()
 

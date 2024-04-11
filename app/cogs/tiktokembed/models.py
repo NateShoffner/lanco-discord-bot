@@ -1,5 +1,5 @@
-from peewee import *
 from cogs.common.embedfixcog import EmbedFixConfigBase
+from peewee import *
 
 
 class TikTokEmbedConfig(EmbedFixConfigBase):

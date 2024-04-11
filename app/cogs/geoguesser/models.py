@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import re
-from typing import Optional
 import uuid
+from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass

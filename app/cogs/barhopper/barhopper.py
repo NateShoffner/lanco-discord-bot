@@ -1,21 +1,23 @@
 import asyncio
-from calendar import weekday
 import datetime
 import os
 import random
+from calendar import weekday
 from urllib.parse import urlencode
+
 import aiofiles
 import aiohttp
 import cachetools
 import discord
-from discord.ext import commands
-from discord import app_commands
 import googlemaps
 import pytz
 import urllib3
-from .models import Bar
 from cogs.lancocog import LancoCog
+from discord import app_commands
+from discord.ext import commands
 from peewee import fn
+
+from .models import Bar
 
 
 class BarHopper(LancoCog):

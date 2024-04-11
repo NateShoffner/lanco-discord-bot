@@ -1,4 +1,5 @@
 import subprocess
+
 import toml
 
 bot_version = None

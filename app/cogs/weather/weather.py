@@ -1,14 +1,15 @@
 import os
+import random
+
 import cachetools
 import discord
 import pyowm
-import random
-from opencage.geocoder import OpenCageGeocode
-from discord.ext import commands
 from cogs.lancocog import LancoCog
+from discord.ext import commands
+from opencage.geocoder import OpenCageGeocode
 
 
-class Weather(LancoCog):
+class Weather(LancoCog, name="Weather", description="Fetches the weather"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.geocoder = OpenCageGeocode(os.getenv("OPENCAGE_API_KEY"))
