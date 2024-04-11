@@ -7,7 +7,7 @@
 ################################
 FROM python:3.10-slim as python-base
 
-    # Python
+# Python
 ENV PYTHONUNBUFFERED=1 \
     # pip
     PIP_DISABLE_PIP_VERSION_CHECK=on \
