@@ -39,7 +39,7 @@ class Chatbot(
             )
             if (
                 referenced_msg.author.id == self.bot.user.id
-                and not referenced_msg.content.startswith(".")
+                and not message.content.startswith(".")
             ):
                 is_reply = True
 
