@@ -32,15 +32,15 @@ class Chatbot(
         if message.author.bot:
             return
 
+        if message.content.startswith(self.bot.command_prefix):
+            return
+
         is_reply = False
         if message.reference:
             referenced_msg = await message.channel.fetch_message(
                 message.reference.message_id
             )
-            if (
-                referenced_msg.author.id == self.bot.user.id
-                and not message.content.startswith(".")
-            ):
+            if referenced_msg.author.id == self.bot.user.id:
                 is_reply = True
 
         if is_reply or self.bot.user.mentioned_in(message):
