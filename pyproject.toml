@@ -27,6 +27,8 @@ pyowm = "^3.3.0"
 opencage = "^2.4.0"
 spotipy = "^2.23.0"
 watchfiles = "^0.21.0"
+pymupdf = "^1.24.2"
+vt-py = "^0.18.2"
 
 
 [tool.poetry.group.dev.dependencies]
