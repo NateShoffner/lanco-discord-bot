@@ -36,12 +36,18 @@ class Chatbot(
             return
 
         is_reply = False
+        is_embed = False
         if message.reference:
             referenced_msg = await message.channel.fetch_message(
                 message.reference.message_id
             )
             if referenced_msg.author.id == self.bot.user.id:
                 is_reply = True
+            if referenced_msg.embeds:
+                is_embed = True
+
+        if is_embed:
+            return
 
         if is_reply or self.bot.user.mentioned_in(message):
             prompt = message.content.replace(f"<@!{self.bot.user.id}>", "").strip()
@@ -81,7 +87,8 @@ class Chatbot(
             presence_penalty=self.PRESENCE_PENALTY,
         )
 
-        return completion.choices[0].message.content
+        content = completion.choices[0].message.content
+        return content.encode("utf-8").decode()
 
 
 async def setup(bot):
