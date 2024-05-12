@@ -1,8 +1,9 @@
 import os
-from discord import TextChannel
+
 import openai
-from discord.ext import commands
 from cogs.lancocog import LancoCog
+from discord import TextChannel
+from discord.ext import commands
 
 
 class OpenAIPrompts(
@@ -84,7 +85,17 @@ class OpenAIPrompts(
             await ctx.send("Please provide a prompt")
             return
 
-        ai_response = await self.prompt_openai(prompt, max_tokens=400)
+        ai_response = await self.prompt_openai(prompt, max_tokens=800)
+
+        if not ai_response or len(ai_response) == 0:
+            await ctx.send("idk lmao")
+            return
+
+        # split the response into multiple messages if it's too long
+        if len(ai_response) > 2000:
+            for i in range(0, len(ai_response), 2000):
+                await ctx.send(ai_response[i : i + 2000])
+
         await ctx.send(ai_response)
 
     @commands.command(name="magsupport", description="Provide tech support")
@@ -97,6 +108,44 @@ class OpenAIPrompts(
         await ctx.send(
             "Hello, Magnific Osprey here providing tech support:\n\n" + mag_response
         )
+
+    @commands.command(name="amishtechsupport", description="Provide Amish tech support")
+    async def amishtechsupport(self, ctx: commands.Context):
+        issue = await self.get_user_prompt(ctx)
+        amish_response = await self.prompt_openai(
+            "Provide tech support for the following issue but from the perspective of an Amish person who can only diagnose the issue from the familiarity of working on a farm and provide solutions with verbiage relating to farm life.\n"
+            + issue
+        )
+        await ctx.send(
+            "Hello, Asus Miller here providing tech support:\n\n" + amish_response
+        )
+
+    @commands.command(name="financialguru", description="Provide financial advice")
+    async def financialguru(self, ctx: commands.Context):
+        issue = await self.get_user_prompt(ctx)
+        finance_response = await self.prompt_openai(
+            "Provide the worst possible financial advice for the following situation but phrase it as if it's actually good advice:\n"
+            + issue
+        )
+        await ctx.send("Ronald Dump, financial guru here:\n\n" + finance_response)
+
+    @commands.command(name="doctor", description="Provide medical advice")
+    async def doctor(self, ctx: commands.Context):
+        issue = await self.get_user_prompt(ctx)
+        medical_response = await self.prompt_openai(
+            "Provide the worst possible medical advice for the following situation but phrase it as if it's actually good advice. Make sure to talk about home remedies that don't actually work and pseudo-science:\n"
+            + issue
+        )
+        await ctx.send("Dr. Harry Richard here:\n\n" + medical_response)
+
+    @commands.command(name="lawyer", description="Provide legal advice")
+    async def lawyer(self, ctx: commands.Context):
+        issue = await self.get_user_prompt(ctx)
+        legal_response = await self.prompt_openai(
+            "Provide the worst possible legal advice for the following situation but phrase it as if it's actually good advice:\n"
+            + issue
+        )
+        await ctx.send("Rudey Juliani here:\n\n" + legal_response)
 
     @commands.command(name="boomer", description="Respond like a boomer")
     async def boomer(self, ctx: commands.Context):
@@ -152,8 +201,8 @@ class OpenAIPrompts(
         )
         await ctx.send(mag_response)
 
-    @commands.command("anime", description="Respond like a anime character")
-    async def anime(self, ctx: commands.Context):
+    @commands.command("weeb", description="Respond like a anime character")
+    async def weeb(self, ctx: commands.Context):
         issue = await self.get_user_prompt(ctx)
         anime_response = await self.prompt_openai(
             "Respond to the following prompt as if you're in an anime. Be as dramatic and over the top as possible and try to throw in as many anime tropes as you can:\n"
@@ -196,16 +245,46 @@ class OpenAIPrompts(
             return
 
         top_topics = topics[:3]
-        await ctx.send(f"Topics found: {', '.join(top_topics)}")
+        await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
 
-    async def get_current_channel_topics(self, channel: TextChannel) -> list[str]:
-        messages = [msg async for msg in channel.history(limit=50, oldest_first=False)]
+    @commands.command(name="chime", description="Chime in on the current topic")
+    async def chime(self, ctx: commands.Context):
+        channel = ctx.channel
+        topics = await self.get_current_channel_topics(channel, history_limit=5)
+
+        if not topics or len(topics) == 0:
+            await ctx.send("No topics found")
+            return
+
+        top_topics = topics[:3]
+
+        self.logger.info(f"Topics: {top_topics}")
+
+        response = await self.prompt_openai(
+            "Chime in on or more of the following topics: "
+            + ", ".join(top_topics)
+            + "\nTry to keep it short and concise, ideally less than 75 words"
+        )
+
+        await ctx.send(response)
+
+    async def get_current_channel_topics(
+        self, channel: TextChannel, history_limit: int = 25
+    ) -> list[str]:
+        messages = [
+            msg
+            async for msg in channel.history(limit=history_limit, oldest_first=False)
+        ]
         messages = [
             m
             for m in messages
             if not m.author.bot
             and m.content.strip() != ""
             and not m.content.startswith(".")
+            and not m.content.startswith("!")
+            and not m.embeds
+            and not m.attachments
+            and not m.author.bot
         ]
         messages.reverse()
 
@@ -217,7 +296,7 @@ class OpenAIPrompts(
             return []
 
         response = await self.prompt_openai(
-            "Extract primary topics from the following messages and list them separated by commas:\n"
+            "Extract primary topics from the following messages and list them separated by commas, ordered by relvance:\n"
             + "\n".join([m.content for m in messages])
         )
 
