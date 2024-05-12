@@ -1,12 +1,13 @@
-from dataclasses import dataclass
-from enum import Enum
 import inspect
+import logging
 import os
 import uuid
+from dataclasses import dataclass
+from enum import Enum
+
 import aiohttp
 from discord import Message
 from discord.ext import commands
-import logging
 
 
 @dataclass
@@ -79,7 +80,26 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         dotted = dotted.replace(".py", "")
         return dotted
 
-    async def download_attachments(self, message: Message) -> list[Attatchment]:
+    async def download_file(self, url: str, dir: str) -> str:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.read()
+                    random_uuid = uuid.uuid4()
+
+                    if not os.path.exists(dir):
+                        os.makedirs(dir)
+
+                    ext = url.split(".")[-1].split("?")[0]
+                    filename = os.path.join(dir, f"{random_uuid}.{ext}")
+                    with open(filename, "wb") as f:
+                        f.write(data)
+
+                    return filename
+
+    async def download_attachments(
+        self, message: Message, dir: str
+    ) -> list[Attatchment]:
         """Download attachments from a message"""
         local_files = []
         urls = []
@@ -129,22 +149,11 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
                         # https://c.tenor.com/jv1uzXK_ELwAAAC/fullmetal-alchemist.gif
             self.logger.info(f"URL: {url}")
 
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
         for url in urls:
-            # download the image
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.read()
-                        random_uuid = uuid.uuid4()
-
-                        if not os.path.exists(self.cache_dir):
-                            os.makedirs(self.cache_dir)
-
-                        ext = url.split(".")[-1].split("?")[0]
-                        filename = os.path.join(self.cache_dir, f"{random_uuid}.{ext}")
-                        with open(filename, "wb") as f:
-                            f.write(data)
-
-                        local_files.append(Attatchment(url, filename))
+            filename = await self.download_file(url, dir)
+            local_files.append(Attatchment(url, filename))
 
         return local_files
