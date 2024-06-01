@@ -3,7 +3,6 @@ import subprocess
 import toml
 
 bot_version = None
-commit_hash = None
 
 
 def get_bot_version():
@@ -16,16 +15,14 @@ def get_bot_version():
 
 
 def get_commit_hash():
-    global commit_hash
-    if not commit_hash:
-        try:
-            commit_hash = (
-                subprocess.check_output(["git", "rev-parse", "HEAD"])
-                .decode("utf-8")
-                .strip()
-            )
-        except:
-            commit_hash = "Unknown"
+    try:
+        commit_hash = (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .decode("utf-8")
+            .strip()
+        )
+    except:
+        commit_hash = "Unknown"
     return commit_hash
 
 
