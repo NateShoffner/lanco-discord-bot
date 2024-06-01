@@ -3,6 +3,7 @@ import re
 from cogs.common.embedfixcog import EmbedFixCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import RedditEmbedConfig
 
@@ -25,9 +26,7 @@ class RedditEmbed(EmbedFixCog):
         )
 
     @g.command(name="toggle", description="Toggle Reddit embed fix for this server")
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def toggle(self, interaction):
         await super().toggle(interaction)
 

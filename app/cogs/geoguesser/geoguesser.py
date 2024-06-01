@@ -10,6 +10,7 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import Select, View
+from utils.command_utils import is_bot_owner
 
 from .dbmodels import GeoguesserLocation as LocationModel
 from .locationutils import LocationUtils
@@ -181,7 +182,7 @@ class GeoGuesser(LancoCog):
     @geoguesser_group.command(
         name="populate", description="Populate the database with locations"
     )
-    @commands.is_owner()
+    @is_bot_owner()
     async def populate(self, interaction: discord.Interaction):
         """Populates the database with locations"""
         select = self.build_modes_select()

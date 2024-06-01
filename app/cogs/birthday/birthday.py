@@ -5,6 +5,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands, tasks
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import BirthdayAnnouncementConfig, BirthdayUser
 
@@ -103,9 +104,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
     @bday_group.command(
         name="channel", description="Set the channel for birthday announcements"
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def set_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):

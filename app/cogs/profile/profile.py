@@ -5,6 +5,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import ProfileLink, UserProfile, UserProfilesConfig
 
@@ -76,9 +77,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
     @profiles_group.command(
         name="toggle", description="Toggle user profiles for this server"
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
         config, created = UserProfilesConfig.get_or_create(guild_id=guild_id)

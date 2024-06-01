@@ -7,6 +7,7 @@ from asyncpraw.models import Submission
 from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import RedditFeedConfig
 
@@ -99,9 +100,7 @@ class RedditFeed(LancoCog):
         name="subscribe",
         description="Watch a specific subreddit and post new posts to the current channel",
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def subscribe(self, interaction: discord.Interaction, subreddit_name: str):
         subreddit_name = subreddit_name.lstrip("/r/")
         reddit_config, created = RedditFeedConfig.get_or_create(
@@ -118,9 +117,7 @@ class RedditFeed(LancoCog):
     @reddit_feed_group.command(
         name="unsubscribe", description="Stop watching a subreddit"
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction, subreddit_name: str):
         subreddit_name = subreddit_name.lstrip("/r/")
         reddit_config = RedditFeedConfig.get_or_none(

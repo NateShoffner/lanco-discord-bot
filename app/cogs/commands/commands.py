@@ -2,6 +2,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import CustomCommands
 
@@ -18,8 +19,7 @@ class Commands(LancoCog):
         self.bot.database.create_tables([CustomCommands])
 
     @commands_group.command(name="create", description="Create a custom command")
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
+    @is_bot_owner_or_admin()
     async def create(
         self,
         interaction: discord.Interaction,
@@ -45,8 +45,7 @@ class Commands(LancoCog):
         await interaction.response.send_message(f"Created command {command_name}")
 
     @commands_group.command(name="delete", description="Delete a custom command")
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
+    @is_bot_owner_or_admin()
     async def delete(
         self,
         interaction: discord.Interaction,
@@ -67,8 +66,7 @@ class Commands(LancoCog):
         await interaction.response.send_message(f"Deleted command {command_name}")
 
     @commands_group.command(name="edit", description="Edit a custom command")
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
+    @is_bot_owner_or_admin()
     async def edit(
         self, interaction: discord.Interaction, command_name: str, command_response: str
     ):

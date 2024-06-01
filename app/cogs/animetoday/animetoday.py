@@ -1,11 +1,14 @@
 import datetime
 import os
 import random
+
 import discord
+from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands, tasks
+from utils.command_utils import is_bot_owner_or_admin
+
 from .models import AnimeTodayConfig
-from cogs.lancocog import LancoCog
 
 
 class AnimeToday(LancoCog):
@@ -35,9 +38,7 @@ class AnimeToday(LancoCog):
     @embed_group.command(
         name="toggle", description="Toggle the anime calendar for this channel"
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         config, created = AnimeTodayConfig.get_or_create(guild_id=interaction.guild.id)
         if created:

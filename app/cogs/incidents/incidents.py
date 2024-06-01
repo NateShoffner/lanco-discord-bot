@@ -19,6 +19,7 @@ from lcwc.client import Client
 from lcwc.feed import FeedClient
 from lcwc.incident import Incident
 from lcwc.web import WebClient
+from utils.command_utils import is_bot_owner, is_bot_owner_or_admin
 
 from .geocoder import IncidentGeocoder
 from .models import IncidentConfig, IncidentsGlobalConfig
@@ -264,8 +265,7 @@ class Incidents(LancoCog):
     @incidents_group.command(
         name="enable", description="Enable Lancaster incidents feed"
     )
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
+    @is_bot_owner_or_admin()
     async def enable(self, interaction: discord.Interaction):
         incident_config, created = IncidentConfig.get_or_create(
             guild_id=interaction.guild.id
@@ -279,8 +279,7 @@ class Incidents(LancoCog):
     @incidents_group.command(
         name="disable", description="Disable Lancaster incidents feed"
     )
-    @commands.has_permissions(administrator=True)
-    @commands.is_owner()
+    @is_bot_owner_or_admin()
     async def disable(self, interaction: discord.Interaction):
         incident_config, created = IncidentConfig.get_or_create(
             guild_id=interaction.guild.id
@@ -374,7 +373,7 @@ class Incidents(LancoCog):
 
     # TODO make this configurable per server?
     @incidents_group.command(name="setclient", description="Set incident client")
-    @commands.is_owner()
+    @is_bot_owner()
     async def setclient(self, interaction: discord.Interaction):
         client_options = [
             IncidentFeedOption(

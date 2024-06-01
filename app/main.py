@@ -13,6 +13,7 @@ from db import database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
 from peewee import *
+from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
 from watchfiles import Change, awatch
 
@@ -127,7 +128,8 @@ class LancoBot(commands.Bot):
                     await load_cog(self, cog_def)
 
 
-bot = LancoBot(command_prefix=".", intents=intents)
+owner_id = int(os.getenv("OWNER_ID"))
+bot = LancoBot(command_prefix=".", intents=intents, owner_id=owner_id)
 
 
 def init_logging():
@@ -164,7 +166,7 @@ async def sync(ctx):
 @bot.tree.command(name="about", description="Some basic info about the bot")
 async def about(interaction: discord.Interaction):
     fun_facts = [
-        "🤖 I'm a bot created for the Lancaster Discord",
+        "🤖 I'm a bot created for the Lancaster County, PA Discord",
         "✨ I'm from B̶e̶r̶k̶s̶ Lancaster ✨",
         "🖥️ I'm open-source, check out my code on [GitHub](https://github.com/NateShoffner/Lanco-Discord-Bot)",
     ]
@@ -185,6 +187,8 @@ async def ping(interaction: discord.Interaction):
 
 @bot.tree.command(name="status", description="Show bot status")
 async def status(interaction: discord.Interaction):
+    info = await bot.application_info()
+
     embed = discord.Embed(
         title=f"{bot.user.name} Status",
         description=f"Various diagnostic information",
@@ -205,19 +209,19 @@ async def status(interaction: discord.Interaction):
         name="Uptime",
         value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
     )
+    embed.add_field(name=f"Cogs", value=f"{len(bot.get_lanco_cogs())}", inline=False)
 
-    cog_names = [cog.get_cog_name() for cog in bot.cogs.values()]
-    embed.add_field(
-        name=f"Cogs ({len(cog_names)})", value=", ".join(cog_names), inline=False
+    owner = bot.get_user(info.owner.id)
+
+    embed.set_footer(
+        text=f"Version: {bot.version} | Commit: {bot.commit[:7]} | Owner: {owner.mention if owner else info.owner.global_name}"
     )
-
-    embed.set_footer(text=f"Version: {bot.version} | Commit: {bot.commit[:7]}")
 
     await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(name="devmode")
-@commands.is_owner()
+@is_bot_owner()
 async def dev(interaction: discord.Interaction):
     bot.set_dev_mode(not bot.dev_mode)
 
@@ -246,7 +250,7 @@ async def cogs(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="reload", description="Reload a cog")
-@commands.is_owner()
+@is_bot_owner()
 async def reload_cog(interaction: discord.Interaction, cog_name: str):
     """Reload a single cog."""
 
@@ -333,7 +337,7 @@ async def unload_cog_by_name(bot: LancoBot, cog_name: str) -> CogLoadResult:
 
 
 @bot.tree.command(name="reloadall")
-@commands.is_owner()
+@is_bot_owner()
 async def reload_all(interaction: discord.Interaction):
     """This commands reloads all the cogs in the `./cogs` folder."""
 
@@ -380,7 +384,7 @@ async def reload_all(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="unload")
-@commands.is_owner()
+@is_bot_owner()
 async def unload_cog(interaction: discord.Interaction, cog_name: str):
     """Unload a single cog."""
     result = await unload_cog_by_name(bot, cog_name)

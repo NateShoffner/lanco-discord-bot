@@ -7,6 +7,7 @@ import spotipy
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import SpotifyEmbedConfig
 
@@ -193,9 +194,7 @@ class SpotifyEmbed(
     @embed_group.command(
         name="toggle", description="Toggle Spotify embed fixing for this server"
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         config, created = SpotifyEmbedConfig.get_or_create(
             guild_id=interaction.guild.id

@@ -11,11 +11,10 @@ import cachetools
 import discord
 import googlemaps
 import pytz
-import urllib3
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
-from peewee import fn
+from utils.command_utils import is_bot_owner
 
 from .models import Bar
 
@@ -39,7 +38,7 @@ class BarHopper(LancoCog):
     @barhopper_group.command(
         name="populate", description="Populate the database with bars"
     )
-    @commands.is_owner()
+    @is_bot_owner()
     async def populate(self, interaction: discord.Interaction):
         bars = await self.get_nearby_bars()
         await self.populate_bars(bars)

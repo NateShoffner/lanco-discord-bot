@@ -5,6 +5,7 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from peewee import fn
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import Fact
 
@@ -61,9 +62,7 @@ class Facts(LancoCog):
         return fact
 
     @fact_group.command(name="add", description="Add a fact")
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def add_fact(self, interaction: discord.Interaction, fact_id: int = None):
         fact = Fact.get_or_none(id=fact_id)
 

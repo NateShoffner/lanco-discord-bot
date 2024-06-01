@@ -8,6 +8,7 @@ import vt
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 from .models import PDFPreviewConfig
 
@@ -149,9 +150,7 @@ class PDFPreview(
         name="toggle",
         description="Toggle PDF Preview for this server",
     )
-    @commands.check_any(
-        commands.has_permissions(administrator=True), commands.is_owner()
-    )
+    @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         config, created = PDFPreviewConfig.get_or_create(guild_id=interaction.guild.id)
         if created:
