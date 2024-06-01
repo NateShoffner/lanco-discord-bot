@@ -209,13 +209,19 @@ async def status(interaction: discord.Interaction):
         name="Uptime",
         value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
     )
-    embed.add_field(name=f"Cogs", value=f"{len(bot.get_lanco_cogs())}", inline=False)
+    embed.add_field(name=f"Cogs", value=f"{len(bot.get_lanco_cogs())}")
 
     owner = bot.get_user(info.owner.id)
-
-    embed.set_footer(
-        text=f"Version: {bot.version} | Commit: {bot.commit[:7]} | Owner: {owner.mention if owner else info.owner.global_name}"
+    embed.add_field(
+        name="Owner", value=f"{owner.mention if owner else info.owner.global_name}"
     )
+
+    github = os.getenv("GITHUB_REPO")
+    if github:
+        commit_url = f"{github}/commit/{bot.commit}"
+        embed.add_field(name="Commit", value=f"[{bot.commit[:7]}]({commit_url})")
+
+    embed.set_footer(text=f"Version: {bot.version}")
 
     await interaction.response.send_message(embed=embed)
 
