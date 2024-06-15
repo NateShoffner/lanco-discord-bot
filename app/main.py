@@ -101,6 +101,8 @@ class LancoBot(commands.Bot):
                     self.logger.warning(f"Duplicate url handler: {handler.example_url}")
         self.url_handlers.append(handler)
 
+    # TODO allow cogs to declare whether a URL has been properly handled or not
+
     def get_url_handler(self, url: str) -> Optional[UrlHandler]:
         for handler in self.url_handlers:
             if handler.url_pattern.match(url):

@@ -6,8 +6,11 @@ import aiohttp
 import discord
 from bs4 import BeautifulSoup
 from cogs.lancocog import LancoCog
+from cogs.webpreview.models import WebPreviewConfig
+from discord import app_commands
 from discord.ext import commands
 from pydantic import BaseModel
+from utils.command_utils import is_bot_owner_or_admin
 
 
 class PageDetails(BaseModel):
@@ -16,13 +19,15 @@ class PageDetails(BaseModel):
 
 
 class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
+
+    g = app_commands.Group(name="webpreview", description="Web preview commands")
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
+        self.bot.database.create_tables([WebPreviewConfig])
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.channel.id != 777252319971901461:
-            return
         if message.author.bot:
             return
         if message.content.startswith(self.bot.command_prefix):
@@ -40,9 +45,12 @@ class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
         if not url:
             return
 
+        config = WebPreviewConfig.get_or_none(guild_id=message.guild.id)
+        if not config or not config.enabled:
+            return
+
         # check if the url is already handled by another cog
         is_handled = self.bot.has_url_handler(url)
-        print(f"Is handled: {is_handled}")
         if is_handled:
             return
 
@@ -95,6 +103,23 @@ class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
                     description = og_description["value"]
 
                 return PageDetails(title=title, description=description)
+
+    @g.command(name="toggle", description="Toggle Web previews for this server")
+    @is_bot_owner_or_admin()
+    async def toggle(self, interaction):
+        config, created = WebPreviewConfig.get_or_create(guild_id=interaction.guild.id)
+        if created or not config.enabled:
+            config.enabled = True
+            config.save()
+            await interaction.response.send_message(
+                f"Web Previews enabled for this server"
+            )
+        else:
+            config.enabled = False
+            config.save()
+            await interaction.response.send_message(
+                f"Web Previews disabled for this server"
+            )
 
 
 async def setup(bot):
