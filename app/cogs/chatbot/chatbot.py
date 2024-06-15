@@ -1,9 +1,9 @@
 import os
 
 import discord
-import openai
 from cogs.lancocog import LancoCog
 from discord.ext import commands
+from openai import AsyncOpenAI
 
 
 class Chatbot(
@@ -19,7 +19,7 @@ class Chatbot(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.conversations = (
             {}
         )  # key: conversation list of prompts and responses (tuple)
@@ -52,6 +52,8 @@ class Chatbot(
         if is_reply or self.bot.user.mentioned_in(message):
             prompt = message.content.replace(f"<@!{self.bot.user.id}>", "").strip()
 
+            await message.channel.typing()
+
             key = self.get_conversation_key(message)
             response = await self.get_response(key, prompt)
 
@@ -77,8 +79,8 @@ class Chatbot(
         # add the new question
         messages.append({"role": "user", "content": user_prompt})
 
-        completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        stream = await self.client.chat.completions.create(
+            model="gpt-4o",
             messages=messages,
             temperature=self.TEMPERATURE,
             max_tokens=self.MAX_TOKENS,
@@ -87,7 +89,8 @@ class Chatbot(
             presence_penalty=self.PRESENCE_PENALTY,
         )
 
-        content = completion.choices[0].message.content
+        content = stream.choices[0].message.content
+
         return content.encode("utf-8").decode()
 
 
