@@ -4,7 +4,7 @@ import re
 
 import discord
 import spotipy
-from cogs.lancocog import LancoCog
+from cogs.lancocog import LancoCog, UrlHandler
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
@@ -31,6 +31,14 @@ class SpotifyEmbed(
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
         self.bot.database.create_tables([SpotifyEmbedConfig])
+
+        bot.register_url_handler(
+            UrlHandler(
+                url_pattern=self.spotify_url_pattern,
+                cog=self,
+                example_url="https://open.spotify.com/playlist/7q7fMqxIWb8LBCHnyhvxBt",
+            )
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message):

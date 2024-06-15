@@ -8,7 +8,7 @@ from sys import version_info as sysv
 from typing import Optional
 
 import discord
-from cogs.lancocog import CogDefinition, LancoCog, get_cog_def
+from cogs.lancocog import CogDefinition, LancoCog, UrlHandler, get_cog_def
 from db import database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -55,6 +55,7 @@ class LancoBot(commands.Bot):
 
         # TODO probably a better way to inject a database into a cog
         self.database = database
+        self.url_handlers = []
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
@@ -88,6 +89,26 @@ class LancoBot(commands.Bot):
             if c.get_dotted_path().lower() == qualified_name.lower():
                 return True
         return False
+
+    def register_url_handler(self, handler: UrlHandler):
+        logger.info(
+            f"Registering url handler: {handler.url_pattern.pattern} - {handler.cog.get_cog_name()}"
+        )
+        # do a pre-check of possible duplicate url handlers
+        if handler.example_url:
+            for h in self.url_handlers:
+                if h.url_pattern.match(handler.example_url):
+                    self.logger.warning(f"Duplicate url handler: {handler.example_url}")
+        self.url_handlers.append(handler)
+
+    def get_url_handler(self, url: str) -> Optional[UrlHandler]:
+        for handler in self.url_handlers:
+            if handler.url_pattern.match(url):
+                return handler
+        return None
+
+    def has_url_handler(self, url: str) -> bool:
+        return self.get_url_handler(url) is not None
 
     @commands.Cog.listener()
     async def on_ready(self):

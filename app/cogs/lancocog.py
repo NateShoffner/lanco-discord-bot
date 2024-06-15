@@ -1,13 +1,14 @@
 import inspect
 import logging
 import os
+import re
 import uuid
 from dataclasses import dataclass
-from enum import Enum
 
 import aiohttp
 from discord import Message
 from discord.ext import commands
+from pydantic import BaseModel
 
 
 @dataclass
@@ -157,3 +158,12 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
             local_files.append(Attatchment(url, filename))
 
         return local_files
+
+
+class UrlHandler(BaseModel):
+    url_pattern: re.Pattern
+    cog: LancoCog
+    example_url: str
+
+    class Config:
+        arbitrary_types_allowed = True
