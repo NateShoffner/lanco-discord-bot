@@ -1,11 +1,10 @@
 import re
 
 from cogs.common.embedfixcog import EmbedFixCog
+from cogs.lancocog import UrlHandler
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
-
-from app.cogs.lancocog import UrlHandler
 
 from .models import TikTokEmbedConfig
 
