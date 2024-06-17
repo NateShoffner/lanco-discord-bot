@@ -33,6 +33,9 @@ class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
         if message.content.startswith(self.bot.command_prefix):
             return
 
+        if len(message.attachments) > 0 or len(message.embeds) > 0:
+            return
+
         # TODO handle multiple URLs in a single message
         url = None
         words = message.content.split()
