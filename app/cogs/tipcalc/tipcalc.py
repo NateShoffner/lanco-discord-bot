@@ -1,48 +1,70 @@
+import math
+
 from cogs.lancocog import LancoCog
-from discord import Embed, app_commands
+from discord import Embed
 from discord.ext import commands
 
 
-class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
+class TipSuggestion:
 
-    g = app_commands.Group(name="tipcalc", description="TipCalc commands")
+    def __init__(self, bill_amount: float, tip_percentage: float):
+        self.bill_amount = bill_amount
+        self.tip_percentage = tip_percentage
+        self.tip_amount = self.bill_amount * (self.tip_percentage / 100)
+        self.bill_total = self.bill_amount + self.tip_amount
+        self.tip_rounded_amount = self._calculate_rounded_tip()
+        self.bill_total_rounded = self.bill_amount + self.tip_rounded_amount
+
+    def _calculate_rounded_tip(self) -> float:
+        rounded_total_amount = math.ceil(self.bill_total)
+        rounded_tip_amount = rounded_total_amount - self.bill_amount
+        return rounded_tip_amount
+
+
+class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 
     @commands.hybrid_command()
-    async def tip(self, ctx: commands.Context, amount: str, round_tip: bool = False):
+    async def tip(
+        self, ctx: commands.Context, bill_amount: str, tip_percentage: str = None
+    ):
         try:
-            amount = float(amount.replace("$", ""))
+            bill_amount = float(bill_amount.replace("$", ""))
         except ValueError:
-            await ctx.send("Invalid amount")
+            await ctx.send("Please provide a valid bill amount.")
             return
 
-        tip_suggestions = {
-            15: amount * 0.15,
-            20: amount * 0.20,
-            25: amount * 0.25,
-            35: amount * 0.35,
-        }
+        try:
+            if tip_percentage is not None:
+                tip_percentage = float(tip_percentage.replace("$", ""))
+        except ValueError:
+            await ctx.send("Please provide a valid tip percentage.")
+            return
 
-        response = "Tip suggestions:\n"
+        tip_amounts = (
+            [15, 20, 25] if tip_percentage is None else [float(tip_percentage)]
+        )
+        tip_suggestions = [TipSuggestion(bill_amount, tip) for tip in tip_amounts]
 
-        for tip, tip_amount in tip_suggestions.items():
-            if round_tip:
-                rounded_total = self.calculate_rounded_tip(amount, tip)
-                response += f"{tip}%: ${rounded_total:.2f}\n"
-            else:
-                response += f"{tip}%: ${tip_amount:.2f}\n"
+        response = f"Tip suggestions for a bill amount of **${bill_amount:.2f}**\n\n"
+        for ts in tip_suggestions:
+            response += f"**{ts.tip_percentage}%**\n"
+            response += "----------------\n"
+            response += f"Tip amount: **${ts.tip_amount:.2f}**\n"
+            response += f"Bill total: **${ts.bill_total:.2f}**\n"
+            if ts.bill_total != ts.bill_total_rounded:
+                response += "\nWant to round tip up to nearest dollar?\n"
+                response += f"Tip amount (rounded): **${ts.tip_rounded_amount:.2f}**\n"
+                response += f"Bill total (rounded): **${ts.bill_total_rounded:.2f}**\n"
+            response += "\n"
+
+        response += f"Tip: You can provide a custom tip percentage as the 2nd argument. Example: ```{self.bot.command_prefix}tip {ts.bill_amount:.2f} 22```"
 
         embed = Embed(title="Tip Calculator", description=response, color=0x00FF00)
 
         await ctx.send(embed=embed)
-
-    def calculate_rounded_tip(self, amount: float, tip: float) -> float:
-        tip_amount = amount * (tip / 100)
-        total_with_tip = amount + tip_amount
-        rounded_total = round(total_with_tip)
-        return rounded_total
 
 
 async def setup(bot):
