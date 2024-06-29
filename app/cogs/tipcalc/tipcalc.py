@@ -36,9 +36,11 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
             await ctx.send("Please provide a valid bill amount.")
             return
 
+        valid_tip_perc = False
         try:
             if tip_percentage is not None:
                 tip_percentage = float(tip_percentage.replace("$", ""))
+                valid_tip_perc = True
         except ValueError:
             await ctx.send("Please provide a valid tip percentage.")
             return
@@ -60,7 +62,8 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
                 response += f"Bill total (rounded): **${ts.bill_total_rounded:.2f}**\n"
             response += "\n"
 
-        response += f"Tip: You can provide a custom tip percentage as the 2nd argument. Example: ```{self.bot.command_prefix}tip {ts.bill_amount:.2f} 22```"
+        if not valid_tip_perc:
+            response += f"Tip: You can provide a custom tip percentage as the 2nd argument. Example: ```{self.bot.command_prefix}tip {ts.bill_amount:.2f} 22```"
 
         embed = Embed(title="Tip Calculator", description=response, color=0x00FF00)
 
