@@ -21,7 +21,7 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
                 EmbedFixCog.PatternReplacement(
                     re.compile(r"^(?!12ft.io)https://lancasteronline.com/(.+)"),
                     "https://lancasteronline.com/",
-                    "https://12ft.io/https://lancasteronline.com/",
+                    "https://removepaywall.com/https://lancasteronline.com/",
                 ),
             ],
             PaywallBypassConfig,
