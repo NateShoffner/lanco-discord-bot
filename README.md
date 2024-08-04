@@ -6,6 +6,8 @@ Discord bot tailored for Lancaster Count, PA.
 🎉 Features
 ----------------
 
+The bot features a variety of cogs that can be enabled or disabled depending on your server's needs. The following cogs are available:
+
 - [Incident Reporting](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/incidents) - Report emergency services incidents throughout Lancaster County.
 - [Custom Commands](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/commands) - Create custom commands for your server.
 - [TwitterEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed) - Fix Twitter/X embeds in Discord.
@@ -13,7 +15,6 @@ Discord bot tailored for Lancaster Count, PA.
 - [TikTokEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed) - Fix TikTok embeds in Discord.
 - [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser) - Lancaster County/City tailored GeoGuessr.
 - [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper) - Find bars within Lancaster City.
-- [BusFinder](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/busfinder) - Find RRTA bus schedules and plan trips.
 - [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather) - Get the current weather and forecast for any location.
 - [AnimeToday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/animetoday) - Display an anime screenshot featuring the current date every morning in a specified channel.
 - [SpotifyEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spotifyembed) - Alternative Spotify embeds in Discord.
