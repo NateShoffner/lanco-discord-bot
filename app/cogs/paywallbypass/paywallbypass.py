@@ -19,7 +19,9 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
             "Paywall Bypass",
             [
                 EmbedFixCog.PatternReplacement(
-                    re.compile(r"^(?!12ft.io)https://lancasteronline.com/(.+)"),
+                    re.compile(
+                        r"^(?!removepaywall.com)https://lancasteronline.com/(.+)"
+                    ),
                     "https://lancasteronline.com/",
                     "https://removepaywall.com/https://lancasteronline.com/",
                 ),
