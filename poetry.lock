@@ -1422,21 +1422,6 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
-name = "rrta"
-version = "0.1"
-description = "Python wrapper for the RRTA (MyStop) REST API."
-category = "main"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "rrta-0.1-py3-none-any.whl", hash = "sha256:6042d4152943859b410218351b7edd157816fad58914304c89cdb68b81380a48"},
-    {file = "rrta-0.1.tar.gz", hash = "sha256:fd5fb0d93b97b0b749fafa70781ef36e37135563ec6f18122ee81950700a2243"},
-]
-
-[package.dependencies]
-aiohttp = "*"
-
-[[package]]
 name = "setuptools"
 version = "69.2.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
@@ -1862,4 +1847,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "32fb20c545ccabba697bf64670c3e238db0d6072f924802b5ba0aee6d7496a9d"
+content-hash = "63a6e84fbae665549589d0215e1f914b6df41140b6cfaf05237a254e582531a6"
