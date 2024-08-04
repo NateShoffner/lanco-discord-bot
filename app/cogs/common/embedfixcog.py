@@ -1,3 +1,4 @@
+import asyncio
 import re
 
 import discord
@@ -75,6 +76,16 @@ class EmbedFixCog(LancoCog):
         for pr in self.patterns:
             match = pr.pattern.search(message.content)
             if match:
+
+                # wait a bit to see if discord will embed the link
+                await asyncio.sleep(2.5)
+
+                # re-fetch the message to get the latest content
+                message = await message.channel.fetch_message(message.id)
+                if message.embeds:
+                    self.logger.info("Discord embedded the link, no need to fix it")
+                    return
+
                 embed_config = self.config_model.get_or_none(guild_id=message.guild.id)
                 if not embed_config or not embed_config.enabled:
                     return
