@@ -75,6 +75,15 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
             path = os.path.join(*path.split(os.sep)[1:])
         return path
 
+    def get_cog_directory(self, relative: bool = False):
+        """Get the directory for the cog"""
+        path = os.path.dirname(self.get_cog_file_path())
+        if relative:
+            path = os.path.relpath(path)
+            # remove top-level directory
+            path = os.path.join(*path.split(os.sep)[1:])
+        return path
+
     def get_dotted_path(self):
         """Get the dotted path for the cog"""
         dotted = self.get_cog_file_path(True).replace(os.sep, ".")
