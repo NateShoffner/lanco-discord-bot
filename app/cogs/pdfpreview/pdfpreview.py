@@ -1,25 +1,13 @@
-import base64
 import os
-from dataclasses import dataclass
-
 import discord
 import fitz
-import vt
+from utils.viruscheck import VirusCheck, VirusTotalResults
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import PDFPreviewConfig
-
-
-@dataclass
-class VirusTotalResults:
-    md5: str
-    sha256: str
-    url: str
-    is_safe: bool
-
 
 class PDFPreview(
     LancoCog, name="PDFPreview", description="Generates a preview of a PDF file"
@@ -30,6 +18,7 @@ class PDFPreview(
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.previews_path = os.path.join(self.get_cog_data_directory(), "Previews")
+        self.virus_check = VirusCheck(os.getenv("VIRUSTOTAL_API_KEY"))
         if not os.path.exists(self.previews_path):
             os.makedirs(self.previews_path)
         self.bot.database.create_tables([PDFPreviewConfig])
@@ -77,7 +66,7 @@ class PDFPreview(
 
         embed_msg = await message.channel.send(file=file, embed=embed)
 
-        vt_results = await self.virus_check(pdf_filename)
+        vt_results = await self.virus_check.check_file(pdf_filename)
         # update the embed with the VirusTotal results
         embed = self.build_preview_embed(image_path, page_count, file_size, vt_results)
         await embed_msg.edit(embed=embed)
@@ -125,26 +114,7 @@ class PDFPreview(
         embed.set_image(url=f"attachment://{filename}")
         return embed
 
-    async def virus_check(self, pdf_path: str) -> tuple:
-        async with vt.Client(os.getenv("VIRUS_TOTAL_API_KEY")) as client:
-            with open(pdf_path, "rb") as f:
-                self.logger.info(f"Uploading {pdf_path}")
-                analysis = await client.scan_file_async(f)
-                self.logger.info(f"File {pdf_path} uploaded.")
 
-                completed_analysis = await client.wait_for_analysis_completion(analysis)
-
-                self.logger.info(f"{pdf_path}: {completed_analysis.stats}")
-
-                # TODO probably a better way to obtain the sha256
-                decoded = base64.b64decode(analysis.id).decode("utf-8")
-                md5 = decoded.split(":")[0]
-                file_details = await client.get_object_async("/files/" + md5)
-
-                url = "https://www.virustotal.com/gui/file/" + file_details.sha256
-                is_safe = completed_analysis.stats["malicious"] == 0
-
-                return VirusTotalResults(md5, file_details.sha256, url, is_safe)
 
     @pdf_group.command(
         name="toggle",
