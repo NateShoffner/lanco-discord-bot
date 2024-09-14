@@ -107,6 +107,9 @@ class SpotifyEmbed(
             value=self.milliseconds_to_minutes(track["duration_ms"]),
             inline=False,
         )
+        embed.add_field(
+            name="Year", value=track["album"]["release_date"][:4], inline=False
+        )
         embed.set_thumbnail(url=track["album"]["images"][0]["url"])
         return embed
 
