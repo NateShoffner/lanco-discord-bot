@@ -37,6 +37,8 @@ class EmbedFixCog(LancoCog):
         name: str,
         patterns: list[PatternReplacement],
         config_model: Model,
+        skip_if_handled_by_discord: bool = False,
+        wait_time: float = 2.5,
     ):
         """Initialize the cog
 
@@ -45,12 +47,16 @@ class EmbedFixCog(LancoCog):
             name: (str) The name of the replacement (e.g. "Twitter")
             patterns (list[Pattern]): The patterns to search for and their replacements
             config_model (Model): The model to use for configuration
+            skip_if_handled_by_discord (bool): Whether to skip if discord embeds the link
+            wait_time (float): The time to wait before fixing the embed
         """
 
         super().__init__(bot)
         self.name = name
         self.patterns = patterns
         self.config_model = config_model
+        self.skip_if_handled_by_discord = skip_if_handled_by_discord
+        self.wait_time = wait_time
         self.bot.database.create_tables([self.config_model])
 
     async def toggle(self, interaction: discord.Interaction):
@@ -78,11 +84,11 @@ class EmbedFixCog(LancoCog):
             if match:
 
                 # wait a bit to see if discord will embed the link
-                await asyncio.sleep(2.5)
+                await asyncio.sleep(self.wait_time)
 
                 # re-fetch the message to get the latest content
                 message = await message.channel.fetch_message(message.id)
-                if message.embeds:
+                if message.embeds and self.skip_if_handled_by_discord:
                     self.logger.info("Discord embedded the link, no need to fix it")
                     return
 
