@@ -1,4 +1,4 @@
-# 005_custom_commands_channel_id.py
+# 006_pdf_preview_guild_config.py
 
 import os
 
