@@ -107,7 +107,9 @@ class RedditFeed(LancoCog):
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
         )
-        reddit_config.last_known_post_creation = datetime.datetime.now().timestamp()
+        reddit_config.last_known_post_creation = datetime.datetime.now(
+            datetime.timezone.utc
+        ).timestamp()
         reddit_config.save()
 
         await interaction.response.send_message(
