@@ -30,9 +30,7 @@ class RedditFeed(LancoCog):
             user_agent="LanCo Discord Bot (by /u/syntack)",
         )
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await super().on_ready()
+    async def cog_load(self):
         self.poll.start()
 
     def cog_unload(self):
