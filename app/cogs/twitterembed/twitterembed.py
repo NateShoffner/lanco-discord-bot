@@ -20,7 +20,7 @@ class TwitterEmbed(
         )
 
         x_pattern = re.compile(
-            r"https?://(?:www\.)?x\.com/([a-zA-Z0-9]+)/status/([0-9]+)\S+"
+            r"https?://(?:www\.)?x\.com/([a-zA-Z0-9_]+)/status/([0-9]+)\S+"
         )
 
         super().__init__(
