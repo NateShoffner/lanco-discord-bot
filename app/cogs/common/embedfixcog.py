@@ -86,7 +86,9 @@ class EmbedFixCog(LancoCog):
                 original_url = match.group(0)
                 fixed_url = original_url.replace(pr.original, pr.replacement)
 
-                self.logger.info(f"Found URL to be handled by {self.name}: {original_url} -> {fixed_url} - waiting {self.wait_time}s")
+                self.logger.info(
+                    f"Found URL to be handled by {self.name}: {original_url} -> {fixed_url} - waiting {self.wait_time}s"
+                )
 
                 # wait a bit to see if discord will embed the link
                 await asyncio.sleep(self.wait_time)
