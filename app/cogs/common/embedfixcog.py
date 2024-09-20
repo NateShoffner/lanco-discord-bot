@@ -83,6 +83,11 @@ class EmbedFixCog(LancoCog):
             match = pr.pattern.search(message.content)
             if match:
 
+                original_url = match.group(0)
+                fixed_url = original_url.replace(pr.original, pr.replacement)
+
+                self.logger.info(f"Found URL to be handled by {self.name}: {original_url} -> {fixed_url} - waiting {self.wait_time}s")
+
                 # wait a bit to see if discord will embed the link
                 await asyncio.sleep(self.wait_time)
 
@@ -94,9 +99,10 @@ class EmbedFixCog(LancoCog):
 
                 embed_config = self.config_model.get_or_none(guild_id=message.guild.id)
                 if not embed_config or not embed_config.enabled:
+                    self.logger.info("Embed fix not enabled for this server")
                     return
 
-                await message.reply(match.group(0).replace(pr.original, pr.replacement))
+                await message.reply(fixed_url)
 
                 # suppress the original embed if we can
                 if message.channel.permissions_for(message.guild.me).manage_messages:
