@@ -30,6 +30,7 @@ pymupdf = "^1.24.2"
 vt-py = "^0.18.2"
 openai = "1.33.0"
 bs4 = "^0.0.2"
+emoji = "^2.13.2"
 
 
 [tool.poetry.group.dev.dependencies]
