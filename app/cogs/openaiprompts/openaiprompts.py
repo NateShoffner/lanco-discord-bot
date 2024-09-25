@@ -2,9 +2,51 @@ import os
 
 import discord
 from cogs.lancocog import LancoCog
-from discord import TextChannel
+from discord import TextChannel, app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
+from utils.command_utils import is_bot_owner_or_admin
+
+from .models import AIPromptConfig
+
+
+class PromptModal(discord.ui.Modal, title="Prompt Info"):
+
+    name_input = discord.ui.TextInput(
+        label="Enter a command name:",
+        style=discord.TextStyle.short,
+        required=True,
+    )
+
+    prompt_input = discord.ui.TextInput(
+        label="Enter a prompt:",
+        style=discord.TextStyle.long,
+        required=True,
+        placeholder="Enter a prompt with %prompt% tokens",
+    )
+
+    def __init__(self, config: AIPromptConfig = None):
+        super().__init__(timeout=None)
+        self.config = config
+        if config:
+            self.prompt_input.default = config.prompt
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        edit = self.config is not None
+        if not edit:
+            config, created = AIPromptConfig.get_or_create(
+                guild_id=interaction.guild.id,
+                name=self.name_input.value,
+                prompt=self.prompt_input.value,
+            )
+            self.config = config
+
+        self.config.prompt = self.prompt_input.value
+        self.config.save()
+
+        await interaction.response.send_message(
+            "AI Prompt added" if not edit else "AI Prompt updated"
+        )
 
 
 class OpenAIPrompts(
@@ -14,9 +56,12 @@ class OpenAIPrompts(
 ):
     MAX_CONTEXT_QUESTIONS = 25
 
+    g = app_commands.Group(name="aiprompt", description="AI prompt commands")
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.bot.database.create_tables([AIPromptConfig])
         self.conversations = (
             {}
         )  # key: conversation list of prompts and responses (tuple)
@@ -74,214 +119,71 @@ class OpenAIPrompts(
         content = response.choices[0].message.content
         return content.encode("utf-8").decode()
 
-    @commands.command(name="therapy", description="Provide therapy")
-    async def therapy(self, ctx: commands.Context):
-        problem = await self.get_user_prompt(ctx)
+    @g.command(name="add", description="Add an AI prompt")
+    @is_bot_owner_or_admin()
+    async def add_prompt(self, interaction: discord.Interaction):
+        modal = PromptModal()
+        await interaction.response.send_modal(modal)
 
-        if not problem:
-            await ctx.send("Please provide a problem")
-            return
+    @g.command(name="edit", description="Edit an AI prompt")
+    @is_bot_owner_or_admin()
+    async def add_prompt(self, interaction: discord.Interaction, name: str):
+        prompt = AIPromptConfig.get_or_none(guild_id=interaction.guild.id, name=name)
+        modal = PromptModal(prompt)
+        await interaction.response.send_modal(modal)
 
-        therapy_response = await self.prompt_openai(
-            "therapy",
-            ctx.message,
-            "Provide a therapist-like resonse to this situation :\n" + problem,
+    @g.command(name="list", description="List all AI prompts")
+    async def list_prompts(self, interaction: discord.Interaction):
+        prompts = AIPromptConfig.select().where(
+            AIPromptConfig.guild_id == interaction.guild.id
         )
-        await ctx.send(therapy_response)
+        descs = [f"**{p.name}**: {p.prompt}" for p in prompts]
 
-    @commands.command(name="techbro", description="Provide techbro advice")
-    async def techbro(self, ctx: commands.Context):
-        problem = await self.get_user_prompt(ctx)
+        embed = discord.Embed(title="AI prompts for this server")
+        embed.description = "\n".join(descs)
+        await interaction.response.send_message(embed=embed)
 
-        if not problem:
-            await ctx.send("Please provide a problem")
-            return
-
-        techbro_response = await self.prompt_openai(
-            "techbro",
-            ctx.message,
-            "Provide techbro advice for the following issue and make sure to insist on how your solution/product can change the world to be a better place even if it's not true:\n"
-            + problem,
-        )
-        await ctx.send(techbro_response)
-
-    @commands.command(
-        name="techsupport", description="Provide tech support", aliases=["itbtw"]
-    )
-    async def techsupport(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        tech_response = await self.prompt_openai(
-            "Provide tech support for the following issue:\n" + issue
-        )
-        await ctx.send(tech_response)
-
-    @commands.command(name="ai", description="General AI prompt")
-    async def ai(self, ctx: commands.Context):
-        prompt = await self.get_user_prompt(ctx)
-
+    @g.command(name="remove", description="Remove an AI prompt")
+    @is_bot_owner_or_admin()
+    async def remove_prompt(self, interaction: discord.Interaction, name: str):
+        prompt = AIPromptConfig.get_or_none(guild_id=interaction.guild.id, name=name)
         if not prompt:
-            await ctx.send("Please provide a prompt")
+            await interaction.response.send_message("Prompt not found", ephemeral=True)
             return
 
-        ai_response = await self.prompt_openai(
-            "ai", ctx.message, prompt, max_tokens=800
-        )
+        prompt.delete_instance()
+        await interaction.response.send_message("Prompt removed", ephemeral=True)
 
-        if not ai_response or len(ai_response) == 0:
-            await ctx.send("idk lmao")
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
             return
 
-        # split the response into multiple messages if it's too long
-        if len(ai_response) > 2000:
-            for i in range(0, len(ai_response), 2000):
-                await ctx.send(ai_response[i : i + 2000])
+        if isinstance(message.channel, discord.DMChannel):
+            return
 
-        await ctx.send(ai_response)
+        if message.content.startswith(self.bot.command_prefix):
+            command_name, *args = message.content.split(" ")
+            command_name = command_name[len(self.bot.command_prefix) :]
 
-    @commands.command(name="magsupport", description="Provide tech support")
-    async def magsupport(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        mag_response = await self.prompt_openai(
-            "magsupport",
-            ctx.message,
-            "Provide tech support for the following issue but in a very passive aggressive and unhelpful tone:\n"
-            + issue,
-        )
-        await ctx.send(
-            "Hello, Magnific Osprey here providing tech support:\n\n" + mag_response
-        )
+            prompt_config = AIPromptConfig.get_or_none(
+                guild_id=message.guild.id, name=command_name.lower()
+            )
 
-    @commands.command(name="amishtechsupport", description="Provide Amish tech support")
-    async def amishtechsupport(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        amish_response = await self.prompt_openai(
-            "amishtechsupport",
-            ctx.message,
-            "Provide tech support for the following issue but from the perspective of an Amish person who can only diagnose the issue from the familiarity of working on a farm and provide solutions with verbiage relating to farm life.\n"
-            + issue,
-        )
-        await ctx.send(
-            "Hello, Asus Miller here providing tech support:\n\n" + amish_response
-        )
+            if not prompt_config:
+                return
 
-    @commands.command(name="financialguru", description="Provide financial advice")
-    async def financialguru(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        finance_response = await self.prompt_openai(
-            "financialguru",
-            ctx.message,
-            "Provide the worst possible financial advice for the following situation but phrase it as if it's actually good advice:\n"
-            + issue,
-        )
-        await ctx.send("Ronald Dump, financial guru here:\n\n" + finance_response)
+            self.logger.info(f"AI Prompt command: {command_name}")
 
-    @commands.command(name="doctor", description="Provide medical advice")
-    async def doctor(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        medical_response = await self.prompt_openai(
-            "doctor",
-            ctx.message,
-            "Provide the worst possible medical advice for the following situation but phrase it as if it's actually good advice. Make sure to talk about home remedies that don't actually work and pseudo-science:\n"
-            + issue,
-        )
-        await ctx.send("Dr. Harry Richard here:\n\n" + medical_response)
+            ctx = await self.bot.get_context(message)
+            user_prompt = await self.get_user_prompt(ctx)
 
-    @commands.command(name="lawyer", description="Provide legal advice")
-    async def lawyer(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        legal_response = await self.prompt_openai(
-            "lawyer",
-            ctx.message,
-            "Provide the worst possible legal advice for the following situation but phrase it as if it's actually good advice:\n"
-            + issue,
-        )
-        await ctx.send("Rudey Juliani here:\n\n" + legal_response)
+            formatted_message = prompt_config.prompt.replace("%prompt%", user_prompt)
+            ai_response = await self.prompt_openai(
+                prompt_config.name, message, formatted_message
+            )
 
-    @commands.command(name="boomer", description="Respond like a boomer")
-    async def boomer(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        boomer_response = await self.prompt_openai(
-            "boomer",
-            ctx.message,
-            "Provide advice for the following issue as if you're a boomer/somebody severely out of touch with the current generation/social climate by being passive aggressive and judgemental about younger generations:\n"
-            + issue,
-        )
-        await ctx.send(boomer_response)
-
-    @commands.command("zoomer", description="Respond like a zoomer", aliases=["genz"])
-    async def zoomer(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        zoomer_response = await self.prompt_openai(
-            "zoomer",
-            ctx.message,
-            "Provide advice for the following issue as if you're a zoomer/somebody severely out of touch with the older generations. Be very judgemental of older generations and try to throw in as much zoomer language/jargon as possible:\n"
-            + issue,
-        )
-        await ctx.send(zoomer_response)
-
-    @commands.command("millenial", description="Respond like a millenial")
-    async def millenial(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        mag_response = await self.prompt_openai(
-            "millenial",
-            ctx.message,
-            "Provide advice for the following issue as if you're a millenial and largely apathetic to most situations and have adapted coping mechanisms and insist on joking about otherwise depressing situations:\n"
-            + issue,
-        )
-        await ctx.send(mag_response)
-
-    @commands.command("genx", description="Respond like a genx")
-    async def genx(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        mag_response = await self.prompt_openai(
-            "genx",
-            ctx.message,
-            "Provide advice for the following issue as if you're a grumpy gen x-er who insists on talking about how hard life was for them and how they were stuck between the analog and digital world. Definitely make sure to mention playing outside as a kid:\n"
-            + issue,
-        )
-        await ctx.send(mag_response)
-
-    @commands.command("josiahsupport", description="Respond like josiah")
-    async def josiahsupport(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        mag_response = await self.prompt_openai(
-            "josiahsupport",
-            ctx.message,
-            "Respond to the prompt but always find a way to make it relevent to the conversation of water, seweage, water treatment, or environmental engineering:\n"
-            + issue,
-        )
-        await ctx.send(mag_response)
-
-    @commands.command("smilesupport", description="Respond like endormi")
-    async def smilesupport(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        mag_response = await self.prompt_openai(
-            "Respond to the prompt but always find a way to make it relevent to the conversation of social psychology\n"
-            + issue
-        )
-        await ctx.send(mag_response)
-
-    @commands.command("weeb", description="Respond like a anime character")
-    async def weeb(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        anime_response = await self.prompt_openai(
-            "weeb",
-            ctx.message,
-            "Respond to the following prompt as if you're in an anime. Be as dramatic and over the top as possible and try to throw in as many anime tropes as you can:\n"
-            + issue,
-        )
-        await ctx.send(anime_response)
-
-    @commands.command("ceo", description="Respond like a ceo character")
-    async def ceo(self, ctx: commands.Context):
-        issue = await self.get_user_prompt(ctx)
-        ceo_response = await self.prompt_openai(
-            "ceo",
-            ctx.message,
-            "Re-state the following message in the most buzzwordy way possible as if you're a CEO:\n"
-            + issue,
-        )
-        await ctx.send(ceo_response)
+            await message.channel.send(ai_response)
 
     @commands.command(name="eli5", description="Explain like I'm 5")
     async def eli5(self, ctx: commands.Context):
