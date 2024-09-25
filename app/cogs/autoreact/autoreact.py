@@ -19,6 +19,7 @@ class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
         self.bot.database.create_tables([AutoReactConfig])
 
     @g.command(name="add", description="Set an auto-react response")
+    @is_bot_owner_or_admin()
     async def set_auto_react(
         self, interaction: discord.Interaction, phrase: str, reaction: str
     ):
@@ -38,6 +39,7 @@ class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
     @g.command(
         name="addregex", description="Set an auto-react response with a regex pattern"
     )
+    @is_bot_owner_or_admin()
     async def set_auto_react_regex(
         self, interaction: discord.Interaction, pattern: str, reaction: str
     ):
@@ -61,6 +63,7 @@ class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
         await interaction.response.send_message("Auto-react phrase set", ephemeral=True)
 
     @g.command(name="remove", description="Remove the auto-react response")
+    @is_bot_owner_or_admin()
     async def remove_auto_react(
         self, interaction: discord.Interaction, phrase: str, reaction: str = None
     ):
