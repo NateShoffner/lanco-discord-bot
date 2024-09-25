@@ -31,6 +31,8 @@ vt-py = "^0.18.2"
 openai = "1.33.0"
 bs4 = "^0.0.2"
 emoji = "^2.13.2"
+imageio = "^2.35.1"
+pillow-heif = "^0.18.0"
 
 
 [tool.poetry.group.dev.dependencies]
