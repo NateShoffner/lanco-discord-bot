@@ -4,15 +4,38 @@ import discord
 import imageio
 import pillow_heif
 from cogs.lancocog import LancoCog
+from discord import app_commands
 from discord.ext import commands
 from PIL import Image
+from utils.command_utils import is_bot_owner_or_admin
+
+from .models import FileFixerConfig
 
 
 class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
 
+    g = app_commands.Group(name="filefixer", description="FileFixer commands")
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
+        self.bot.database.create_tables([FileFixerConfig])
+
+    @g.command(
+        name="toggle", description="Toggle support for fixing unsupported file types"
+    )
+    @is_bot_owner_or_admin()
+    async def toggle(self, interaction: discord.Interaction):
+        config, created = FileFixerConfig.get_or_create(guild_id=interaction.guild.id)
+        if created:
+            config.enabled = True
+            config.save()
+            await interaction.response.send_message("FileFixer enabled for this server")
+        else:
+            config.delete_instance()
+            await interaction.response.send_message(
+                "FileFixer disabled for this server"
+            )
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -20,6 +43,11 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
             return
 
         if message.attachments:
+
+            config = FileFixerConfig.get_or_none(guild_id=message.guild.id)
+            if not config or not config.enabled:
+                return
+
             for att in message.attachments:
                 # TODO - handle multiple attachments
                 if len(message.attachments) > 1:
