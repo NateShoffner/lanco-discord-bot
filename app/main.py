@@ -12,6 +12,7 @@ from cogs.lancocog import CogDefinition, LancoCog, UrlHandler, get_cog_def
 from db import database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
+from logtail import LogtailHandler
 from peewee import *
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
@@ -20,6 +21,9 @@ from watchfiles import Change, awatch
 load_dotenv()
 
 logger = logging.getLogger()
+
+if os.getenv("LOGTAIL_TOKEN"):
+    logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
 
 intents = discord.Intents.all()
 
