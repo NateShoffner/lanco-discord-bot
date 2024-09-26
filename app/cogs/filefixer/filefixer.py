@@ -69,19 +69,25 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
                     fix_result = await fixer(downloaded[0].filename)
 
                     if fix_result:
-                        await self.send_fixed_embed(message, fix_result)
+                        await self.send_fixed_embed(
+                            message, fix_result, f".{extension}"
+                        )
 
     async def send_fixed_embed(
-        self, original_message: discord.Message, fixed_file: str
+        self,
+        original_message: discord.Message,
+        fixed_file: str,
+        original_file_type: str,
     ):
         author = original_message.author
         filename = os.path.basename(fixed_file)
 
         file = discord.File(fixed_file, filename=filename)
-        embed = discord.Embed(title="Fixed ||User Error|| Unsupported File Type")
-        embed.description = f"Original file by {author.display_name}"
+        embed = discord.Embed(
+            title=f"Converted Unsupported File Type ({original_file_type})"
+        )
         embed.set_image(url=f"attachment://{filename}")
-        await original_message.channel.send(file=file, embed=embed)
+        await original_message.reply(file=file, embed=embed)
 
     async def fix_avif(self, local_path: str) -> str:
         try:
