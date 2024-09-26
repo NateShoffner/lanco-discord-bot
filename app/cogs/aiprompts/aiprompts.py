@@ -5,6 +5,7 @@ from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
+from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import AIPromptConfig
@@ -204,6 +205,7 @@ class OpenAIPrompts(
     @commands.command(
         name="topic", description="Will say what the current channel is talking about"
     )
+    @command_channel_lock()
     async def topic(self, ctx: commands.Context):
         channel = ctx.channel
         topics = await self.get_current_channel_topics(channel)
@@ -215,8 +217,8 @@ class OpenAIPrompts(
         top_topics = topics[:3]
         await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
 
-    # vibe check command
     @commands.command(name="vibecheck", description="Check the vibe")
+    @command_channel_lock()
     async def vibecheck(self, ctx: commands.Context):
         messages = await self.get_current_channel_convo(ctx.channel)
 
@@ -234,6 +236,7 @@ class OpenAIPrompts(
         await ctx.send(vibe_response)
 
     @commands.command(name="chime", description="Chime in on the current topic")
+    @command_channel_lock()
     async def chime(self, ctx: commands.Context):
         channel = ctx.channel
         topics = await self.get_current_channel_topics(channel, history_limit=5)
