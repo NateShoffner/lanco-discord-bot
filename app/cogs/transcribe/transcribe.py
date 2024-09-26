@@ -1,4 +1,3 @@
-import io
 import os
 
 import discord
@@ -8,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 from pydub import AudioSegment
 from utils.command_utils import is_bot_owner_or_admin
+from utils.voice_message import download_voice_message, is_voice_message
 
 from .models import TranscribeConfig
 
@@ -42,10 +42,7 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
         if message.author.bot:
             return
 
-        if len(message.attachments) != 1:
-            return
-
-        if message.attachments[0].content_type != "audio/ogg":
+        if not is_voice_message(message):
             return
 
         config = TranscribeConfig.get_or_none(guild_id=message.guild.id)
@@ -54,22 +51,17 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
 
         msg = await message.reply("✨ Transcribing...", mention_author=False)
 
-        voice_file = await message.attachments[0].read()
-        voice_file = io.BytesIO(voice_file)
-
-        ogg_file_path = os.path.join(self.cache_dir, f"{message.id}.ogg")
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
-        with open(ogg_file_path, "wb") as f:
-            f.write(voice_file.getvalue())
 
+        ogg_file_path = await download_voice_message(message)
         ogg_audio = AudioSegment.from_file(ogg_file_path, format="ogg")
 
-        wav_filename = os.path.join(self.cache_dir, f"{message.id}.wav")
-        ogg_audio.export(wav_filename, format="wav")
+        wav_file_path = os.path.join(self.cache_dir, f"{message.id}.wav")
+        ogg_audio.export(wav_file_path, format="wav")
 
         try:
-            result = self.model.transcribe(wav_filename)
+            result = self.model.transcribe(wav_file_path)
             transcription = result["text"]
             await msg.edit(content=f"✨ Transcription: {transcription}")
         except Exception as e:
@@ -78,7 +70,7 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
 
         # cleanup
         os.remove(ogg_file_path)
-        os.remove(wav_filename)
+        os.remove(wav_file_path)
 
 
 async def setup(bot):
