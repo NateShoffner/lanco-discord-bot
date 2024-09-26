@@ -2,7 +2,6 @@ import io
 import os
 
 import discord
-import torch
 import whisper
 from cogs.lancocog import LancoCog
 from discord import app_commands
@@ -20,11 +19,8 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
-        self.bot.database.create_tables([TranscribeConfig()])
-        # Check if a CUDA-enabled GPU is available
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        # Load the model on the specified device
-        self.model = whisper.load_model("base", device=device)
+        self.bot.database.create_tables([TranscribeConfig])
+        self.model = whisper.load_model("base", device="cpu")
 
     @g.command(
         name="toggle", description="Toggle transcription services for this server"
