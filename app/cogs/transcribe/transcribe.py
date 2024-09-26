@@ -42,10 +42,10 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
         if message.author.bot:
             return
 
-        if (
-            len(message.attachments) != 1
-            and message.attachments[0].content_type != "audio/ogg"
-        ):
+        if len(message.attachments) != 1:
+            return
+
+        if message.attachments[0].content_type != "audio/ogg":
             return
 
         config = TranscribeConfig.get_or_none(guild_id=message.guild.id)
