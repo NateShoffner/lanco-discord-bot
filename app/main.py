@@ -50,11 +50,6 @@ class LancoBot(commands.Bot):
         super().__init__(*args, **kwargs)
 
         self.dev_mode = os.getenv("DEV_MODE", False)
-
-        # TODO set these as env during build
-        self.version = get_bot_version()
-        self.commit = get_commit_hash()
-
         self.start_time = datetime.datetime.now()
 
         # TODO probably a better way to inject a database into a cog
@@ -243,12 +238,17 @@ async def status(interaction: discord.Interaction):
         name="Owner", value=f"{owner.mention if owner else info.owner.global_name}"
     )
 
+    # TODO set these as env during build
+    commit = get_commit_hash()
     github = os.getenv("GITHUB_REPO")
     if github:
-        commit_url = f"{github}/commit/{bot.commit}"
-        embed.add_field(name="Commit", value=f"[{bot.commit[:7]}]({commit_url})")
+        commit_url = f"{github}/commit/{commit}"
+        embed.add_field(name="Commit", value=f"[{commit[:7]}]({commit_url})")
+    else:
+        embed.add_field(name="Commit", value=f"{commit[:7]}")
 
-    embed.set_footer(text=f"Version: {bot.version}")
+    version = get_bot_version()
+    embed.set_footer(text=f"Version: {version}")
 
     await interaction.response.send_message(embed=embed)
 
