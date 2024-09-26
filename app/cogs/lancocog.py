@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 
 import aiohttp
-from discord import Message
+from discord import Message, app_commands
 from discord.ext import commands
 from pydantic import BaseModel
 
@@ -41,10 +41,12 @@ class Attatchment:
 
 
 class LancoCog(commands.Cog, name="LancoCog", description="Base class for all cogs"):
+
     def __init__(self, bot: commands.Bot, *args, **kwargs):
         self.bot = bot
         self.logger = logging.getLogger(self.get_cog_name())
         self.cog_def = None
+        self.context_menus = []
 
     def set_cog_def(self, cog_def: CogDefinition):
         """Set the cog definition"""
@@ -167,6 +169,22 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
             local_files.append(Attatchment(url, filename))
 
         return local_files
+
+    def register_context_menu(self, name: str, callback, errback=None, **kwargs):
+        """Register a context menu for the cog"""
+        ctx_menu = app_commands.ContextMenu(name=name, callback=callback, **kwargs)
+        if errback:
+            ctx_menu.error(errback)
+        self.bot.tree.add_command(ctx_menu)
+        self.context_menus.append(ctx_menu)
+
+    async def cog_unload(self):
+        """Unloading the cog"""
+        self.logger.info(f"{self.get_cog_name()} cog unloaded")
+
+        # clean up context menus
+        for ctx_menu in self.context_menus:
+            self.bot.tree.remove_command(ctx_menu.name, type=ctx_menu.type)
 
 
 class UrlHandler(BaseModel):
