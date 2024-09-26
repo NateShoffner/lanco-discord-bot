@@ -3,6 +3,7 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
+from utils.tracked_message import track_message_ids
 
 from .models import CustomCommands
 
@@ -111,7 +112,8 @@ class Commands(LancoCog):
         await interaction.response.send_message(embed=embed)
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    @track_message_ids()
+    async def on_message(self, message: discord.Message) -> discord.Message:
         # TODO commands should perhaps be registered within the bot, but this works for now
 
         if message.author.bot:
@@ -133,7 +135,7 @@ class Commands(LancoCog):
                 ):
                     return
 
-                await message.channel.send(command.command_response)
+                return await message.channel.send(command.command_response)
 
 
 async def setup(bot):

@@ -4,6 +4,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord.ext import commands
 from openai import AsyncOpenAI
+from utils.tracked_message import ignore_if_referenced_message_is_tracked
 
 
 class Chatbot(
@@ -28,6 +29,7 @@ class Chatbot(
         return f"{user_message.guild.id}-{user_message.channel.id}-{user_message.author.id}"
 
     @commands.Cog.listener()
+    @ignore_if_referenced_message_is_tracked()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
