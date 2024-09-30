@@ -171,7 +171,10 @@ class RedditFeed(LancoCog):
             high_res = submission.preview["images"][0]["source"]["url"]
             embed.set_image(url=high_res)
 
-        embed.add_field(name="Post Author", value=f"/u/{submission.author}")
+        author_url = f"https://reddit.com/u/{submission.author}"
+        embed.add_field(
+            name="Post Author", value=f"[/u/{submission.author}]({author_url})"
+        )
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
