@@ -2,6 +2,7 @@ import datetime
 import os
 
 import asyncpraw
+import cachetools
 import discord
 from asyncpraw.models import Submission
 from cogs.lancocog import LancoCog
@@ -29,6 +30,9 @@ class RedditFeed(LancoCog):
             client_secret=os.getenv("REDDIT_SECRET"),
             user_agent="LanCo Discord Bot (by /u/syntack)",
         )
+        self.subreddit_icon_cache = cachetools.TTLCache(
+            maxsize=100, ttl=60 * 60 * 24
+        )  # 24 hours
 
     async def cog_load(self):
         self.poll.start()
@@ -134,6 +138,18 @@ class RedditFeed(LancoCog):
 
         await interaction.response.send_message(f"Stopped watching /r/{subreddit_name}")
 
+    async def get_subreddit_icon(self, subreddit_name: str) -> str:
+        if subreddit_name in self.subreddit_icon_cache:
+            return self.subreddit_icon_cache[subreddit_name]
+
+        subreddit = await self.reddit.subreddit(subreddit_name, fetch=True)
+        icon = subreddit.community_icon
+        if not icon:
+            return None
+
+        self.subreddit_icon_cache[subreddit_name] = icon
+        return icon
+
     async def share_post(self, submission: Submission, channel: TextChannel) -> None:
         """Share a Reddit post to a channel
 
@@ -158,6 +174,9 @@ class RedditFeed(LancoCog):
         embed.add_field(name="Post Author", value=f"/u/{submission.author}")
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
+
+        icon = await self.get_subreddit_icon(submission.subreddit.display_name)
+        embed.set_footer(text=f"/r/{submission.subreddit.display_name}", icon_url=icon)
 
         await channel.send(embed=embed)
 
