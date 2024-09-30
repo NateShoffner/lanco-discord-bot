@@ -22,6 +22,7 @@ class FortuneCookie(LancoCog, name="FortuneCookie", description="FortuneCookie c
         aliases=["fortune", "cookie"],
     )
     async def fortunecookie(self, ctx: commands.Context):
+        """Get a fortune cookie"""
         fortune = random.choice(self.fortunes)
         await ctx.send(f"🥠 {fortune}")
 

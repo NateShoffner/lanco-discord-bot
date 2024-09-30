@@ -23,6 +23,7 @@ class OpenAI(
     # identify command
     @commands.command(name="explain", description="Explain something")
     async def explain(self, ctx: commands.Context):
+        """Explain something"""
         is_file = False
         # Check if there is an attachment
         if ctx.message.attachments:

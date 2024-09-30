@@ -40,6 +40,7 @@ class AnimeToday(LancoCog):
     )
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
+        """Toggle the anime calendar for this channel"""
         config, created = AnimeTodayConfig.get_or_create(guild_id=interaction.guild.id)
         if created:
             config.channel_id = interaction.channel.id
@@ -51,6 +52,7 @@ class AnimeToday(LancoCog):
 
     @commands.command(name="animetest", description="Test the anime calendar")
     async def anime_test(self, ctx: commands.Context):
+        """Test the anime calendar"""
         await self.send_daily_anime_shot(ctx.channel)
 
     async def send_daily_anime_shot(self, channel: discord.TextChannel):

@@ -14,6 +14,7 @@ class Google(LancoCog, name="Google", description="Google commands"):
         aliases=["g", "search", "bing", "askjeeves", "duckduckgo", "yahoo"],
     )
     async def google(self, ctx, *args):
+        """Google something"""
         args = " ".join(args)
         encoded = urllib.parse.quote(args)
         url = f"https://www.google.com/search?q={encoded}"

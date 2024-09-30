@@ -3,7 +3,7 @@ from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
 
 
-class Admin(LancoCog, name="Admin", description="Admin cog"):
+class Admin(LancoCog, name="Admin", description="Administrative commands"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -11,6 +11,7 @@ class Admin(LancoCog, name="Admin", description="Admin cog"):
     @commands.command(name="delete", description="Delete a message")
     @is_bot_owner_or_admin()
     async def delete(self, ctx: commands.Context):
+        """Delete a message"""
         # delete the message that was replied to
         message = ctx.message.reference.resolved
         await message.delete()

@@ -5,7 +5,7 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
-from utils.common import is_emoji, is_regex
+from utils.common import is_regex
 
 from .models import AutoResponseConfig
 

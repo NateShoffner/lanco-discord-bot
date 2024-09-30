@@ -10,6 +10,7 @@ class Magic8Ball(LancoCog, name="Magic8Ball", description="Magic 8 Ball"):
 
     @commands.command(name="8ball", description="Ask the magic 8 ball a question")
     async def eight_ball(self, ctx: commands.Context, *, question: str = None):
+        """Ask the magic 8 ball a question"""
         responses = [
             "It is certain.",
             "It is decidedly so.",
