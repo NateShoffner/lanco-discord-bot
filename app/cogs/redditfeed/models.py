@@ -10,3 +10,18 @@ class RedditFeedConfig(BaseModel):
     class Meta:
         table_name = "reddit_feed_config"
         primary_key = CompositeKey("channel_id", "subreddit")
+
+
+class RedditPost(BaseModel):
+    post_id = CharField(primary_key=True)
+    subreddit = CharField()
+    title = CharField()
+    permalink = CharField()
+    created = IntegerField()
+    author = CharField()
+    is_nsfw = BooleanField()
+    spoiler = BooleanField()
+    message_id = BigIntegerField()
+
+    class Meta:
+        table_name = "reddit_post"

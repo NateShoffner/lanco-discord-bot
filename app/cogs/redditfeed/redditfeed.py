@@ -94,7 +94,6 @@ class RedditFeed(LancoCog):
                         )
                         continue
 
-                    await self.share_post(submission, channel)
                     msg = await self.share_post(submission, channel)
                     config.last_known_post_creation = created
                     config.save()
@@ -127,9 +126,14 @@ class RedditFeed(LancoCog):
         ).timestamp()
         reddit_config.save()
 
-        await interaction.response.send_message(
-            f"Watching /r/{subreddit_name} for new posts and posting them to this channel"
+        subreddit_url = f"https://reddit.com/r/{subreddit_name}"
+        embed = discord.Embed(
+            title=f"Subscribe to /r/{subreddit_name}",
+            description=f"Watching [/r/{subreddit_name}](<{subreddit_url}>) for new posts and sharing them in {interaction.channel.mention}",
+            color=discord.Color(0x00FF00),
         )
+
+        await interaction.response.send_message(embed=embed)
 
     @reddit_feed_group.command(
         name="unsubscribe", description="Stop watching a subreddit"
@@ -142,14 +146,25 @@ class RedditFeed(LancoCog):
             subreddit=subreddit_name,
         )
 
+        subreddit_url = f"https://reddit.com/r/{subreddit_name}"
+
         if not reddit_config:
-            await interaction.response.send_message(
-                f"Not watching /r/{subreddit_name} in this channel"
+            embed = discord.Embed(
+                title=f"Unsubscribe from /r/{subreddit_name}",
+                description=f"[/r/{subreddit_name}](<{subreddit_url}>) is not being watched in {interaction.channel.mention}",
+                color=discord.Color(0xFF0000),
             )
+            await interaction.response.send_message(embed=embed)
             return
         reddit_config.delete_instance()
 
-        await interaction.response.send_message(f"Stopped watching /r/{subreddit_name}")
+        embed = discord.Embed(
+            title=f"Unsubscribe from /r/{subreddit_name}",
+            description=f"Stopped watching [/r/{subreddit_name}](<{subreddit_url}>) in {interaction.channel.mention}",
+            color=discord.Color(0x00FF00),
+        )
+
+        await interaction.response.send_message(embed=embed)
 
     async def get_subreddit_icon(self, subreddit_name: str) -> str:
         if subreddit_name in self.subreddit_icon_cache:
