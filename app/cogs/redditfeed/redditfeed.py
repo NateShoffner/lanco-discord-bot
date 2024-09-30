@@ -150,7 +150,17 @@ class RedditFeed(LancoCog):
         self.subreddit_icon_cache[subreddit_name] = icon
         return icon
 
-    async def share_post(self, submission: Submission, channel: TextChannel) -> None:
+    @commands.command(name="reddittest", description="Test the Reddit feed")
+    @is_bot_owner_or_admin()
+    async def test(self, ctx: commands.Context):
+        subreddit = await self.reddit.subreddit("lancaster")
+        async for submission in subreddit.new(limit=1):
+            channel = self.bot.get_channel(ctx.channel.id)
+            await self.share_post(submission, channel)
+
+    async def share_post(
+        self, submission: Submission, channel: TextChannel
+    ) -> discord.Message:
         """Share a Reddit post to a channel
 
         Args:
