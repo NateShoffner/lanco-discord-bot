@@ -157,8 +157,7 @@ class RedditFeed(LancoCog):
 
         embed.add_field(name="Post Author", value=f"/u/{submission.author}")
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
-
-        embed.timestamp = datetime.datetime.utcfromtimestamp(submission.created_utc)
+        embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
         await channel.send(embed=embed)
 
