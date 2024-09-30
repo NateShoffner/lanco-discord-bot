@@ -10,7 +10,7 @@ from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
 from utils.command_utils import is_bot_owner_or_admin
 
-from .models import RedditFeedConfig
+from .models import RedditFeedConfig, RedditPost
 
 
 class RedditFeed(LancoCog):
@@ -24,7 +24,7 @@ class RedditFeed(LancoCog):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot = bot
-        self.bot.database.create_tables([RedditFeedConfig])
+        self.bot.database.create_tables([RedditFeedConfig, RedditPost])
         self.reddit = asyncpraw.Reddit(
             client_id=os.getenv("REDDIT_ID"),
             client_secret=os.getenv("REDDIT_SECRET"),
@@ -95,8 +95,21 @@ class RedditFeed(LancoCog):
                         continue
 
                     await self.share_post(submission, channel)
+                    msg = await self.share_post(submission, channel)
                     config.last_known_post_creation = created
                     config.save()
+
+                    RedditPost.create(
+                        post_id=submission.id,
+                        subreddit=submission.subreddit.display_name,
+                        title=submission.title,
+                        permalink=submission.permalink,
+                        created=submission.created_utc,
+                        author=submission.author.name,
+                        is_nsfw=submission.over_18,
+                        spoiler=submission.spoiler,
+                        message_id=msg.id,
+                    )
 
     @reddit_feed_group.command(
         name="subscribe",
@@ -191,7 +204,7 @@ class RedditFeed(LancoCog):
         icon = await self.get_subreddit_icon(submission.subreddit.display_name)
         embed.set_footer(text=f"/r/{submission.subreddit.display_name}", icon_url=icon)
 
-        await channel.send(embed=embed)
+        return await channel.send(embed=embed)
 
 
 async def setup(bot):
