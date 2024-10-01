@@ -18,7 +18,7 @@ class VirusCheck:
         self.api_key = vt_api_key
         self.logger = logging.getLogger(__name__)
 
-    async def check_file(self, file_path: str) -> tuple:
+    async def check_file(self, file_path: str) -> VirusTotalResults:
         """Upload and scan a file with VirusTotal"""
         async with vt.Client(self.api_key) as client:
             with open(file_path, "rb") as f:
@@ -38,4 +38,6 @@ class VirusCheck:
                 url = "https://www.virustotal.com/gui/file/" + file_details.sha256
                 is_safe = completed_analysis.stats["malicious"] == 0
 
-                return VirusTotalResults(md5, file_details.sha256, url, is_safe)
+                return VirusTotalResults(
+                    md5=md5, sha256=file_details.sha256, url=url, is_safe=is_safe
+                )

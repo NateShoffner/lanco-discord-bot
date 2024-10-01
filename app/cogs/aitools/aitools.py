@@ -4,6 +4,7 @@ import os
 import openai
 from cogs.lancocog import LancoCog
 from discord.ext import commands
+from utils.file_downloader import FileDownloader
 
 
 class OpenAI(
@@ -15,6 +16,7 @@ class OpenAI(
         super().__init__(bot)
         self.client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
+        self.file_downloader = FileDownloader()
 
     def encode_image(self, image_path: str):
         with open(image_path, "rb") as image_file:
@@ -31,7 +33,9 @@ class OpenAI(
 
         if is_file:
             # TODO - handle multiple attachments
-            results = await self.download_attachments(ctx.message, self.cache_dir)
+            results = await self.file_downloader.download_attachments(
+                ctx.message, self.cache_dir
+            )
             filename = results[0].filename
             encoded = self.encode_image(filename)
 

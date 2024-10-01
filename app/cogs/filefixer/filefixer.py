@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 from PIL import Image
 from utils.command_utils import is_bot_owner_or_admin
+from utils.file_downloader import FileDownloader
 
 from .models import FileFixerConfig
 
@@ -20,6 +21,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.bot.database.create_tables([FileFixerConfig])
+        self.file_downloader = FileDownloader()
 
     @g.command(
         name="toggle", description="Toggle support for fixing unsupported file types"
@@ -62,7 +64,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
                 extension = att.filename.lower().split(".")[-1]
 
                 if extension in fixers:
-                    downloaded = await self.download_attachments(
+                    downloaded = await self.file_downloader.download_attachments(
                         message, self.cache_dir
                     )
                     fixer = fixers[extension]

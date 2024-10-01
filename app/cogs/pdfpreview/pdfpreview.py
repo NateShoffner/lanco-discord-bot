@@ -6,6 +6,7 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
+from utils.file_downloader import FileDownloader
 from utils.viruscheck import VirusCheck, VirusTotalResults
 
 from .models import PDFPreviewConfig
@@ -20,10 +21,11 @@ class PDFPreview(
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.previews_path = os.path.join(self.get_cog_data_directory(), "Previews")
-        self.virus_check = VirusCheck(os.getenv("VIRUSTOTAL_API_KEY"))
+        self.virus_check = VirusCheck(os.getenv("VIRUS_TOTAL_API_KEY"))
         if not os.path.exists(self.previews_path):
             os.makedirs(self.previews_path)
         self.bot.database.create_tables([PDFPreviewConfig])
+        self.file_downloader = FileDownloader()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -51,10 +53,14 @@ class PDFPreview(
         pdf_filename = None
 
         if pdf_atts:
-            results = await self.download_attachments(message, self.cache_dir)
+            results = await self.file_downloader.download_attachments(
+                message, self.cache_dir
+            )
             pdf_filename = results[0].filename
         elif pdf_links:
-            pdf_filename = await self.download_file(pdf_links[0], self.cache_dir)
+            pdf_filename = await self.file_downloader.download_file(
+                pdf_links[0], self.cache_dir
+            )
 
         if not pdf_filename:
             return
