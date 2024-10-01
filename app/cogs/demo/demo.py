@@ -11,9 +11,9 @@ class Demo(LancoCog, name="Demo", description="Demo cog"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.register_context_menu(
-            name="Test Menu", callback=self.ctx_menu, errback=self.ctx_menu_error
-        )
+        # self.register_context_menu(
+        #    name="Test Menu", callback=self.ctx_menu, errback=self.ctx_menu_error
+        # )
 
     @commands.Cog.listener()
     async def on_ready(self):
