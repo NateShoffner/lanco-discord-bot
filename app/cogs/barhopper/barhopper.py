@@ -28,7 +28,6 @@ class BarHopper(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.bot.database.create_tables([Bar])
         self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.bar_details_cache = cachetools.TTLCache(

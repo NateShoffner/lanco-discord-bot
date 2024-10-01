@@ -1,7 +1,7 @@
 🌹 LancoBot
 ----------------
 
-Discord bot tailored for Lancaster Count, PA.
+General-purpose Discord bot with some tailored features for Lancaster County, PA.
 
 🎉 Features
 ----------------

@@ -14,7 +14,6 @@ class TextGen(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
 
     @textgen_group.command(name="zalgo", description="Generate zalgo text")
     async def zalgo(self, interaction: discord.Interaction, text: str):
