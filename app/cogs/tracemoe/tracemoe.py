@@ -15,20 +15,29 @@ class TraceMoe(
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
+        self.register_context_menu(
+            name="Sauce", callback=self.ctx_menu, errback=self.ctx_menu_error
+        )
 
-    @commands.command(name="sauce", description="Get the anime from a screenshot")
-    async def tracemoe(self, ctx: commands.Context):
-        if not ctx.message.reference:
-            await ctx.send("Please reply to a message with an image")
+    async def ctx_menu(
+        self, interaction: discord.Interaction, message: discord.Message
+    ) -> None:
+        await interaction.channel.typing()
+        embed = await self.process_sauce(message)
+        await interaction.response.send_message(embed=embed)
 
-        message = await ctx.fetch_message(ctx.message.reference.message_id)
+    async def ctx_menu_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        await interaction.response.send_message("An error occurred", ephemeral=True)
 
+    async def process_sauce(self, message: discord.Message) -> discord.Embed:
         download = await self.file_downloader.download_attachments(
             message, self.cache_dir
         )
 
         if not download or len(download) == 0:
-            await ctx.send("No image found")
+            self.logger.error("No files downloaded")
             return
 
         result = await self.send_trace_moe_request(download[0].filename)
@@ -40,8 +49,7 @@ class TraceMoe(
                 self.logger.info(f"Similarity too low: {similarity}")
                 embed = discord.Embed(title="Sauce")
                 embed.description = "No anime found"
-                await ctx.send(embed=embed)
-                return
+                return embed
 
             embed = discord.Embed(title="Sauce")
 
@@ -76,6 +84,14 @@ class TraceMoe(
         else:
             embed = discord.Embed(title="No sauce found")
             embed.description = result["error"]
+        return embed
+
+    @commands.command(name="sauce", description="Get the anime from a screenshot")
+    async def tracemoe(self, ctx: commands.Context):
+        if not ctx.message.reference:
+            await ctx.send("Please reply to a message with an image")
+        message = await ctx.fetch_message(ctx.message.reference.message_id)
+        embed = await self.process_sauce(message)
         await ctx.send(embed=embed)
 
     async def send_trace_moe_request(self, filename):
