@@ -13,7 +13,7 @@ class RedditFeedConfig(BaseModel):
 
 
 class RedditPost(BaseModel):
-    post_id = CharField(primary_key=True)
+    post_id = CharField()
     subreddit = CharField()
     title = CharField()
     permalink = CharField()
@@ -25,3 +25,4 @@ class RedditPost(BaseModel):
 
     class Meta:
         table_name = "reddit_post"
+        primary_key = CompositeKey("post_id", "message_id")

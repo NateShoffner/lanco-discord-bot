@@ -23,7 +23,6 @@ class RedditFeed(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.bot.database.create_tables([RedditFeedConfig, RedditPost])
         self.reddit = asyncpraw.Reddit(
             client_id=os.getenv("REDDIT_ID"),
