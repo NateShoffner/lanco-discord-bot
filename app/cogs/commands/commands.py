@@ -16,7 +16,6 @@ class Commands(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.bot.database.create_tables([CustomCommands])
 
     @commands_group.command(name="create", description="Create a custom command")

@@ -48,7 +48,6 @@ class Facts(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.bot.database.create_tables([Fact])
 
     def get_random_fact(self, guild_id: int = None) -> Fact:

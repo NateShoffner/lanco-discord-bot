@@ -54,7 +54,6 @@ class GeoGuesser(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.location_utils = LocationUtils(self.gmaps)
         self.bot.database.create_tables([LocationModel])

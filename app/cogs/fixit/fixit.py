@@ -19,7 +19,6 @@ class FixIt(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.bot.database.create_tables([FixItConfig])
         session = aiohttp.ClientSession()
         self.client = SeeClickFixClient(session)

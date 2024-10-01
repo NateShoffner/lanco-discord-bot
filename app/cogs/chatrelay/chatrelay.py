@@ -9,7 +9,6 @@ from discord.ext import commands
 class ChatRelay(LancoCog):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
         self.recepient_channel_id = None
 
     @commands.command(name="relay", description="Set the channel to relay messages to")
