@@ -97,7 +97,7 @@ class LancoBot(commands.Bot):
         if handler.example_url:
             for h in self.url_handlers:
                 if h.url_pattern.match(handler.example_url):
-                    self.logger.warning(f"Duplicate url handler: {handler.example_url}")
+                    logger.warning(f"Duplicate url handler: {handler.example_url}")
         self.url_handlers.append(handler)
 
     # TODO allow cogs to declare whether a URL has been properly handled or not
@@ -150,7 +150,7 @@ class LancoBot(commands.Bot):
                     await load_cog(self, cog_def)
 
 
-owner_id = int(os.getenv("OWNER_ID"))
+owner_id = int(os.getenv("OWNER_ID", 0))
 bot = LancoBot(command_prefix=".", intents=intents, owner_id=owner_id)
 
 
@@ -227,6 +227,7 @@ async def status(interaction: discord.Interaction):
         description=f"Various diagnostic information",
         color=0x00FF00,
     )
+
     embed.add_field(name="Python", value=f"{sysv.major}.{sysv.minor}.{sysv.micro}")
     embed.add_field(name="Discord.py", value=f"{discord.__version__}")
     embed.add_field(name="Guilds", value=f"{len(bot.guilds)}")
@@ -257,7 +258,6 @@ async def status(interaction: discord.Interaction):
         embed.add_field(name="Commit", value=f"[{commit[:7]}]({commit_url})")
     else:
         embed.add_field(name="Commit", value=f"{commit[:7]}")
-
 
     embed.add_field(name="Message Cache", value=f"{len(bot.cached_messages)}")
     embed.add_field(name="Voice Clients", value=f"{len(bot.voice_clients)}")

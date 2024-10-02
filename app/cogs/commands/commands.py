@@ -4,7 +4,6 @@ from discord import app_commands
 from discord.ext import commands
 from reactionmenu import ReactionButton, ReactionMenu
 from utils.command_utils import is_bot_owner_or_admin
-from utils.common import get_emoji_for_character
 from utils.tracked_message import track_message_ids
 
 from .models import CustomCommands
