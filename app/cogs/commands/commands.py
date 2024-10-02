@@ -98,7 +98,7 @@ class Commands(LancoCog):
 
         menu = ReactionMenu(interaction, menu_type=ReactionMenu.TypeEmbed)
 
-        COMMANDS_PER_PAGE = 5
+        COMMANDS_PER_PAGE = 8
         commands = list(commands)
         commands.sort(key=lambda x: x.command_name)
 
@@ -128,8 +128,13 @@ class Commands(LancoCog):
             menu.add_page(embed)
 
         if len(commands) > COMMANDS_PER_PAGE:
+            menu.add_button(ReactionButton.go_to_first_page())
             menu.add_button(ReactionButton.back())
             menu.add_button(ReactionButton.next())
+            menu.add_button(ReactionButton.go_to_page())
+            menu.add_button(ReactionButton.go_to_last_page())
+
+        menu.add_button(ReactionButton.end_session())
 
         await menu.start()
 
