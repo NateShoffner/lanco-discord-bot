@@ -42,8 +42,6 @@ class Incidents(LancoCog):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot = bot
-
         self.bot.database.create_tables([IncidentsGlobalConfig, IncidentConfig])
 
         gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
