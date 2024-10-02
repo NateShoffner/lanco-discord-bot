@@ -247,6 +247,13 @@ async def status(interaction: discord.Interaction):
     else:
         embed.add_field(name="Commit", value=f"{commit[:7]}")
 
+
+    embed.add_field(name="Message Cache", value=f"{len(bot.cached_messages)}")
+    embed.add_field(name="Voice Clients", value=f"{len(bot.voice_clients)}")
+
+    embed.add_field(name="Emojis", value=f"{len(bot.emojis)}")
+    embed.add_field(name="Stickers", value=f"{len(bot.stickers)}")
+
     version = get_bot_version()
     embed.set_footer(text=f"Version: {version}")
 
