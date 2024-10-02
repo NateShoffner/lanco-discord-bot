@@ -2,7 +2,9 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from reactionmenu import ReactionButton, ReactionMenu
 from utils.command_utils import is_bot_owner_or_admin
+from utils.common import get_emoji_for_character
 from utils.tracked_message import track_message_ids
 
 from .models import CustomCommands
@@ -95,20 +97,42 @@ class Commands(LancoCog):
             await interaction.response.send_message("No commands found")
             return
 
-        # TODO pagination
-        embed = discord.Embed(title="Custom commands for this server")
+        menu = ReactionMenu(interaction, menu_type=ReactionMenu.TypeEmbed)
 
-        desc = ""
-        for i, command in enumerate(commands):
-            desc += f"{i+1}: {command.command_name}"
-            if command.channel_id:
-                channel = self.bot.get_channel(command.channel_id)
-                desc += f" (#{channel.name})"
-            desc += "\n"
+        COMMANDS_PER_PAGE = 5
+        commands = list(commands)
+        commands.sort(key=lambda x: x.command_name)
 
-        embed.description = desc
+        prefix = self.bot.command_prefix
 
-        await interaction.response.send_message(embed=embed)
+        for i in range(0, len(commands), COMMANDS_PER_PAGE):
+            page_commands = commands[i : i + COMMANDS_PER_PAGE]
+
+            embed = discord.Embed(
+                title=f"Custom commands for {interaction.guild.name}: {len(commands)}"
+            )
+
+            for command in page_commands:
+                command_value = command.command_response
+
+                if command.channel_id:
+                    channel = self.bot.get_channel(command.channel_id)
+                    if channel:
+                        command_value += f"\n(Only available in {channel.mention})"
+
+                embed.add_field(
+                    name=f"{prefix}{command.command_name}",
+                    value=command_value,
+                    inline=False,
+                )
+
+            menu.add_page(embed)
+
+        if len(commands) > COMMANDS_PER_PAGE:
+            menu.add_button(ReactionButton.back())
+            menu.add_button(ReactionButton.next())
+
+        await menu.start()
 
     @commands.Cog.listener()
     @track_message_ids()
@@ -116,10 +140,10 @@ class Commands(LancoCog):
         # TODO commands should perhaps be registered within the bot, but this works for now
 
         if message.author.bot:
-            return
+            return None
 
         if isinstance(message.channel, discord.DMChannel):
-            return
+            return None
 
         if message.content.startswith(self.bot.command_prefix):
             command_name = message.content[len(self.bot.command_prefix) :]

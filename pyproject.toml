@@ -36,8 +36,8 @@ pillow-heif = "^0.18.0"
 logtail-python = "^0.3.1"
 pydub = "^0.25.1"
 jikanpy = "^4.3.2"
-openai-whisper = "20231117"
 seeclickfix = "^0.1.0"
+reactionmenu = "^3.1.7"
 
 
 [tool.poetry.group.dev.dependencies]
