@@ -176,11 +176,22 @@ def init_logging():
 @bot.command(name="sync")
 @commands.is_owner()
 async def sync(ctx):
+
+    embed = discord.Embed(
+        title="Syncing Commands",
+        description="Wait a moment...",
+        color=discord.Color.dark_gray(),
+    )
+
+    msg = await ctx.send(embed=embed)
+
     logger.info("Syncing commands")
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} commands")
-        await ctx.send(f"Synced {len(synced)} commands")
+        embed.description = f"Synced {len(synced)} commands"
+        embed.color = discord.Color.green()
+        await msg.edit(embed=embed)
     except Exception as e:
         logger.error(e)
 
