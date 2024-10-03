@@ -72,19 +72,24 @@ class Incidents(LancoCog):
     @commands.Cog.listener()
     async def on_ready(self):
         await super().on_ready()
-        self.get_incidents.change_interval(seconds=5)
-        self.get_incidents.start()
+        self.get_incidents_loop.change_interval(seconds=5)
+        self.get_incidents_loop.start()
 
     @tasks.loop(seconds=10)
+    async def get_incidents_loop(self):
+        incidents = await self.get_incidents()
+        if incidents:
+            await self.process_incidents(incidents)
+            self.active_incidents = incidents
+
     async def get_incidents(self):
         self.logger.info(f"Getting incidents via {self.current_client.name}")
+        incidents = []
         async with aiohttp.ClientSession() as session:
             try:
                 self.last_sync_attempt = datetime.datetime.now()
-                if isinstance(self.current_client, ArcGISClient):
-                    incidents = await self.current_client.get_incidents(
-                        session, throw_on_error=True
-                    )
+                if self.is_using_arcgis():
+                    incidents = await self.current_client.get_incidents(session)
                 else:
                     incidents = await self.current_client.get_incidents(session)
                 self.last_successful_sync = datetime.datetime.now()
@@ -92,51 +97,73 @@ class Incidents(LancoCog):
                 self.logger.error(f"Error getting incidents: {e}")
                 return
 
+        return incidents
+
+    async def process_incidents(self, incidents):
+        feed_configs = IncidentConfig.select().where(IncidentConfig.enabled == True)
+
+        if not feed_configs:
+            return
+
+        for feed_config in feed_configs:
             for incident in incidents:
-                subbed_guilds = IncidentConfig.select().where(
-                    IncidentConfig.enabled == True
-                )
+                is_new = await self.is_new_incident(incident, feed_config.channel_id)
 
-                for guild in subbed_guilds:
-                    if isinstance(self.current_client, ArcGISClient):
-                        # TODO shouldn't need to do this after upstream fix is applied fix out of order incidents
-                        if (
-                            guild.last_known_incident
-                            and guild.last_known_incident >= incident.number
-                        ):
-                            continue
+                if is_new:
+                    self.logger.info(
+                        f"New incident: {incident.number} for {feed_config.channel_id}"
+                    )
 
-                        self.logger.info(
-                            f"New incident: {incident.number} for {guild.guild_id}"
-                        )
-
-                        guild.last_known_incident = incident.number
-                        guild.save()
-
-                    else:
-                        # convert the incident date to a timestamp
-                        incident_timestamp = incident.date.timestamp()
-
-                        if (
-                            guild.latest_incident_timestamp
-                            and guild.latest_incident_timestamp >= incident_timestamp
-                        ):
-                            continue
-
-                        self.logger.info(
-                            f"New incident: {incident.description} for {guild.guild_id}"
-                        )
-
-                        guild.latest_incident_timestamp = incident_timestamp
-                        guild.save()
-
-                    # TODO possible edge case where this embed fails but the incident was logged in the db already (due to having to support multiple clients)
                     embed, map_attachment = await self.build_incident_embed(incident)
-                    message = await self.bot.get_channel(guild.channel_id).send(
+                    message = await self.bot.get_channel(feed_config.channel_id).send(
                         file=map_attachment, embed=embed
                     )
 
-            self.active_incidents = incidents
+                    if self.is_using_arcgis():
+                        feed_config.last_known_incident = incident.number
+                        feed_config.save()
+                    else:
+                        incident_timestamp = incident.date.timestamp()
+                        feed_config.latest_incident_timestamp = incident_timestamp
+                        feed_config.save()
+
+    def is_using_arcgis(self) -> bool:
+        return isinstance(self.current_client, ArcGISClient)
+
+    async def is_new_incident(self, incident: Incident, channel_id: int) -> bool:
+        """Determines if the given incident is new for the given guild
+
+        :param incident: The incident to check
+        :param channel_id: The feed channel id
+
+        """
+
+        # if it's an ArcGIS incident, we can just check the incident number to see if it's newer
+        if self.is_using_arcgis():
+            guild_config = IncidentConfig.get_or_none(
+                channel_id=channel_id, enabled=True
+            )
+            if not guild_config:
+                return False
+
+            if not guild_config.last_known_incident:
+                return True
+
+            return guild_config.last_known_incident < incident.number
+
+        # if it's a non-ArcGIS incident, we need to check the timestamp
+        else:
+            guild_config = IncidentConfig.get_or_none(
+                channel_id=channel_id, enabled=True
+            )
+            if not guild_config:
+                return False
+
+            if not guild_config.latest_incident_timestamp:
+                return True
+
+            incident_timestamp = incident.date.timestamp()
+            return guild_config.latest_incident_timestamp < incident_timestamp
 
     async def build_incident_embed(self, incident: Incident) -> discord.Embed:
         """Builds an embed for the given incident
@@ -202,7 +229,7 @@ class Incidents(LancoCog):
             inline=True,
         )
 
-        if isinstance(incident, ArcGISIncident):
+        if self.is_using_arcgis():
             embed.set_footer(text=f"#{incident.number} • Priority: {incident.priority}")
 
         embed.set_image(url="attachment://map.png")
@@ -215,7 +242,7 @@ class Incidents(LancoCog):
         map_width = 400
         map_height = 300
 
-        if isinstance(incident, ArcGISIncident):
+        if self.is_using_arcgis():
             lat = incident.coordinates.latitude
             lng = incident.coordinates.longitude
         else:
@@ -237,7 +264,7 @@ class Incidents(LancoCog):
 
         url = f"https://maps.googleapis.com/maps/api/staticmap?{urlencode(url_params)}"
 
-        if isinstance(incident, ArcGISIncident):
+        if self.is_using_arcgis():
             filename = f"{incident.number}.png"
         else:
             filename = f"ts_{incident.date.timestamp()}.png"
@@ -316,7 +343,7 @@ class Incidents(LancoCog):
 
     @incidents_group.command(name="view", description="View incident details")
     async def view(self, interaction: discord.Interaction, incident_number: int):
-        if not isinstance(self.current_client, ArcGISClient):
+        if not self.is_using_arcgis():
             await interaction.response.send_message(
                 "This command is only available when using the ArcGIS client"
             )
