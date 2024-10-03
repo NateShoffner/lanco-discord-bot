@@ -261,8 +261,12 @@ async def status(interaction: discord.Interaction):
     embed.add_field(name="Message Cache", value=f"{len(bot.cached_messages)}")
     embed.add_field(name="Voice Clients", value=f"{len(bot.voice_clients)}")
 
+    application_emojis = await bot.fetch_application_emojis()
     embed.add_field(name="Emojis", value=f"{len(bot.emojis)}")
+    embed.add_field(name="App Emojis", value=f"{len(application_emojis)}")
     embed.add_field(name="Stickers", value=f"{len(bot.stickers)}")
+
+    embed.add_field(name="URL Handlers", value=f"{len(bot.url_handlers)}")
 
     version = get_bot_version()
     embed.set_footer(text=f"Version: {version}")
