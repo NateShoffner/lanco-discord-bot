@@ -14,7 +14,6 @@ from .models import FileFixerConfig
 
 
 class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
-
     g = app_commands.Group(name="filefixer", description="FileFixer commands")
 
     def __init__(self, bot: commands.Bot):
@@ -45,7 +44,6 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
             return
 
         if message.attachments:
-
             config = FileFixerConfig.get_or_none(guild_id=message.guild.id)
             if not config or not config.enabled:
                 return

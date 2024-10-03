@@ -58,7 +58,6 @@ class FixIt(LancoCog):
 
         for issue in issues_response.issues:
             for fixit_config in fixit_configs:
-
                 if (
                     fixit_config.last_known_issue
                     and issue.id <= fixit_config.last_known_issue

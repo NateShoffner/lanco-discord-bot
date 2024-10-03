@@ -13,7 +13,6 @@ class VirusTotalResults(BaseModel):
 
 
 class VirusCheck:
-
     def __init__(self, vt_api_key: str):
         self.api_key = vt_api_key
         self.logger = logging.getLogger(__name__)

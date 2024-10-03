@@ -8,7 +8,6 @@ from utils.channel_lock import command_channel_lock
 
 
 class Demo(LancoCog, name="Demo", description="Demo cog"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         # self.register_context_menu(

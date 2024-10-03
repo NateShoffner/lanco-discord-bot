@@ -30,7 +30,6 @@ def track_message_ids():
     def decorator(func):
         @wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
-
             create_tables()
 
             # Call the original command
@@ -53,7 +52,6 @@ def ignore_if_referenced_message_is_tracked():
     def decorator(func):
         @wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
-
             msg = None
 
             if isinstance(ctx, discord.Message):

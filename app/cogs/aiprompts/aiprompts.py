@@ -12,7 +12,6 @@ from .models import AIPromptConfig
 
 
 class PromptModal(discord.ui.Modal, title="Prompt Info"):
-
     name_input = discord.ui.TextInput(
         label="Enter a command name:",
         style=discord.TextStyle.short,
@@ -90,7 +89,6 @@ class OpenAIPrompts(
         temperature: int = 0,
         n: int = 1,
     ) -> str:
-
         messages = []
 
         if ai_name and user_message:

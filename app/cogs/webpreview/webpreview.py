@@ -19,7 +19,6 @@ class PageDetails(BaseModel):
 
 
 class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
-
     g = app_commands.Group(name="webpreview", description="Web preview commands")
 
     def __init__(self, bot: commands.Bot):

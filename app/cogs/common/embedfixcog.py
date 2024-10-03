@@ -82,7 +82,6 @@ class EmbedFixCog(LancoCog):
         for pr in self.patterns:
             match = pr.pattern.search(message.content)
             if match:
-
                 original_url = match.group(0)
                 fixed_url = original_url.replace(pr.original, pr.replacement)
 

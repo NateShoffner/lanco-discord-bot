@@ -19,7 +19,6 @@ class Horrorscope(BaseModel):
 
 
 class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
-
     g = app_commands.Group(name="horrorscope", description="Horrorscope commands")
 
     def __init__(self, bot: commands.Bot):
@@ -90,9 +89,7 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
         url = f"https://www.horoscope.com/us/horoscopes/general/horoscope-general-daily-today.aspx?sign={signs[sign.lower()]}"
 
         async with aiohttp.ClientSession() as session:
-
             async with session.get(url) as response:
-
                 if response.status != 200:
                     return None
 

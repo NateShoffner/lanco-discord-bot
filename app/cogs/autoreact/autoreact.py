@@ -11,7 +11,6 @@ from .models import AutoReactConfig
 
 
 class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
-
     g = app_commands.Group(name="autoreact", description="AutoReact commands")
 
     def __init__(self, bot: commands.Bot):
@@ -23,7 +22,6 @@ class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
     async def set_auto_react(
         self, interaction: discord.Interaction, phrase: str, reaction: str
     ):
-
         if not is_emoji(reaction):
             await interaction.response.send_message(
                 "Please provide a valid emoji", ephemeral=True
@@ -43,7 +41,6 @@ class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
     async def set_auto_react_regex(
         self, interaction: discord.Interaction, pattern: str, reaction: str
     ):
-
         if not is_emoji(reaction):
             await interaction.response.send_message(
                 "Please provide a valid emoji", ephemeral=True

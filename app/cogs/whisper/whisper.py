@@ -5,7 +5,6 @@ from discord.ext import commands
 
 
 class Whisper(LancoCog, name="Whisper", description="Whisper commands"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

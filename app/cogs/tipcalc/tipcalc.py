@@ -6,7 +6,6 @@ from discord.ext import commands
 
 
 class TipSuggestion:
-
     def __init__(self, bill_amount: float, tip_percentage: float):
         self.bill_amount = bill_amount
         self.tip_percentage = tip_percentage
@@ -22,7 +21,6 @@ class TipSuggestion:
 
 
 class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

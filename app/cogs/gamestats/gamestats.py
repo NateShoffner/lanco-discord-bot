@@ -5,7 +5,6 @@ from discord.ext import commands
 
 
 class GameStats(LancoCog, name="GameStats", description="Game stats for the server"):
-
     game_stats_group = app_commands.Group(
         name="gamestats", description="Game stat commands"
     )
@@ -45,7 +44,6 @@ class GameStats(LancoCog, name="GameStats", description="Game stats for the serv
         members = ctx.guild.members
         playing_members = []
         for member in members:
-
             if member.bot:
                 continue
 

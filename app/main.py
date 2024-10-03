@@ -176,7 +176,6 @@ def init_logging():
 @bot.command(name="sync")
 @commands.is_owner()
 async def sync(ctx):
-
     embed = discord.Embed(
         title="Syncing Commands",
         description="Wait a moment...",

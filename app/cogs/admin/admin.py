@@ -4,7 +4,6 @@ from utils.command_utils import is_bot_owner_or_admin
 
 
 class Admin(LancoCog, name="Admin", description="Administrative commands"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

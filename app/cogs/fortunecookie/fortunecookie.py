@@ -7,7 +7,6 @@ from discord.ext import commands
 
 
 class FortuneCookie(LancoCog, name="FortuneCookie", description="FortuneCookie cog"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

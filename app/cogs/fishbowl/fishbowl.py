@@ -8,7 +8,6 @@ from .models import FishbowlConfig
 
 
 class Fishbowl(LancoCog, name="Fishbowl", description="Fishbowl cog"):
-
     g = app_commands.Group(name="fishbowl", description="Fishbowl commands")
 
     def __init__(self, bot: commands.Bot):

@@ -33,7 +33,6 @@ def get_cog_def(name: str, cogs_dir: str) -> CogDefinition:
 
 
 class LancoCog(commands.Cog, name="LancoCog", description="Base class for all cogs"):
-
     @property
     def bot(self) -> commands.Bot:
         return self._bot
