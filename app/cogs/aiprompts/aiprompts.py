@@ -33,10 +33,11 @@ class PromptModal(discord.ui.Modal, title="Prompt Info"):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         edit = self.config is not None
+        name = self.name_input.value
         if not edit:
             config, created = AIPromptConfig.get_or_create(
                 guild_id=interaction.guild.id,
-                name=self.name_input.value,
+                name=self.name,
                 prompt=self.prompt_input.value,
             )
             self.config = config
@@ -45,7 +46,7 @@ class PromptModal(discord.ui.Modal, title="Prompt Info"):
         self.config.save()
 
         await interaction.response.send_message(
-            "AI Prompt added" if not edit else "AI Prompt updated"
+            f"AI Prompt added: {name}" if not edit else f"AI Prompt updated: {name}"
         )
 
 
@@ -136,6 +137,11 @@ class OpenAIPrompts(
         prompts = AIPromptConfig.select().where(
             AIPromptConfig.guild_id == interaction.guild.id
         )
+
+        if not prompts:
+            await interaction.response.send_message("No prompts found", ephemeral=True)
+            return
+
         descs = [f"**{p.name}**: {p.prompt}" for p in prompts]
 
         embed = discord.Embed(title="AI prompts for this server")
