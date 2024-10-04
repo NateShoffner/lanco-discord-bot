@@ -1,7 +1,7 @@
 import math
 
 from cogs.lancocog import LancoCog
-from discord import Embed
+from discord import Embed, Message
 from discord.ext import commands
 
 
@@ -26,8 +26,23 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
 
     @commands.hybrid_command()
     async def tip(
-        self, ctx: commands.Context, bill_amount: str, tip_percentage: str = None
+        self, ctx: commands.Context, bill_amount: str = None, tip_percentage: str = None
     ):
+
+        def prompt_for_bill_amount(m: Message):
+            return m.author == ctx.author and m.channel == ctx.channel
+
+        if bill_amount is None:
+            try:
+                await ctx.send(f"{ctx.author.mention} Please provide a bill amount.")
+                prompt_msg = await self.bot.wait_for(
+                    "message", check=prompt_for_bill_amount, timeout=30
+                )
+                bill_amount = prompt_msg.content
+            except Exception as e:
+                await ctx.send(f"{ctx.author.mention} Timed out. Please try again.")
+                return
+
         try:
             bill_amount = float(bill_amount.replace("$", ""))
         except ValueError:
