@@ -1,10 +1,12 @@
 import os
+from cmd import PROMPT
 
 import discord
 from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
+from reactionmenu import ReactionButton, ReactionMenu
 from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin
 
@@ -37,7 +39,7 @@ class PromptModal(discord.ui.Modal, title="Prompt Info"):
         if not edit:
             config, created = AIPromptConfig.get_or_create(
                 guild_id=interaction.guild.id,
-                name=self.name,
+                name=name,
                 prompt=self.prompt_input.value,
             )
             self.config = config
@@ -142,11 +144,23 @@ class OpenAIPrompts(
             await interaction.response.send_message("No prompts found", ephemeral=True)
             return
 
-        descs = [f"**{p.name}**: {p.prompt}" for p in prompts]
+        menu = ReactionMenu(interaction, menu_type=ReactionMenu.TypeEmbed)
 
-        embed = discord.Embed(title="AI prompts for this server")
-        embed.description = "\n".join(descs)
-        await interaction.response.send_message(embed=embed)
+        PROMPTS_PER_PAGE = 5
+        for i in range(0, len(prompts), PROMPTS_PER_PAGE):
+            page = prompts[i : i + PROMPTS_PER_PAGE]
+            embed = discord.Embed(title="AI prompts for this server")
+            embed.description = "\n".join([f"**{p.name}**: {p.prompt}\n" for p in page])
+            menu.add_page(embed)
+
+        if len(prompts) > PROMPTS_PER_PAGE:
+            menu.add_button(ReactionButton.go_to_first_page())
+            menu.add_button(ReactionButton.back())
+            menu.add_button(ReactionButton.next())
+            menu.add_button(ReactionButton.go_to_page())
+            menu.add_button(ReactionButton.go_to_last_page())
+
+        await menu.start()
 
     @g.command(name="remove", description="Remove an AI prompt")
     @is_bot_owner_or_admin()
