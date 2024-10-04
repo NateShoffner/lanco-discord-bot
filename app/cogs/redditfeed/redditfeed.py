@@ -196,10 +196,15 @@ class RedditFeed(LancoCog):
         """
         permalink = f"https://reddit.com{submission.permalink}"
 
+        # limit to 4096 characters to avoid Discord embed size limit
+        description = submission.selftext[:4096]
+        if len(submission.selftext) >= 4096:
+            description = f"{description[:4093]}..."
+
         embed = discord.Embed(
             title=submission.title,
             url=permalink,
-            description=submission.selftext,
+            description=description,
             color=discord.Color(0xFF0000),
         )
 
