@@ -190,6 +190,12 @@ class OpenAIPrompts(
 
             await message.channel.send(ai_response)
 
+    @commands.command(name="ai", description="Generic AI prompt")
+    async def ai(self, ctx: commands.Context):
+        prompt = await self.get_user_prompt(ctx)
+        ai_response = await self.prompt_openai("ai", ctx.message, prompt)
+        await ctx.send(ai_response)
+
     @commands.command(name="eli5", description="Explain like I'm 5")
     async def eli5(self, ctx: commands.Context):
         question = await self.get_user_prompt(ctx)
