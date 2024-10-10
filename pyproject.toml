@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Nate Shoffner <nate.shoffner@gmail.com>"]
 readme = "README.md"
-packages = [{include = "app"}]
+packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -38,6 +38,7 @@ pydub = "^0.25.1"
 seeclickfix = "^0.1.0"
 reactionmenu = "^3.1.7"
 jikanpy-v4 = "^1.0.2"
+aiogoogle = "^5.13.2"
 
 
 [tool.poetry.group.dev.dependencies]
