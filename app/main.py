@@ -16,6 +16,7 @@ from logtail import LogtailHandler
 from peewee import *
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
+from utils.network_utils import get_external_ip
 from watchfiles import Change, awatch
 
 load_dotenv()
@@ -215,6 +216,31 @@ async def ping(interaction: discord.Interaction):
     lat = round(bot.latency * 1000)
     embed = discord.Embed(title="Pong!", description=f"🏓 {lat} ms", color=0x00FF00)
     await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="netstats", description="Show network stats")
+async def netstats(interaction: discord.Interaction):
+
+    is_owner = await bot.is_owner(interaction.user)
+
+    embed = discord.Embed(
+        title="Network Stats",
+        description="Various network stats",
+        color=0x00FF00,
+    )
+
+    ip = await get_external_ip()
+
+    if is_owner:
+        embed.add_field(name="External IP", value=ip, inline=False)
+    else:
+        embed.add_field(name="External IP", value="🔒 Hidden", inline=False)
+
+    embed.add_field(
+        name="Latency", value=f"{round(bot.latency * 1000)}ms", inline=False
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="status", description="Show bot status")
