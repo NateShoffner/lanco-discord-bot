@@ -58,7 +58,7 @@ class EmbedFixCog(LancoCog):
         self.skip_if_handled_by_discord = skip_if_handled_by_discord
         self.wait_time = wait_time
         self.bot.database.create_tables([self.config_model])
-        self.fixed_messages = {} # message_id -> fixed_message_id
+        self.fixed_messages = {}  # message_id -> fixed_message_id
 
     async def toggle(self, interaction: discord.Interaction):
         config, created = self.config_model.get_or_create(guild_id=interaction.guild.id)
@@ -111,11 +111,9 @@ class EmbedFixCog(LancoCog):
                 if message.channel.permissions_for(message.guild.me).manage_messages:
                     await message.edit(suppress=True)
 
-
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         fixed_message_id = self.fixed_messages.get(message.id)
         if fixed_message_id:
             fixed_message = await message.channel.fetch_message(fixed_message_id)
             await fixed_message.delete()
-        
