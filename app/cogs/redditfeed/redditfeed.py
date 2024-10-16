@@ -222,9 +222,10 @@ class RedditFeed(LancoCog):
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
-        embed.set_footer(text=f"/r/{submission.subreddit.display_name}", icon_url=icon)
+        embed.set_footer(text=f"/r/{submission.subreddit.display_name}")
+        embed.set_thumbnail(url=icon)
 
-        include_image = False
+        manual_blur = False
         if hasattr(submission, "preview"):
             high_res = submission.preview["images"][0]["source"]["url"]
 
@@ -242,7 +243,7 @@ class RedditFeed(LancoCog):
                 blur_image(image_path, blurred_path, 75)
                 filename = os.path.basename(blurred_path)
                 file = discord.File(blurred_path, filename=filename)
-                include_image = True
+                manual_blur = True
                 embed.set_image(url=f"attachment://{filename}")
 
                 # cleanup
@@ -251,7 +252,7 @@ class RedditFeed(LancoCog):
             else:
                 embed.set_image(url=high_res)
 
-        if include_image:
+        if manual_blur:
             return await channel.send(embed=embed, file=file)
         else:
             return await channel.send(embed=embed)
