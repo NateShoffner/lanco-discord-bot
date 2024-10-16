@@ -28,21 +28,31 @@ if os.getenv("LOGTAIL_TOKEN"):
 
 intents = discord.Intents.all()
 
-db_path = os.getenv("SQLITE_DB")
-db_dir = os.path.dirname(db_path)
-if not os.path.exists(db_dir):
-    os.makedirs(db_dir)
+sqlite_path = os.getenv("SQLITE_DB")
 
-database = SqliteDatabase(db_path)
+if sqlite_path:
+    logger.info(f"Using SQLite database: {sqlite_path}")
+    db_dir = os.path.dirname(sqlite_path)
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
+
+    database = SqliteDatabase(sqlite_path)
+
+else:
+    logger.info("Using MySQL database")
+    database = MySQLDatabase(
+        os.getenv("MYSQL_DB"),
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        host=os.getenv("MYSQL_HOST"),
+        port=int(os.getenv("MYSQL_PORT", 3306)),
+    )
+
 database_proxy.initialize(database)
 database.connect()
 
-if not os.path.exists("./data"):
-    os.makedirs("./data")
-
-if not os.path.exists("./logs"):
-    os.makedirs("./logs")
-
+DATA_DIR = "data"
+LOGS_DIR = "logs"
 COGS_DIR = "app/cogs"
 
 
