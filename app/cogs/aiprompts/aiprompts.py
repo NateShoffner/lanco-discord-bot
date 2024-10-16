@@ -160,6 +160,8 @@ class OpenAIPrompts(
             menu.add_button(ReactionButton.go_to_page())
             menu.add_button(ReactionButton.go_to_last_page())
 
+        menu.add_button(ReactionButton.end_session())
+
         await menu.start()
 
     @g.command(name="remove", description="Remove an AI prompt")
