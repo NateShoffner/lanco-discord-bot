@@ -225,6 +225,8 @@ class RedditFeed(LancoCog):
         embed.set_footer(text=f"/r/{submission.subreddit.display_name}")
         embed.set_thumbnail(url=icon)
 
+        temp_files = []
+
         manual_blur = False
         if hasattr(submission, "preview"):
             high_res = submission.preview["images"][0]["source"]["url"]
@@ -235,27 +237,29 @@ class RedditFeed(LancoCog):
                 image_path = await self.file_downloader.download_file(
                     high_res, self.cache_dir
                 )
+                temp_files.append(image_path)
 
                 self.logger.info(f"Blurring image: {image_path}")
                 blurred_path = self.file_downloader.get_random_filename(
                     high_res, self.cache_dir
                 )
                 blur_image(image_path, blurred_path, 75)
+                temp_files.append(blurred_path)
                 filename = os.path.basename(blurred_path)
                 file = discord.File(blurred_path, filename=filename)
                 manual_blur = True
                 embed.set_image(url=f"attachment://{filename}")
-
-                # cleanup
-                os.remove(image_path)
-                os.remove(blurred_path)
             else:
                 embed.set_image(url=high_res)
 
         if manual_blur:
-            return await channel.send(embed=embed, file=file)
+            await channel.send(embed=embed, file=file)
         else:
-            return await channel.send(embed=embed)
+            await channel.send(embed=embed)
+
+        # cleanup
+        for f in temp_files:
+            os.remove(f)
 
 
 async def setup(bot):
