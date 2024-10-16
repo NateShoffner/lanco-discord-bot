@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 from reactionmenu import ReactionButton, ReactionMenu
 from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin
+from utils.tracked_message import track_message_ids
 
 from .models import AIPromptConfig
 
@@ -176,6 +177,7 @@ class OpenAIPrompts(
         await interaction.response.send_message("Prompt removed", ephemeral=True)
 
     @commands.Cog.listener()
+    @track_message_ids()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
@@ -204,7 +206,7 @@ class OpenAIPrompts(
                 prompt_config.name, message, formatted_message
             )
 
-            await message.channel.send(ai_response)
+            return await message.channel.send(ai_response)
 
     @commands.command(name="ai", description="Generic AI prompt")
     async def ai(self, ctx: commands.Context):
