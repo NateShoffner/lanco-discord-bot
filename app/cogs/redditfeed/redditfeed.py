@@ -9,6 +9,8 @@ from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
 from utils.command_utils import is_bot_owner_or_admin
+from utils.file_downloader import FileDownloader
+from utils.image_utils import blur_image
 
 from .models import RedditFeedConfig, RedditPost
 
@@ -32,6 +34,8 @@ class RedditFeed(LancoCog):
         self.subreddit_icon_cache = cachetools.TTLCache(
             maxsize=100, ttl=60 * 60 * 24
         )  # 24 hours
+        self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
+        self.file_downloader = FileDownloader()
 
     async def cog_load(self):
         self.poll.start()
@@ -201,17 +205,15 @@ class RedditFeed(LancoCog):
         if len(submission.selftext) >= 4096:
             description = f"{description[:4093]}..."
 
+        nsfw = submission.over_18 or submission.spoiler
+        icon = await self.get_subreddit_icon(submission.subreddit.display_name)
+
         embed = discord.Embed(
             title=submission.title,
             url=permalink,
             description=description,
             color=discord.Color(0xFF0000),
         )
-
-        nsfw = submission.over_18 or submission.spoiler
-        if hasattr(submission, "preview") and not nsfw:
-            high_res = submission.preview["images"][0]["source"]["url"]
-            embed.set_image(url=high_res)
 
         author_url = f"https://reddit.com/u/{submission.author}"
         embed.add_field(
@@ -220,10 +222,39 @@ class RedditFeed(LancoCog):
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
-        icon = await self.get_subreddit_icon(submission.subreddit.display_name)
         embed.set_footer(text=f"/r/{submission.subreddit.display_name}", icon_url=icon)
 
-        return await channel.send(embed=embed)
+        include_image = False
+        if hasattr(submission, "preview"):
+            high_res = submission.preview["images"][0]["source"]["url"]
+
+            if nsfw:
+                # blur the image, save, and re-upload
+                self.logger.info(f"Downloading image: {high_res}")
+                image_path = await self.file_downloader.download_file(
+                    high_res, self.cache_dir
+                )
+
+                self.logger.info(f"Blurring image: {image_path}")
+                blurred_path = self.file_downloader.get_random_filename(
+                    high_res, self.cache_dir
+                )
+                blur_image(image_path, blurred_path, 75)
+                filename = os.path.basename(blurred_path)
+                file = discord.File(blurred_path, filename=filename)
+                include_image = True
+                embed.set_image(url=f"attachment://{filename}")
+
+                # cleanup
+                os.remove(image_path)
+                os.remove(blurred_path)
+            else:
+                embed.set_image(url=high_res)
+
+        if include_image:
+            return await channel.send(embed=embed, file=file)
+        else:
+            return await channel.send(embed=embed)
 
 
 async def setup(bot):

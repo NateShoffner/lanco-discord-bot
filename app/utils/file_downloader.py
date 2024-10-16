@@ -20,18 +20,23 @@ class FileDownloader:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
+    def get_random_filename(self, url: str, dir: str) -> str:
+        """Get a random filename based on the URL"""
+        random_uuid = uuid.uuid4()
+        ext = url.split(".")[-1].split("?")[0]
+        random_filename = os.path.join(dir, f"{random_uuid}.{ext}")
+        return random_filename
+
     async def download_file(self, url: str, dir: str) -> str:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.read()
-                    random_uuid = uuid.uuid4()
 
                     if not os.path.exists(dir):
                         os.makedirs(dir)
 
-                    ext = url.split(".")[-1].split("?")[0]
-                    filename = os.path.join(dir, f"{random_uuid}.{ext}")
+                    filename = self.get_random_filename(url, dir)
                     with open(filename, "wb") as f:
                         f.write(data)
 
