@@ -228,6 +228,7 @@ class RedditFeed(LancoCog):
         temp_files = []
 
         manual_blur = False
+        msg = None
         if hasattr(submission, "preview"):
             high_res = submission.preview["images"][0]["source"]["url"]
 
@@ -253,13 +254,15 @@ class RedditFeed(LancoCog):
                 embed.set_image(url=high_res)
 
         if manual_blur:
-            await channel.send(embed=embed, file=file)
+            msg = await channel.send(embed=embed, file=file)
         else:
-            await channel.send(embed=embed)
+            msg = await channel.send(embed=embed)
 
         # cleanup
         for f in temp_files:
             os.remove(f)
+
+        return msg
 
 
 async def setup(bot):
