@@ -3,13 +3,14 @@ import datetime
 import logging
 import os
 from dataclasses import dataclass
+from enum import Enum
 from logging.handlers import TimedRotatingFileHandler
 from sys import version_info as sysv
 from typing import Optional
 
 import discord
 from cogs.lancocog import CogDefinition, LancoCog, UrlHandler, get_cog_def
-from db import database_proxy
+from db import DatabaseType, database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
@@ -28,18 +29,26 @@ if os.getenv("LOGTAIL_TOKEN"):
 
 intents = discord.Intents.all()
 
-sqlite_path = os.getenv("SQLITE_DB")
+db_type = None
+db_type_str = os.getenv("DB_TYPE", "sqlite")
 
-if sqlite_path:
-    logger.info(f"Using SQLite database: {sqlite_path}")
+try:
+    db_type = DatabaseType.from_str(db_type_str)
+    logger.info(f"Using {db_type.name} database")
+except ValueError as e:
+    logger.error(e)
+    exit(1)
+
+if db_type == DatabaseType.SQLITE:
+    sqlite_path = os.getenv("SQLITE_DB")
     db_dir = os.path.dirname(sqlite_path)
     if not os.path.exists(db_dir):
         os.makedirs(db_dir)
 
     database = SqliteDatabase(sqlite_path)
 
-else:
-    logger.info("Using MySQL database")
+elif db_type == DatabaseType.MYSQL:
+
     database = MySQLDatabase(
         os.getenv("MYSQL_DB"),
         user=os.getenv("MYSQL_USER"),
@@ -47,6 +56,9 @@ else:
         host=os.getenv("MYSQL_HOST"),
         port=int(os.getenv("MYSQL_PORT", 3306)),
     )
+
+else:
+    raise ValueError(f"Unsupported database type: {db_type}")
 
 database_proxy.initialize(database)
 database.connect()
