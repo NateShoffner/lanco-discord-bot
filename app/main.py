@@ -240,6 +240,34 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="dbinfo", description="Show database info")
+@commands.is_owner()
+async def dbinfo(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="Database Info",
+        color=0x00FF00,
+    )
+
+    db_size = 0
+    if db_type == DatabaseType.SQLITE:
+        db_size = os.path.getsize(sqlite_path)
+    elif db_type == DatabaseType.MYSQL:
+        query = """
+        SELECT SUM(data_length + index_length) 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE();
+        """
+        cursor = database.execute_sql(query)
+        db_size = cursor.fetchone()[0]  # in bytes
+
+    embed.add_field(name="Type", value=f"{db_type.name}", inline=False)
+
+    size_in_mb = db_size / 1024 / 1024
+    embed.add_field(name="Size", value=f"{size_in_mb:.2f} MB", inline=False)
+
+    await interaction.response.send_message(embed=embed)
+
+
 @bot.tree.command(name="netstats", description="Show network stats")
 async def netstats(interaction: discord.Interaction):
 
