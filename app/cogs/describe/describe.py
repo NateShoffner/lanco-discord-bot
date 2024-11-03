@@ -68,6 +68,10 @@ class Describe(LancoCog, name="Describe", description="Describe cog"):
             ],
         )
 
+        # cleanup
+        for r in results:
+            os.remove(r.filename)
+
         return response.choices[0].message.content
 
 
