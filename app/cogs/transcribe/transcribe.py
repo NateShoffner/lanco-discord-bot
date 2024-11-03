@@ -34,11 +34,12 @@ class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
             )
             return
 
-        msg = await interaction.response.send_message(
-            "✨ Transcribing...", ephemeral=True
-        )
+        await interaction.response.send_message("✨ Transcribing...", ephemeral=True)
+
         transcription = await self.transcribe(message)
-        await msg.edit(content=f"✨ Transcription: {transcription}")
+        await interaction.edit_original_response(
+            content=f"✨ Transcription: {transcription}"
+        )
 
     async def ctx_menu_error(
         self, interaction: discord.Interaction, error: Exception
