@@ -174,7 +174,13 @@ class LancoBot(commands.Bot):
 
 
 owner_id = int(os.getenv("OWNER_ID", 0))
-bot = LancoBot(command_prefix=".", intents=intents, owner_id=owner_id)
+message_cache_size = int(os.getenv("MESSAGE_CACHE_SIZE", 1000))
+bot = LancoBot(
+    command_prefix=".",
+    intents=intents,
+    owner_id=owner_id,
+    max_messages=message_cache_size,
+)
 
 
 def init_logging():
