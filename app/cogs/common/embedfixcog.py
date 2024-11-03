@@ -90,6 +90,12 @@ class EmbedFixCog(LancoCog):
                     f"Found URL to be handled by {self.name}: {original_url} -> {fixed_url} - waiting {self.wait_time}s"
                 )
 
+                # ignore if the pattern is within spoiler tags
+                # TODO should perform a strict check of whether the link in question is the portion within the spoiler tags
+                if "||" in message.content:
+                    self.logger.info("URL is within spoiler tags, ignoring")
+                    return
+
                 # wait a bit to see if discord will embed the link
                 await asyncio.sleep(self.wait_time)
 
