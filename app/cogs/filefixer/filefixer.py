@@ -1,5 +1,6 @@
 import os
 
+import cairosvg
 import discord
 import imageio
 import pillow_heif
@@ -57,6 +58,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
                 fixers = {
                     "avif": self.fix_avif,
                     "heic": self.fix_heic,
+                    "svg": self.fix_svg,
                 }
 
                 extension = att.filename.lower().split(".")[-1]
@@ -108,6 +110,15 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
             output_file = local_path.lower().replace(".heic", ".png")
 
             heic_image.save(output_file, "PNG")
+            self.logger.info(f"Conversion successful: {local_path} -> {output_file}")
+            return output_file
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+
+    async def fix_svg(self, local_path: str) -> str:
+        try:
+            output_file = local_path.lower().replace(".svg", ".png")
+            svg_image = cairosvg.svg2png(url=local_path, write_to=output_file)
             self.logger.info(f"Conversion successful: {local_path} -> {output_file}")
             return output_file
         except Exception as e:

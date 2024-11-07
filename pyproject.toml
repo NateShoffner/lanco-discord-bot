@@ -40,6 +40,7 @@ reactionmenu = "^3.1.7"
 jikanpy-v4 = "^1.0.2"
 aiogoogle = "^5.13.2"
 pymysql = "^1.1.1"
+cairosvg = "^2.7.1"
 
 
 [tool.poetry.group.dev.dependencies]
