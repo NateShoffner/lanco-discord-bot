@@ -67,6 +67,7 @@ DATA_DIR = "data"
 LOGS_DIR = "logs"
 COGS_DIR = "app/cogs"
 
+
 class BlacklistedUser(BaseModel):
     user_id = BigIntegerField(primary_key=True)
     reason = TextField(null=True)
@@ -75,7 +76,9 @@ class BlacklistedUser(BaseModel):
     class Meta:
         table_name = "blacklisted_users"
 
+
 database.create_tables([BlacklistedUser])
+
 
 class LancoBot(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -209,6 +212,31 @@ def init_logging():
     # logging.getLogger('discord').setLevel(logging.WARNING)
 
     logger.setLevel(logging.INFO)
+
+
+@bot.command(name="gsync")
+@commands.is_owner()
+async def guildsync(ctx):
+    """Sync commands for a specific guild"""
+    guild = ctx.guild
+    embed = discord.Embed(
+        title=f"Syncing Guild: {guild.name}",
+        description="Wait a moment...",
+        color=discord.Color.dark_gray(),
+    )
+
+    msg = await ctx.send(embed=embed)
+
+    logger.info(f"Syncing guild: {guild.name}")
+
+    try:
+        synced = await bot.tree.sync(guild=guild)
+        logger.info(f"Synced {len(synced)} commands for {guild.name}")
+        embed.description = f"Synced {len(synced)} commands"
+        embed.color = discord.Color.green()
+        await msg.edit(embed=embed)
+    except Exception as e:
+        logger.error(e)
 
 
 @bot.command(name="sync")
@@ -546,6 +574,7 @@ async def unload_cog(interaction: discord.Interaction, cog_name: str):
 
     await interaction.response.send_message(embed=embed)
 
+
 @bot.check
 async def global_block_check(ctx):
     if BlacklistedUser.get_or_none(user_id=ctx.author.id):
@@ -553,26 +582,33 @@ async def global_block_check(ctx):
 
     return True
 
+
 @bot.tree.command(name="optout")
 async def optout(interaction: discord.Interaction):
     """Opt out of the bot."""
     user = interaction.user
     BlacklistedUser.create(user_id=user.id)
-    await interaction.response.send_message("You have opted out of the bot.", ephemeral=True)
+    await interaction.response.send_message(
+        "You have opted out of the bot.", ephemeral=True
+    )
+
 
 @bot.tree.command(name="optin")
 async def optin(interaction: discord.Interaction):
     """Opt in to the bot."""
     user = interaction.user
     u = BlacklistedUser.get_or_none(user_id=user.id)
-    
+
     if not u:
-        await interaction.response.send_message("You are already opted in to the bot.", ephemeral=True)
+        await interaction.response.send_message(
+            "You are already opted in to the bot.", ephemeral=True
+        )
         return
 
     u.delete_instance()
-    await interaction.response.send_message("You have opted in to the bot.", ephemeral=True)
-
+    await interaction.response.send_message(
+        "You have opted in to the bot.", ephemeral=True
+    )
 
 
 async def main():
