@@ -67,6 +67,15 @@ DATA_DIR = "data"
 LOGS_DIR = "logs"
 COGS_DIR = "app/cogs"
 
+class BlacklistedUser(BaseModel):
+    user_id = BigIntegerField(primary_key=True)
+    reason = TextField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "blacklisted_users"
+
+database.create_tables([BlacklistedUser])
 
 class LancoBot(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -536,6 +545,34 @@ async def unload_cog(interaction: discord.Interaction, cog_name: str):
         embed.description = f"Error unloading {cog_name}: ```{result.error}```"
 
     await interaction.response.send_message(embed=embed)
+
+@bot.check
+async def global_block_check(ctx):
+    if BlacklistedUser.get_or_none(user_id=ctx.author.id):
+        return False
+
+    return True
+
+@bot.tree.command(name="optout")
+async def optout(interaction: discord.Interaction):
+    """Opt out of the bot."""
+    user = interaction.user
+    BlacklistedUser.create(user_id=user.id)
+    await interaction.response.send_message("You have opted out of the bot.", ephemeral=True)
+
+@bot.tree.command(name="optin")
+async def optin(interaction: discord.Interaction):
+    """Opt in to the bot."""
+    user = interaction.user
+    u = BlacklistedUser.get_or_none(user_id=user.id)
+    
+    if not u:
+        await interaction.response.send_message("You are already opted in to the bot.", ephemeral=True)
+        return
+
+    u.delete_instance()
+    await interaction.response.send_message("You have opted in to the bot.", ephemeral=True)
+
 
 
 async def main():
