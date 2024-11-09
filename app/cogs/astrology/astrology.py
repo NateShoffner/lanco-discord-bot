@@ -10,7 +10,6 @@ from discord.ext import commands
 from discord.ui import Select, View
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from pyrsistent import discard
 
 
 class Horrorscope(BaseModel):

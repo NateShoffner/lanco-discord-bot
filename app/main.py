@@ -10,7 +10,7 @@ from typing import Optional
 
 import discord
 from cogs.lancocog import CogDefinition, LancoCog, UrlHandler, get_cog_def
-from db import DatabaseType, database_proxy
+from db import BaseModel, DatabaseType, database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
