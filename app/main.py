@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from logging.handlers import TimedRotatingFileHandler
 from sys import version_info as sysv
+from time import monotonic
 from typing import Optional
 
 import discord
@@ -48,7 +49,6 @@ if db_type == DatabaseType.SQLITE:
     database = SqliteDatabase(sqlite_path)
 
 elif db_type == DatabaseType.MYSQL:
-
     database = MySQLDatabase(
         os.getenv("MYSQL_DB"),
         user=os.getenv("MYSQL_USER"),
@@ -279,8 +279,20 @@ async def about(interaction: discord.Interaction):
 @bot.tree.command(name="ping", description="Ping the bot")
 async def ping(interaction: discord.Interaction):
     lat = round(bot.latency * 1000)
-    embed = discord.Embed(title="Pong!", description=f"🏓 {lat} ms", color=0x00FF00)
-    await interaction.response.send_message(embed=embed)
+
+    embed = discord.Embed(title="🏓 Pong!", color=0x00FF00)
+    embed.add_field(name="Bot Latency", value=f"{lat}ms", inline=False)
+
+    start = monotonic()
+    msg = await interaction.response.send_message(embed=embed)
+    end = monotonic()
+
+    response_msg = await interaction.original_response()
+
+    msg_latency = round((end - start) * 1000)
+
+    embed.add_field(name="Message Latency", value=f"{msg_latency}ms", inline=False)
+    await response_msg.edit(embed=embed)
 
 
 @bot.tree.command(name="dbinfo", description="Show database info")
@@ -313,7 +325,6 @@ async def dbinfo(interaction: discord.Interaction):
 
 @bot.tree.command(name="netstats", description="Show network stats")
 async def netstats(interaction: discord.Interaction):
-
     is_owner = await bot.is_owner(interaction.user)
 
     embed = discord.Embed(
