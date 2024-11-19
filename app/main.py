@@ -622,6 +622,31 @@ async def optin(interaction: discord.Interaction):
     )
 
 
+@bot.tree.command(name="block")
+@commands.is_owner()
+async def block(interaction: discord.Interaction, user: discord.User, reason: str):
+    """Block a user"""
+    BlacklistedUser.create(user_id=user.id, reason=reason)
+    await interaction.response.send_message(
+        f"Blocked {user.mention} for {reason}", ephemeral=True
+    )
+
+
+@bot.tree.command(name="unblock")
+@commands.is_owner()
+async def unblock(interaction: discord.Interaction, user: discord.User):
+    """Unblock a user"""
+    u = BlacklistedUser.get_or_none(user_id=user.id)
+    if not u:
+        await interaction.response.send_message(
+            f"{user.mention} is not blocked", ephemeral=True
+        )
+        return
+
+    u.delete_instance()
+    await interaction.response.send_message(f"Unblocked {user.mention}", ephemeral=True)
+
+
 async def main():
     init_logging()
     await load_cogs(bot)

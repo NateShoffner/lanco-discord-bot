@@ -55,7 +55,7 @@ class Pinboard(LancoCog, name="Pinboard", description="Pinboard cog"):
 
         if create:
             await interaction.response.send_message(
-                f"Pinned message: {message.jump_url}"
+                f"Pinned message: {message.jump_url}", ephemeral=True
             )
         else:
             await interaction.response.send_message(
