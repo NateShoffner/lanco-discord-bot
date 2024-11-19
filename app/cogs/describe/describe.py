@@ -7,10 +7,10 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.file_downloader import FileDownloader
+from utils.tracked_message import track_message_ids
 
 
 class Describe(LancoCog, name="Describe", description="Describe cog"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.register_context_menu(
@@ -23,15 +23,22 @@ class Describe(LancoCog, name="Describe", description="Describe cog"):
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        await interaction.response.send_message("Processing the file...")
-        await interaction.channel.typing()
-        description = await self.describe_attachment(message)
-        await interaction.edit_original_response(content=description)
+        await self.send_description(interaction, message)
 
     async def ctx_menu_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
         await interaction.response.send_message("An error occurred", ephemeral=True)
+
+    @track_message_ids()
+    async def send_description(
+        self, interaction: discord.Interaction, message: discord.Message
+    ) -> discord.Message:
+        await interaction.response.send_message("Processing the file...")
+        await interaction.channel.typing()
+        description = await self.describe_attachment(message)
+        msg = await interaction.edit_original_response(content=description)
+        return msg
 
     def encode_image(self, image_path: str):
         with open(image_path, "rb") as image_file:
@@ -58,7 +65,10 @@ class Describe(LancoCog, name="Describe", description="Describe cog"):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this image"},
+                        {
+                            "type": "text",
+                            "text": "Describe this image and provide any insight that might be useful.",
+                        },
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:image/png;base64,{encoded}"},
