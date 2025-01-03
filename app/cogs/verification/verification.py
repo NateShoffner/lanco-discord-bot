@@ -20,7 +20,6 @@ class Verification(
     name="Verification",
     description="Verification cog",
 ):
-
     g = app_commands.Group(name="verification", description="Verification commands")
 
     APPROVAL_EMOJI = "✅"

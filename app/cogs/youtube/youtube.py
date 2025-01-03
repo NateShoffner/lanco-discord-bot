@@ -20,7 +20,6 @@ class YoutubeVideo:
 
 
 class Youtube(LancoCog, name="Youtube", description="Youtube cog"):
-
     g = app_commands.Group(name="youtube", description="Youtube commands")
 
     UPDATE_INTERVAL = 300  # seconds

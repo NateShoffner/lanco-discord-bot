@@ -8,7 +8,6 @@ from PIL import Image
 
 
 class PeeCheck(LancoCog, name="PeeCheck", description="PeeCheck cog"):
-
     colors = [
         "#FBFCEE",
         "#FAFAD5",

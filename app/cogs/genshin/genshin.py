@@ -8,7 +8,6 @@ from utils.channel_lock import command_channel_lock
 
 
 class Genshin(LancoCog, name="Genshin", description="Genshin cog"):
-
     blacklisted_words = ["genshin"]
 
     @commands.Cog.listener()

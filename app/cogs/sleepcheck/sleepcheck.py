@@ -31,7 +31,6 @@ class SleepCheck(
     name="SleepCheck",
     description="SleepCheck commands",
 ):
-
     g = app_commands.Group(name="sleepcheck", description="SleepCheck commands")
 
     def __init__(self, bot: commands.Bot):

@@ -13,7 +13,6 @@ from .models import TranscribeConfig
 
 
 class Transcribe(LancoCog, name="Transcribe", description="Transcribe cog"):
-
     g = app_commands.Group(name="transcribe", description="Transcribe commands")
 
     def __init__(self, bot: commands.Bot):

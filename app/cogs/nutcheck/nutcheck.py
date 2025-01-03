@@ -8,7 +8,6 @@ from PIL import Image
 
 
 class NutCheck(LancoCog, name="NutCheck", description="NutCheck cog"):
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 
