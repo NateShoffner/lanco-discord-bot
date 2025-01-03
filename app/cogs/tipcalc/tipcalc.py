@@ -28,13 +28,14 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
     async def tip(
         self, ctx: commands.Context, bill_amount: str = None, tip_percentage: str = None
     ):
+        is_slash_command = ctx.interaction is not None
 
         def prompt_for_bill_amount(m: Message):
             return m.author == ctx.author and m.channel == ctx.channel
 
         if bill_amount is None:
             try:
-                await ctx.send(f"{ctx.author.mention} Please provide a bill amount.")
+                await ctx.send(f"{ctx.author.mention} What is the bill amount?")
                 prompt_msg = await self.bot.wait_for(
                     "message", check=prompt_for_bill_amount, timeout=30
                 )
@@ -76,7 +77,12 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
             response += "\n"
 
         if not valid_tip_perc:
-            response += f"Tip: You can provide a custom tip percentage as the 2nd argument. Example: ```{self.bot.command_prefix}tip {ts.bill_amount:.2f} 22```"
+            example = (
+                f"Example: ```{self.bot.command_prefix}tip {bill_amount:.2f} 22```"
+            )
+            if is_slash_command:
+                example = f"Example: ```/{ctx.command} {bill_amount:.2f} 22```"
+            response += f"Tip: You can provide a custom tip percentage as the 2nd argument. {example}"
 
         embed = Embed(title="Tip Calculator", description=response, color=0x00FF00)
 
