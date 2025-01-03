@@ -60,7 +60,8 @@ class Chatbot(
             response = await self.get_response(key, prompt)
 
             if not response:
-                return
+                self.error("No response from LLM")
+                await message.channel.send("I'm sorry, I don't know how to respond.")
 
             self.conversations[key].append((prompt, response))
             await message.channel.send(response, reference=message)
