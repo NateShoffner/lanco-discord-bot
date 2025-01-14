@@ -1,8 +1,13 @@
+import base64
+import json
 import math
+import os
 
+import openai
 from cogs.lancocog import LancoCog
 from discord import Embed, Message
 from discord.ext import commands
+from utils.file_downloader import FileDownloader
 
 
 class TipSuggestion:
@@ -23,6 +28,9 @@ class TipSuggestion:
 class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
+        self.client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
+        self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
+        self.file_downloader = FileDownloader()
 
     @commands.hybrid_command()
     async def tip(
@@ -33,22 +41,60 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
         def prompt_for_bill_amount(m: Message):
             return m.author == ctx.author and m.channel == ctx.channel
 
+        response_embed = Embed(
+            title="Tip Calculator",
+            description="Calculating tip suggestions...",
+            color=0x00FF00,
+        )
+
+        response_msg = None
+
         if bill_amount is None:
             try:
-                await ctx.send(f"{ctx.author.mention} What is the bill amount?")
+                await ctx.send(
+                    f"{ctx.author.mention} Enter the bill amount or submit a photo of the receipt."
+                )
                 prompt_msg = await self.bot.wait_for(
                     "message", check=prompt_for_bill_amount, timeout=30
                 )
-                bill_amount = prompt_msg.content
+
+                # first check to see if the user uploaded an image
+                if prompt_msg.attachments:
+                    response_embed = Embed(
+                        title="Processing Image",
+                        description="Please wait while I process the image...",
+                        color=0x00FF00,
+                    )
+                    response_msg = await prompt_msg.reply(embed=response_embed)
+                    bill_amount = await self.get_bill_total_from_image(prompt_msg)
+                    if bill_amount is None:
+                        response_embed = Embed(
+                            title="Error",
+                            description="Error processing the image. Please try again.",
+                            color=0xFF0000,
+                        )
+                        await response_msg.edit(embed=response_embed)
+                        return
+                else:
+                    bill_amount = prompt_msg.content
             except Exception as e:
-                await ctx.send(f"{ctx.author.mention} Timed out. Please try again.")
+                response_embed = Embed(
+                    title="Error",
+                    description="Timed out. Please try again.",
+                    color=0xFF0000,
+                )
+                if response_msg:
+                    await response_msg.edit(embed=response_embed)
+                else:
+                    await ctx.send(embed=response_embed)
                 return
 
-        try:
-            bill_amount = float(bill_amount.replace("$", ""))
-        except ValueError:
-            await ctx.send("Please provide a valid bill amount.")
-            return
+        if not isinstance(bill_amount, float):
+            try:
+                bill_amount = float(bill_amount.replace("$", ""))
+            except ValueError:
+                await ctx.send("Please provide a valid bill amount.")
+                return
 
         valid_tip_perc = False
         try:
@@ -84,9 +130,71 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
                 example = f"Example: ```/{ctx.command} {bill_amount:.2f} 22```"
             response += f"Tip: You can provide a custom tip percentage as the 2nd argument. {example}"
 
-        embed = Embed(title="Tip Calculator", description=response, color=0x00FF00)
+        response_embed = Embed(
+            title="Tip Calculator", description=response, color=0x00FF00
+        )
+        if response_msg:
+            await response_msg.edit(embed=response_embed)
+        else:
+            await ctx.send(embed=response_embed)
 
-        await ctx.send(embed=embed)
+    def encode_image(self, image_path: str):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    async def get_bill_total_from_image(self, message: Message) -> str:
+        results = await self.file_downloader.download_attachments(
+            message, self.cache_dir
+        )
+
+        if not results:
+            return None
+
+        filename = results[0].filename
+        encoded = self.encode_image(filename)
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that responds in JSON.",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "If this appears to be a screenshot of a receipt, please provide the bill amount in json format with the property 'bill_total'.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{encoded}"},
+                        },
+                    ],
+                },
+            ],
+            temperature=0.0,
+        )
+
+        # cleanup
+        for r in results:
+            os.remove(r.filename)
+
+        response = response.choices[0].message.content
+        print(response)
+        # remove markdown
+        response = response.replace("```json\n", "").replace("```", "")
+
+        try:
+            json_parsed = json.loads(response)
+            total = json_parsed["bill_total"]
+            self.logger.info(f"Bill total: {total}")
+            return total
+
+        except Exception as e:
+            self.logger.error(f"Error parsing JSON: {e}")
+            return None
 
 
 async def setup(bot):
