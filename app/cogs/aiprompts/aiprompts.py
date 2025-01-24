@@ -234,7 +234,8 @@ class OpenAIPrompts(
         name="topic", description="Will say what the current channel is talking about"
     )
     @command_channel_lock()
-    async def topic(self, ctx: commands.Context):
+    @track_message_ids()
+    async def topic(self, ctx: commands.Context) -> discord.Message:
         channel = ctx.channel
         topics = await self.get_current_channel_topics(channel)
 
@@ -243,7 +244,9 @@ class OpenAIPrompts(
             return
 
         top_topics = topics[:3]
-        await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
+        msg = await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
+
+        return msg
 
     @commands.command(name="vibecheck", description="Check the vibe")
     @command_channel_lock()
