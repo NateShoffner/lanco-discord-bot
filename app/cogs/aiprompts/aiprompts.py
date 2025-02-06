@@ -237,15 +237,18 @@ class OpenAIPrompts(
     @track_message_ids()
     async def topic(self, ctx: commands.Context) -> discord.Message:
         channel = ctx.channel
-        topics = await self.get_current_channel_topics(channel)
+        await channel.typing()
+        topics = await self.get_current_channel_topics(channel, history_limit=100)
 
         if not topics or len(topics) == 0:
             await ctx.send("No topics found")
             return
 
-        top_topics = topics[:3]
-        msg = await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
+        max_topics = 3
 
+        top_topics = topics[:max_topics]
+        markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
+        msg = await ctx.send(f"Currently being discussed: \n{markdown_list}")
         return msg
 
     @commands.command(name="vibecheck", description="Check the vibe")
