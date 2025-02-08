@@ -1,5 +1,5 @@
+import json
 import os
-from cmd import PROMPT
 
 import discord
 from cogs.lancocog import LancoCog
@@ -238,7 +238,7 @@ class OpenAIPrompts(
     async def topic(self, ctx: commands.Context) -> discord.Message:
         channel = ctx.channel
         await channel.typing()
-        topics = await self.get_current_channel_topics(channel, history_limit=100)
+        topics = await self.get_current_channel_topics(channel, history_limit=75)
 
         if not topics or len(topics) == 0:
             await ctx.send("No topics found")
@@ -325,22 +325,21 @@ class OpenAIPrompts(
         response = await self.prompt_openai(
             None,
             None,
-            "Extract primary topics from the following messages and list them separated by commas, ordered by relvance:\n"
+            "Extract primary topics from the following messages and list them in json format with a 'topic' property, ordered by newest first:\n"
             + "\n".join([m.content for m in messages]),
         )
 
+        response = response.replace("```json\n", "").replace("```", "")
         topics = []
 
-        is_newline_separated = response.count("\n") > 2
+        try:
+            data = json.loads(response)
 
-        if is_newline_separated:
-            for line in response.split("\n"):
-                line = line.lstrip("1234567890. ")
-                topics.append(line)
-        else:
-            for line in response.split(","):
-                line = line.lstrip("1234567890. ")
-                topics.append(line)
+            for topic in data:
+                topics.append(topic["topic"])
+
+        except Exception as e:
+            self.logger.error(f"Error parsing JSON: {e}")
 
         return topics
 
