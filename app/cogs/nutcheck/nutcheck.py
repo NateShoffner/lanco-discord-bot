@@ -11,10 +11,6 @@ class NutCheck(LancoCog, name="NutCheck", description="NutCheck cog"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await self.setup_emojis()
-
     @commands.command(name="nutcheck", description="Mark yourself as having nutted")
     @commands.is_nsfw()
     async def nutcheck(self, ctx: commands.Context):
