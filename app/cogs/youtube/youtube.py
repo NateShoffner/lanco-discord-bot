@@ -22,7 +22,7 @@ class YoutubeVideo:
 class Youtube(LancoCog, name="Youtube", description="Youtube cog"):
     g = app_commands.Group(name="youtube", description="Youtube commands")
 
-    UPDATE_INTERVAL = 300  # seconds
+    UPDATE_INTERVAL = 10 * 60  # 10 minutes
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
