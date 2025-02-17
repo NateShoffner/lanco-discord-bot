@@ -129,6 +129,7 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
             if is_slash_command:
                 example = f"Example: ```/{ctx.command} {bill_amount:.2f} 22```"
             response += f"Tip: You can provide a custom tip percentage as the 2nd argument. {example}"
+            response += "\n\n*Disclaimer: The tip suggestions are for reference only. Please tip responsibly.*"
 
         response_embed = Embed(
             title="Tip Calculator", description=response, color=0x00FF00
