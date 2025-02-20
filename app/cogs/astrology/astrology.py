@@ -1,5 +1,4 @@
 import datetime
-import os
 
 import aiohttp
 import discord
@@ -8,24 +7,22 @@ from cogs.lancocog import LancoCog
 from discord import Interaction, app_commands
 from discord.ext import commands
 from discord.ui import Select, View
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 
-class Horrorscope(BaseModel):
+class Horoscope(BaseModel):
     description: str
     day: datetime.datetime
 
 
 class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
-    g = app_commands.Group(name="horrorscope", description="Horrorscope commands")
+    g = app_commands.Group(name="horoscope", description="Horoscope commands")
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.daily_cache = {}  # cache for daily horrorscopes
+        self.daily_cache = {}  # cache for daily horoscopes
 
-    @g.command(name="get", description="Get a horrorscope for a sign")
+    @g.command(name="get", description="Get a horoscope for a sign")
     async def get(self, interaction: Interaction):
         options = []
         signs = {
@@ -59,7 +56,7 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
         await interaction.channel.typing()
         await interaction.response.send_message(view=view, ephemeral=True)
 
-    async def get_horrorscope(self, sign: str) -> Horrorscope:
+    async def get_horoscope(self, sign: str) -> Horoscope:
         # TODO maybe let's not scrape for this
 
         if sign.lower() in self.daily_cache:
@@ -102,7 +99,7 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
                 if not today or len(today) == 0:
                     return None
 
-                h = Horrorscope(description=today, day=datetime.datetime.now())
+                h = Horoscope(description=today, day=datetime.datetime.now())
                 self.daily_cache[sign.lower()] = h
                 return h
 
@@ -111,12 +108,12 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
 
         await interaction.channel.typing()
 
-        h = await self.get_horrorscope(sign_value)
+        h = await self.get_horoscope(sign_value)
         if h:
             await interaction.response.send_message(h.description, ephemeral=True)
         else:
             await interaction.response.send_message(
-                "Could not get horrorscope", ephemeral=True
+                "Could not get horoscope", ephemeral=True
             )
 
 
