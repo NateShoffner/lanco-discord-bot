@@ -22,6 +22,6 @@ def run():
     existing_columns = db.get_columns(table_name)
     for column_name, field in new_columns.items():
         if column_name not in [col.name for col in existing_columns]:
-            migrator.add_column(table_name, column_name, field)
+            migrate(migrator.add_column(table_name, column_name, field))
         else:
             print(f"Column '{column_name}' already exists. No changes made.")
