@@ -17,10 +17,10 @@ def run_migrations():
     migrations = sorted(os.listdir(MIGRATIONS_DIR))
     for migration in migrations:
         if migration.endswith(".py"):
-            print(f"Running migration: {migration}")
             migration_path = os.path.join(MIGRATIONS_DIR, migration)
+            print(f"Running migration: {migration}...", end="")
             run_migration_script(migration_path)
-            print(f"Completed migration: {migration}")
+            print(" Done.")
 
 
 if __name__ == "__main__":
