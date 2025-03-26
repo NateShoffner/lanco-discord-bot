@@ -18,18 +18,19 @@ class Genshin(LancoCog, name="Genshin", description="Genshin cog"):
         if message.channel.id == 1146060051652546571:
             return
 
-        if any(word in message.content.lower() for word in self.blacklisted_words):
+        if self.mentions_genshin(message):
             await message.add_reaction("⚠️")
 
     @commands.Cog.listener()
-    async def on_message_edit(self, before, after):
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if before.author == self.bot.user:
             return
 
-        if "*" in after.content and not any(
-            word in after.content.lower() for word in self.blacklisted_words
-        ):
+        if not self.mentions_genshin(after):
             await after.remove_reaction("⚠️", self.bot.user)
+
+    def mentions_genshin(self, message: discord.Message):
+        return any(word in message.content.lower() for word in self.blacklisted_words)
 
 
 async def setup(bot):
