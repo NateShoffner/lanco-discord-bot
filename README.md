@@ -85,9 +85,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
     ├── app                     # Main application directory
     │   ├── cogs                # Discord cogs
     │   └── utils               # Utility functions
-    ├── data                    # Data files
+    ├── data                    # Bot data (e.g. SQLite database, cog-specific data, etc)
     ├── logs                    # Log files
-    └── migrations              # Database migrations
+    ├── migrations              # Database migrations
+    └── tools                   # Tools for development and deployment
+        └── templates           # Templates for cogs and other files      
+    
 
 ⚙️ Cog Development
 -------------------
