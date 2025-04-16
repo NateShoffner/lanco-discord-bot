@@ -15,7 +15,7 @@ class COGNAME(commands.Cog, name="COGNAME", description="COGDESCRIPTION"):
     @commands.command()
     async def hello(self, ctx):
         """Responds with a hello message."""
-        await ctx.send("Hello from <NAME>!")
+        await ctx.send("Hello from COGNAME!")
 
 
 def setup(bot):
