@@ -94,6 +94,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 All features are implemented as cogs in the [cogs](app/cogs) directory.
 
+### Automatic Setup
+
+To create a new cog, you can use the `cog` command line so:
+
+```bash
+poetry run python cog CogName
+```
+
+### Manual Setup
+
 To create a new cog, create a new folder in the [cogs](app/cogs) directory with the name of your cog and an entrypoint script within it with the same name as the folder.
 
 ```bash
