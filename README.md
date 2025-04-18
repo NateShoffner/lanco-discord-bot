@@ -8,25 +8,16 @@ General-purpose Discord bot with some tailored features for Lancaster County, PA
 
 The bot features a variety of cogs that can be enabled or disabled depending on your server's needs. The following cogs are available:
 
-- [Incident Reporting](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/incidents) - Report emergency services incidents throughout Lancaster County.
-- [Custom Commands](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/commands) - Create custom commands for your server.
-- [TwitterEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed) - Fix Twitter/X embeds in Discord.
-- [InstaEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/instaembed) - Fix Instagram embeds in Discord.
-- [TikTokEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed) - Fix TikTok embeds in Discord.
-- [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser) - Lancaster County/City tailored GeoGuessr.
-- [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper) - Find bars within Lancaster City.
-- [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather) - Get the current weather and forecast for any location.
-- [AnimeToday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/animetoday) - Display an anime screenshot featuring the current date every morning in a specified channel.
-- [SpotifyEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spotifyembed) - Alternative Spotify embeds in Discord.
-- [RedditEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditembed) - Fix Reddit embeds in Discord.
-- [OneWordStory](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/onewordstory) - Create a one word story with your friends.
-- [TraceMoe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tracemoe) - Reverse image search for anime screenshots.
-- [Facts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/facts) - Define and display facts.
-- [RedditFeed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditfeed) - Subscribe to subreddits and receive updates in your server.
-- [OpenAIPrompts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/openaiprompts) - Generate creative writing prompts.
-- [Magic8Ball](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/magic8ball) - Ask the Magic 8 Ball a question.
-- [Birthday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/birthday) - Set and display user birthdays.
-- [Google](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/google) - Let me Google that for you.
+| | | |
+|---|---|---|
+| [Incident Reporting](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/incidents)<br>Report emergency services incidents throughout Lancaster County. | [Custom Commands](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/commands)<br>Create custom commands for your server. | [TwitterEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed)<br>Fix Twitter/X embeds in Discord. |
+| [InstaEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/instaembed)<br>Fix Instagram embeds in Discord. | [TikTokEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed)<br>Fix TikTok embeds in Discord. | [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser)<br>Lancaster County/City tailored GeoGuessr. |
+| [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper)<br>Find bars within Lancaster City. | [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather)<br>Get the current weather and forecast for any location. | [AnimeToday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/animetoday)<br>Anime screenshot featuring the current date. |
+| [SpotifyEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spotifyembed)<br>Alternative Spotify embeds in Discord. | [RedditEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditembed)<br>Fix Reddit embeds in Discord. | [OneWordStory](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/onewordstory)<br>Create a one word story with your friends. |
+| [TraceMoe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tracemoe)<br>Reverse image search for anime screenshots. | [Facts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/facts)<br>Define and display facts. | [RedditFeed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditfeed)<br>Subscribe to subreddits and receive updates. |
+| [OpenAIPrompts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/openaiprompts)<br>Generate creative writing prompts. | [Magic8Ball](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/magic8ball)<br>Ask the Magic 8 Ball a question. | [Birthday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/birthday)<br>Set and display user birthdays. |
+| [Google](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/google)<br>Let me Google that for you. |  |  |
+
 
 🚀 Installation
 ----------------
