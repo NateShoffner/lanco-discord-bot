@@ -5,12 +5,17 @@ Description:
 COGDESCRIPTION
 """
 
+from cogs.lancocog import LancoCog
 from discord.ext import commands
 
 
-class COGNAME(commands.Cog, name="COGNAME", description="COGDESCRIPTION"):
+class COGNAME(
+    LancoCog,
+    name="COGNAME",
+    description="COGDESCRIPTION",
+):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
 
     @commands.command()
     async def hello(self, ctx):
