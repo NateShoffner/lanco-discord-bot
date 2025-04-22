@@ -53,7 +53,6 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
         view = View()
         view.add_item(select)
 
-        await interaction.channel.typing()
         await interaction.response.send_message(view=view, ephemeral=True)
 
     async def get_horoscope(self, sign: str) -> Horoscope:
@@ -105,8 +104,6 @@ class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
 
     async def callback(self, interaction: discord.Interaction):
         sign_value = interaction.data["values"][0]
-
-        await interaction.channel.typing()
 
         h = await self.get_horoscope(sign_value)
         if h:
