@@ -1,6 +1,8 @@
 import os
 import sys
 
+COG_DIR = os.path.join("app", "cogs")
+
 
 def main():
     if len(sys.argv) < 2:
@@ -10,7 +12,7 @@ def main():
     name = sys.argv[1]
     description = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else f"{name} cog"
 
-    dir_path = os.path.join("cogs", name)
+    dir_path = os.path.join(COG_DIR, name)
     file_path = os.path.join(dir_path, f"{name}.py")
     template_path = os.path.join(
         os.path.dirname(__file__), "templates", "cog_template.py"
