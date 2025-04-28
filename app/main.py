@@ -320,7 +320,7 @@ async def dbinfo(interaction: discord.Interaction):
     size_in_mb = db_size / 1024 / 1024
     embed.add_field(name="Size", value=f"{size_in_mb:.2f} MB", inline=False)
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="netstats", description="Show network stats")
