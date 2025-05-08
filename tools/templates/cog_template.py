@@ -23,5 +23,5 @@ class COGNAME(
         await ctx.send("Hello from COGNAME!")
 
 
-def setup(bot):
-    bot.add_cog(COGNAME(bot))
+async def setup(bot):
+    await bot.add_cog(COGNAME(bot))
