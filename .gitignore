@@ -163,4 +163,4 @@ cache/
 logs/
 *.db
 config/config.json
-data*
+/data*
