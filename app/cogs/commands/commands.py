@@ -31,10 +31,12 @@ class Commands(LancoCog):
         if CustomCommands.get_or_none(
             guild_id=interaction.guild_id, command_name=command_name.lower()
         ):
-            await interaction.response.send_message(
-                f"Command {command_name} already exists", ephemeral=True
+            embed = discord.Embed(
+                title="Command already exists",
+                description=f"Command {command_name} already exists",
+                color=discord.Color.red(),
             )
-            return
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
         command = CustomCommands.create(
             guild_id=interaction.guild_id,
@@ -43,7 +45,23 @@ class Commands(LancoCog):
             channel_id=channel.id if channel else None,
         )
 
-        await interaction.response.send_message(f"Created command {command_name}")
+        embed = discord.Embed(
+            title="Command created",
+            description=f"Command {command_name} created",
+            color=discord.Color.green(),
+        )
+        embed.add_field(
+            name="Command response",
+            value=command_response,
+            inline=False,
+        )
+        if channel:
+            embed.add_field(
+                name="Channel",
+                value=channel.mention,
+                inline=False,
+            )
+        await interaction.response.send_message(embed=embed)
 
     @commands_group.command(name="delete", description="Delete a custom command")
     @is_bot_owner_or_admin()
@@ -53,18 +71,28 @@ class Commands(LancoCog):
         command_name: str,
         channel: discord.TextChannel = None,
     ):
-        command = CustomCommands.get(
+        command = CustomCommands.get_or_none(
             guild_id=interaction.guild_id,
             command_name=command_name.lower(),
             channel_id=channel.id if channel else None,
         )
         if not command:
-            await interaction.response.send_message(
-                f"Command {command_name} does not exist", ephemeral=True
+            embed = discord.Embed(
+                title="Command not found",
+                description=f"Command {command_name} not found",
+                color=discord.Color.red(),
             )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         command.delete_instance()
-        await interaction.response.send_message(f"Deleted command {command_name}")
+
+        embed = discord.Embed(
+            title="Command deleted",
+            description=f"Command {command_name} deleted",
+            color=discord.Color.red(),
+        )
+
+        await interaction.response.send_message(embed=embed)
 
     @commands_group.command(name="edit", description="Edit a custom command")
     @is_bot_owner_or_admin()
@@ -76,15 +104,28 @@ class Commands(LancoCog):
         )
 
         if not command:
-            await interaction.response.send_message(
-                f"Command {command_name} does not exist", ephemeral=True
+            embed = discord.Embed(
+                title="Command not found",
+                description=f"Command {command_name} not found",
+                color=discord.Color.red(),
             )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         command.command_response = command_response
         command.save()
 
-        await interaction.response.send_message(f"Edited command {command_name}")
+        embed = discord.Embed(
+            title="Command edited",
+            description=f"Command {command_name} edited",
+            color=discord.Color.green(),
+        )
+        embed.add_field(
+            name="Command response",
+            value=command_response,
+            inline=False,
+        )
+        await interaction.response.send_message(embed=embed)
 
     @commands_group.command(name="list", description="List all custom commands")
     async def list(self, interaction: discord.Interaction):
@@ -93,7 +134,13 @@ class Commands(LancoCog):
         )
 
         if not commands:
-            await interaction.response.send_message("No commands found")
+            embed = discord.Embed(
+                title="No commands found",
+                description="No commands found",
+                color=discord.Color.red(),
+            )
+
+            await interaction.response.send_message(embed=embed)
             return
 
         menu = ReactionMenu(interaction, menu_type=ReactionMenu.TypeEmbed)
