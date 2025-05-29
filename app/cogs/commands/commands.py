@@ -38,6 +38,8 @@ class Commands(LancoCog):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
+        command_response = self.format_message_response(command_response)
+
         command = CustomCommands.create(
             guild_id=interaction.guild_id,
             command_name=command_name.lower(),
@@ -112,6 +114,7 @@ class Commands(LancoCog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
+        command_response = self.format_message_response(command_response)
         command.command_response = command_response
         command.save()
 
@@ -210,6 +213,11 @@ class Commands(LancoCog):
                     return
 
                 return await message.channel.send(command.command_response)
+
+    def format_message_response(self, message: str) -> str:
+        """Format the message to allow for newlines and other formatting"""
+        response = message.replace("\\n", "\n")
+        return response
 
 
 async def setup(bot):
