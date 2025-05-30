@@ -96,38 +96,6 @@ class jeff(
         return pytz.timezone("US/Eastern").localize(datetime(2025, 5, 23, 17, 0, 0))
 
     @commands.command()
-    async def vacationold(self, ctx):
-        """Shows how much time is left in the vacation."""
-
-        start_time = pytz.timezone("US/Eastern").localize(
-            datetime(2025, 5, 23, 17, 0, 0)
-        )
-
-        return_time = self.get_return_time()
-
-        user = await self.bot.fetch_user(297149191673741314)
-
-        now = datetime.now(tz=pytz.timezone("US/Eastern"))
-        if now < start_time:
-            remaining = start_time - now
-            days = remaining.days
-            hours, rem = divmod(remaining.seconds, 3600)
-            minutes, seconds = divmod(rem, 60)
-            await ctx.send(
-                f"{user.mention}, keep working! You're not on vacation yet. Time until vacation: **{days} days, {hours} hours, {minutes} minutes, {seconds} seconds**."
-            )
-        elif now >= return_time:
-            await ctx.send(f"Vacation is already over! Welcome back {user.mention} 😎")
-        else:
-            remaining = return_time - now
-            days = remaining.days
-            hours, rem = divmod(remaining.seconds, 3600)
-            minutes, seconds = divmod(rem, 60)
-            await ctx.send(
-                f"Time left in {user.mention}'s vacation: **{days} days, {hours} hours, {minutes} minutes, {seconds} seconds**."
-            )
-
-    @commands.command()
     async def vacation(self, ctx):
         """Shows how much time is left in the vacation."""
         user = await self.bot.fetch_user(297149191673741314)
