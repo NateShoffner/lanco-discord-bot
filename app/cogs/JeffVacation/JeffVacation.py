@@ -29,19 +29,21 @@ class DawnScreen:
         self.font_middle = ImageFont.truetype(font_path, 80)
         self.font_bottom = ImageFont.truetype(font_path, 40)
 
-    def generate(self, day=1, hours=None):
+    def generate(self, current_hour: int, day=1, hours=None):
         if hours is None:
             hours = 72 - (day - 1) * 24
 
         img = Image.new("RGB", (self.width, self.height), color=self.bg_color)
         draw = ImageDraw.Draw(img)
 
+        time_of_day = self.get_time_of_day(current_hour)
+
         if day == 1:
-            line1 = "Dawn of"
+            line1 = f"{time_of_day} of"
             line2 = "The Final Day"
             line3 = f"-{hours} Hours Remain-"
         else:
-            line1 = "Dawn of"
+            line1 = f"{time_of_day} of"
             line2 = f"The {self.ordinal_word(day)} Day"
             line3 = f"-{hours} Hours Remain-"
 
@@ -63,6 +65,22 @@ class DawnScreen:
 
     def ordinal_word(self, n):
         return num2words(n, to="ordinal").capitalize()
+
+    def get_time_of_day(self, hour: int):
+        """Returns the current time of day as a string."""
+
+        if 5 <= hour < 7:
+            return "Dawn"
+        elif 7 <= hour < 12:
+            return "Morning"
+        elif hour == 12:
+            return "Noon"
+        elif 13 <= hour < 17:
+            return "Afternoon"
+        elif 17 <= hour < 20:
+            return "Evening"
+        else:
+            return "Night"
 
 
 class jeff(
@@ -140,7 +158,9 @@ class jeff(
         # get the total number of remaining downs rounded up when there are extra hours
         remaining_days = remaining.days + (1 if remaining.seconds % 3600 > 0 else 0)
 
-        img = dawn_screen.generate(day=remaining_days, hours=total_hours)
+        current_hour = datetime.now(tz=pytz.timezone("US/Eastern")).hour
+
+        img = dawn_screen.generate(current_hour, day=remaining_days, hours=total_hours)
 
         cache_dir = os.path.join(self.get_cog_data_directory())
         if not os.path.exists(cache_dir):
