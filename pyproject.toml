@@ -41,6 +41,7 @@ jikanpy-v4 = "^1.0.2"
 aiogoogle = "^5.13.2"
 pymysql = "^1.1.1"
 cairosvg = "^2.7.1"
+num2words = "^0.5.14"
 
 
 [tool.poetry.group.dev.dependencies]
