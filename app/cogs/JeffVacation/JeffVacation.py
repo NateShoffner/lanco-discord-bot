@@ -137,7 +137,10 @@ class jeff(
 
         total_hours = remaining.days * 24 + (remaining.seconds // 3600)
 
-        img = dawn_screen.generate(day=remaining.days, hours=total_hours)
+        # get the total number of remaining downs rounded up when there are extra hours
+        remaining_days = remaining.days + (1 if remaining.seconds % 3600 > 0 else 0)
+
+        img = dawn_screen.generate(day=remaining_days, hours=total_hours)
 
         cache_dir = os.path.join(self.get_cog_data_directory())
         if not os.path.exists(cache_dir):
