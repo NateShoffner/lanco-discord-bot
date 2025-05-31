@@ -24,7 +24,9 @@ class DatabaseBackupper(
 
         self.backup_dir = os.getenv("DATABASE_BACKUP_DIRECTORY")
         self.backup_filename = os.getenv("DATABASE_BACKUP_FILENAME")
-        self.backup_interval = os.getenv("DATABASE_BACKUP_INTERVAL")
+        self.backup_interval = int(
+            os.getenv("DATABASE_BACKUP_INTERVAL", 8640)
+        )  # default to 24 hours
 
         self.database_path = os.getenv("SQLITE_DB")
 
