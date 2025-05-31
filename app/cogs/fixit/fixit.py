@@ -6,7 +6,7 @@ from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
 from seeclickfix.client import SeeClickFixClient
-from seeclickfix.models.issue import Issue
+from seeclickfix.models.issue import Issue, Status
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import FixItConfig
@@ -20,8 +20,7 @@ class FixIt(LancoCog):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot.database.create_tables([FixItConfig])
-        session = aiohttp.ClientSession()
-        self.client = SeeClickFixClient(session)
+        self.client = SeeClickFixClient()
 
     async def cog_load(self):
         self.poll.start()
@@ -49,8 +48,7 @@ class FixIt(LancoCog):
             "min_lng": -76.333590881195,
             "max_lat": 40.04702644421361,
             "max_lng": -76.26908911880496,
-            "status": "open,acknowledged,closed",
-            "fields": "id,summary,description,status,lat,lng,address,media,created_at,acknowledged_at,closed_at",
+            "status": [Status.OPEN],
             "page": 1,
         }
 
