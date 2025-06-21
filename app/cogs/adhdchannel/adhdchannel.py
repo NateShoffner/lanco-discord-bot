@@ -1,9 +1,20 @@
-import os
-
-import openai
+import discord
 from cogs.lancocog import LancoCog
-from discord import TextChannel
+from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
+from utils.command_utils import is_bot_owner_or_admin
+
+
+class ChannelDiscussion(BaseModel):
+    topics: list[str] = Field(
+        ..., description="List of topics being discussed in the channel"
+    )
+    suggested_name: str = Field(
+        ...,
+        description="Suggested channel name based on topics, hyphen-separated, alphanumeric only, and without stopwords or spaces",
+    )
 
 
 class ADHDChannel(
@@ -11,111 +22,80 @@ class ADHDChannel(
     name="ADHDChannel",
     description="Updates the channel name and topic based on the current discussion",
 ):
+    adhd_channels = []  # TODO make this persistent
+
+    g = app_commands.Group(name="adhd", description="ADHD Channel commands")
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-
-    async def prompt_openai(
-        self, prompt: str, max_tokens: int = 250, temperature: int = 0, n: int = 1
-    ) -> str:
-        response = openai.Completion.create(
-            engine="gpt-3.5-turbo-instruct",
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            n=n,
+        self.agent = Agent(
+            model="openai:gpt-4o",
+            system_prompt="You are a helpful assistant that analyzes channel discussions and determines trending topics.",
+            output_type=ChannelDiscussion,
         )
-
-        response = response.choices[0].text.strip()
-        return response
 
     @commands.Cog.listener()
     async def on_ready(self):
         await super().on_ready()
-        self.get_topics.change_interval(seconds=30)
-        self.get_topics.start()
+        self.update_channel_name.change_interval(seconds=30)
+        self.update_channel_name.start()
 
-    @commands.command(name="adhd")
-    async def adhd(self, ctx: commands.Context):
-        """ADHD Channel"""
-        channel = ctx.channel
-        topics = await self.get_current_channel_topics(channel)
-
-        if not topics or len(topics) == 0:
-            await ctx.send("No topics found")
-            return
-
-        top_topics = topics[:3]
-        await ctx.send(f"Currently being discussed: {', '.join(top_topics)}")
-
-        new_name = ""
-        for topic in top_topics:
-            new_name += "".join(c for c in topic if c.isalnum() or c == " ")
-            new_name += "-"
-        await channel.edit(name=new_name, topic=f"Topics: {', '.join(top_topics)}")
+    @g.command(
+        name="toggle",
+        description="Toggle the ADHD channel functionality for the current channel",
+    )
+    @is_bot_owner_or_admin()
+    async def toggle(self, interaction: discord.Interaction):
+        """Toggle the ADHD channel functionality for the current channel"""
+        channel = interaction.channel
+        if channel.id in self.adhd_channels:
+            self.adhd_channels.remove(channel.id)
+            await interaction.response.send_message(
+                f"ADHD Channel functionality disabled for {channel.mention}"
+            )
+        else:
+            self.adhd_channels.append(channel.id)
+            await interaction.response.send_message(
+                f"ADHD Channel functionality enabled for {channel.mention}"
+            )
 
     @tasks.loop(seconds=10)
-    async def get_topics(self):
-        self.logger.info("Checking for topics")
+    async def update_channel_name(self):
+        for channel_id in self.adhd_channels:
+            channel = self.bot.get_channel(channel_id)
+            self.logger.info(f"Updating channel {channel.name}")
+            discussion = await self.get_channel_discussion(channel)
+            if not discussion or not discussion.topics or len(discussion.topics) == 0:
+                self.logger.info("No topics found")
+                continue
 
-        channel = self.bot.get_channel(1229511339966333068)
-        topics = await self.get_current_channel_topics(channel)
+            self.logger.info(f"New channel name: {discussion.suggested_name}")
+            await channel.edit(name=discussion.suggested_name)
 
-        if not topics or len(topics) == 0:
-            await channel.send("No topics found")
-            return
-
-        top_topics = topics[:3]
-        # await channel.send(f"Topics found: {', '.join(top_topics)}")
-
-        # new_name = self.get_new_channel_name(top_topics)
-
-    #        await channel.edit(name=new_name)
-
-    def get_new_channel_name(self, topics: list[str]) -> str:
-        new_name = "".join(c for c in topics[0] if c.isalnum() or c == " ").replace(
-            " ", "-"
-        )
-
-        return new_name
-
-    async def get_current_channel_topics(self, channel: TextChannel) -> list[str]:
-        messages = [msg async for msg in channel.history(limit=25, oldest_first=False)]
+    async def get_channel_discussion(self, channel: TextChannel) -> ChannelDiscussion:
+        messages = [msg async for msg in channel.history(limit=50, oldest_first=False)]
         messages = [
             m
             for m in messages
-            if not m.author.bot
-            and m.content.strip() != ""
-            and not m.content.startswith(".")
+            if not m.author.bot  # Ignore bot messages
+            and m.content.strip() != ""  # Ignore empty messages
+            and not m.content.startswith(".")  # TODO we need to ignore all bot commands
         ]
         messages.reverse()
 
-        for m in messages:
-            self.logger.info(f"{m.content}")
-
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
-            return []
+            return None
 
-        response = await self.prompt_openai(
-            "Extract primary topics from the following messages and list them separated by commas, ordered by relvance:\n"
-            + "\n".join([m.content for m in messages])
+        result = await self.agent.run(
+            [
+                "Analyze the following messages and extract the primary topics being discussed. "
+                "Return a list of topics ordered by relevance.",
+            ]
+            + [m.content for m in messages]
         )
 
-        topics = []
-
-        is_newline_separated = response.count("\n") > 2
-
-        if is_newline_separated:
-            for line in response.split("\n"):
-                line = line.lstrip("1234567890. ")
-                topics.append(line)
-        else:
-            for line in response.split(","):
-                line = line.lstrip("1234567890. ")
-                topics.append(line)
-
-        return topics
+        return result.output
 
 
 async def setup(bot):
