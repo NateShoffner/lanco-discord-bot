@@ -4,14 +4,17 @@ import os
 import discord
 from cogs.lancocog import LancoCog
 from discord.ext import commands
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
 from utils.file_downloader import FileDownloader
 from utils.tracked_message import track_message_ids
 
 
 class FileDetails(BaseModel):
-    description: str
+    description: str = Field(
+        ...,
+        description="A detailed description of the image, including any relevant context or information.",
+    )
 
 
 class Describe(
@@ -24,7 +27,7 @@ class Describe(
         self.register_context_menu(
             name="Describe", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
-        self.agent = agent = Agent(
+        self.agent = Agent(
             model="openai:gpt-4o",
             system_prompt="Describe this image.",
             output_type=FileDetails,

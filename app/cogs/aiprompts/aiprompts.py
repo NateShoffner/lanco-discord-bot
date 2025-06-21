@@ -230,27 +230,6 @@ class OpenAIPrompts(
 
         await ctx.send("Here's the dumbed down version:\n\n" + eli5_response)
 
-    @commands.command(
-        name="topic", description="Will say what the current channel is talking about"
-    )
-    @command_channel_lock()
-    @track_message_ids()
-    async def topic(self, ctx: commands.Context) -> discord.Message:
-        channel = ctx.channel
-        await channel.typing()
-        topics = await self.get_current_channel_topics(channel, history_limit=75)
-
-        if not topics or len(topics) == 0:
-            await ctx.send("No topics found")
-            return
-
-        max_topics = 3
-
-        top_topics = topics[:max_topics]
-        markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
-        msg = await ctx.send(f"Currently being discussed: \n{markdown_list}")
-        return msg
-
     @commands.command(name="vibecheck", description="Check the vibe")
     @command_channel_lock()
     async def vibecheck(self, ctx: commands.Context):

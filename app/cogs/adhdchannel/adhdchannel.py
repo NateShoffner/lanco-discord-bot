@@ -5,6 +5,7 @@ from discord.ext import commands, tasks
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from utils.command_utils import is_bot_owner_or_admin
+from utils.message_utils import get_user_messages
 
 
 class ChannelDiscussion(BaseModel):
@@ -73,15 +74,7 @@ class ADHDChannel(
             await channel.edit(name=discussion.suggested_name)
 
     async def get_channel_discussion(self, channel: TextChannel) -> ChannelDiscussion:
-        messages = [msg async for msg in channel.history(limit=50, oldest_first=False)]
-        messages = [
-            m
-            for m in messages
-            if not m.author.bot  # Ignore bot messages
-            and m.content.strip() != ""  # Ignore empty messages
-            and not m.content.startswith(".")  # TODO we need to ignore all bot commands
-        ]
-        messages.reverse()
+        messages = await get_user_messages(channel, limit=50, oldest_first=False)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
