@@ -23,6 +23,10 @@ class ChannelDiscussion(BaseModel):
     topics: list[str] = Field(
         ..., description="List of topics being discussed in the channel"
     )
+    vibe_check: str = Field(
+        ...,
+        description="Provide a vibe check, containing just a few words about the current vibe of the channel",
+    )
 
 
 class Summarize(
@@ -47,8 +51,6 @@ class Summarize(
         await ctx.channel.typing()
         messages = await get_user_messages(ctx.channel, limit=50, oldest_first=True)
 
-        print(messages)
-
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
             return None
@@ -70,6 +72,29 @@ class Summarize(
         top_topics = result.output.topics[:max_topics]
         markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
         msg = await ctx.send(f"Currently being discussed: \n{markdown_list}")
+        return msg
+
+    @commands.command(
+        name="vibecheck", description="Will provide a vibe check of the current channel"
+    )
+    @command_channel_lock()
+    @track_message_ids()
+    async def topic(self, ctx: commands.Context):
+        await ctx.channel.typing()
+        messages = await get_user_messages(ctx.channel, limit=25, oldest_first=True)
+
+        if not messages or len(messages) == 0:
+            self.logger.info("No messages found")
+            return None
+
+        result = await self.agent.run([m.content for m in messages])
+
+        if not result or not result.output or not result.output.vibe_check:
+            self.logger.info("No vibe check found")
+            return await ctx.send("Vibe check could be determined for the channel.")
+
+        vibe_check = result.output.vibe_check
+        msg = await ctx.send(f"Vibe check: {vibe_check}")
         return msg
 
 

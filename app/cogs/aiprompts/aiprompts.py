@@ -230,24 +230,6 @@ class OpenAIPrompts(
 
         await ctx.send("Here's the dumbed down version:\n\n" + eli5_response)
 
-    @commands.command(name="vibecheck", description="Check the vibe")
-    @command_channel_lock()
-    async def vibecheck(self, ctx: commands.Context):
-        messages = await self.get_current_channel_convo(ctx.channel)
-
-        if len(messages) == 0:
-            await ctx.send("No messages found")
-            return
-
-        vibe_response = await self.prompt_openai(
-            "vibecheck",
-            ctx.message,
-            "Check the vibe of the following messages and try to keep it under 75 words:\n"
-            + "\n".join([m.content for m in messages]),
-        )
-
-        await ctx.send(vibe_response)
-
     @commands.command(name="chime", description="Chime in on the current topic")
     @command_channel_lock()
     async def chime(self, ctx: commands.Context):
