@@ -27,7 +27,7 @@ class ChannelDiscussion(BaseModel):
 
 class Summarize(
     LancoCog,
-    name="summarize",
+    name="Summarize",
     description="Summarize Cog",
 ):
     def __init__(self, bot):
@@ -45,19 +45,13 @@ class Summarize(
     @track_message_ids()
     async def topic(self, ctx: commands.Context):
         await ctx.channel.typing()
-        messages = await get_user_messages(ctx.channel, limit=50, oldest_first=True)
+        messages = await get_user_messages(ctx.channel, limit=50)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
             return None
 
-        result = await self.agent.run(
-            [
-                "Analyze the following messages and extract the primary topics being discussed. "
-                "Return a list of topics ordered by relevance.",
-            ]
-            + [m.content for m in messages]
-        )
+        result = await self.agent.run([m.content for m in messages])
 
         if not result or not result.output or len(result.output.topics) == 0:
             self.logger.info("No topics found")

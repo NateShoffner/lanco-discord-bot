@@ -2,7 +2,7 @@ from discord import Message, TextChannel
 
 
 async def get_user_messages(
-    channel: TextChannel, limit: int, oldest_first: bool
+    channel: TextChannel, limit: int, oldest_first: bool = False
 ) -> list[Message]:
     """Get strictly text messages from users in a channel"""
 
