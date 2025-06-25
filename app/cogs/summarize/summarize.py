@@ -7,14 +7,10 @@ Provides summarization capabilities for Discord channels, allowing users to get 
 
 import discord
 from cogs.lancocog import LancoCog
-from discord import TextChannel, app_commands
 from discord.ext import commands
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
-from reactionmenu import ReactionButton, ReactionMenu
 from utils.channel_lock import command_channel_lock
-from utils.command_utils import is_bot_owner_or_admin
 from utils.message_utils import get_user_messages
 from utils.tracked_message import track_message_ids
 
@@ -25,7 +21,7 @@ class ChannelDiscussion(BaseModel):
     )
     vibe_check: str = Field(
         ...,
-        description="Provide a vibe check, containing just a few words about the current vibe of the channel",
+        description="Provide a vibe check, containing just 1-4 words about the current vibe of the channel",
     )
 
 
@@ -79,7 +75,7 @@ class Summarize(
     )
     @command_channel_lock()
     @track_message_ids()
-    async def topic(self, ctx: commands.Context):
+    async def vibecheck(self, ctx: commands.Context):
         await ctx.channel.typing()
         messages = await get_user_messages(ctx.channel, limit=25, oldest_first=True)
 
