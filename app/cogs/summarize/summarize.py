@@ -71,7 +71,7 @@ class Summarize(
     @track_message_ids()
     async def vibecheck(self, ctx: commands.Context):
         await ctx.channel.typing()
-        messages = await get_user_messages(ctx.channel, limit=25, oldest_first=True)
+        messages = await get_user_messages(ctx.channel, limit=25)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
