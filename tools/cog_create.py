@@ -6,7 +6,7 @@ COG_DIR = os.path.join("app", "cogs")
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: poetry run cog <name> [description]")
+        print("Usage: poetry run create-cog <name> [description]")
         sys.exit(1)
 
     name = sys.argv[1]
