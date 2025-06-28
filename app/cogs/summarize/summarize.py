@@ -23,6 +23,10 @@ class ChannelDiscussion(BaseModel):
         ...,
         description="Provide a vibe check, containing just 1-4 words about the current vibe of the channel",
     )
+    eli5_explanation: str = Field(
+        ...,
+        description="A simple explanation of the current channel's vibe, suitable for a 5-year-old",
+    )
 
 
 class Summarize(
@@ -86,6 +90,40 @@ class Summarize(
         vibe_check = result.output.vibe_check
         msg = await ctx.send(f"Vibe check: {vibe_check}")
         return msg
+
+    @commands.command(
+        name="eli5",
+        description="Explain Like I'm 5 - provides a simple explanation of the current channel's vibe",
+    )
+    @command_channel_lock()
+    @track_message_ids()
+    async def eli5(self, ctx: commands.Context):
+        await ctx.channel.typing()
+        prompt = await self.get_user_prompt(ctx)
+
+        if not prompt:
+            return await ctx.send("Please provide a prompt for the ELI5 explanation.")
+
+        result = await self.agent.run(prompt)
+
+        if not result or not result.output or not result.output.eli5_explanation:
+            self.logger.info("No ELI5 explanation found")
+            return
+
+        eli5_explanation = result.output.eli5_explanation
+        msg = await ctx.send(eli5_explanation)
+        return msg
+
+    async def get_user_prompt(self, ctx: commands.Context) -> str:
+        if ctx.message.reference:
+            ref_message = await ctx.fetch_message(ctx.message.reference.message_id)
+            return ref_message.content
+
+        split = ctx.message.content.split(" ", 1)
+        if len(split) > 1:
+            return ctx.message.content.split(" ", 1)[1]
+
+        return None
 
 
 async def setup(bot):

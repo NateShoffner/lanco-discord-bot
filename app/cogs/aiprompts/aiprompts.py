@@ -214,22 +214,6 @@ class OpenAIPrompts(
         ai_response = await self.prompt_openai("ai", ctx.message, prompt)
         await ctx.send(ai_response)
 
-    @commands.command(name="eli5", description="Explain like I'm 5")
-    async def eli5(self, ctx: commands.Context):
-        question = await self.get_user_prompt(ctx)
-        eli5_response = await self.prompt_openai(
-            "eli5",
-            ctx.message,
-            "Give me a dumbed down version of this message as if I'm 5 years old:\n"
-            + question,
-        )
-
-        if not eli5_response or len(eli5_response) == 0:
-            await ctx.send("There's no possible way to dumb this down further")
-            return
-
-        await ctx.send("Here's the dumbed down version:\n\n" + eli5_response)
-
     @commands.command(name="chime", description="Chime in on the current topic")
     @command_channel_lock()
     async def chime(self, ctx: commands.Context):
