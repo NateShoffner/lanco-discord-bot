@@ -1,101 +1,71 @@
-import os
-
 import discord
 from cogs.lancocog import LancoCog
 from discord.ext import commands
-from openai import AsyncOpenAI
-from utils.tracked_message import ignore_if_referenced_message_is_tracked
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
+from pydantic_ai.agent import AgentRunResult
+from pydantic_ai.messages import ModelMessage
 
 
-class Chatbot(
-    LancoCog,
-    name="Chatbot",
-    description="General purpose chatbot",
+class ChannelDiscussion(BaseModel):
+    response: str = Field(
+        ...,
+        description="The response from the chatbot based on the user's input",
+    )
+
+
+class ChatBot(
+    LancoCog, name="ChatBot", description="User-specific chatbot with agent memory"
 ):
-    TEMPERATURE = 0.5
-    MAX_TOKENS = 500
-    FREQUENCY_PENALTY = 0
-    PRESENCE_PENALTY = 0.6
-    MAX_CONTEXT_QUESTIONS = 25
-
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot):
         super().__init__(bot)
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.conversations = (
-            {}
-        )  # key: conversation list of prompts and responses (tuple)
+        self.channel_agents: dict[int, Agent] = {}
+        self.channel_responses: dict[int, AgentRunResult] = {}
 
-    def get_conversation_key(self, user_message: discord.Message):
-        return f"{user_message.guild.id}-{user_message.channel.id}-{user_message.author.id}"
+    def get_agent(self, channel: discord.TextChannel) -> Agent:
+        PROMPT = f"Your name is {self.bot.user.name}. You are a helpful assistant chatting with users in the {channel.name} channel of the {channel.guild.name} server. Remember the context of the conversation and respond accordingly."
+
+        if channel.id not in self.channel_agents:
+            agent = Agent(
+                model="openai:gpt-4o",
+                system_prompt=PROMPT,
+                output_type=ChannelDiscussion,
+            )
+            self.channel_agents[channel.id] = agent
+        return self.channel_agents[channel.id]
+
+    def get_last_response(self, channel: discord.TextChannel) -> AgentRunResult:
+        return self.channel_responses.get(channel.id, None)
 
     @commands.Cog.listener()
-    @ignore_if_referenced_message_is_tracked()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
 
-        if message.content.startswith(self.bot.command_prefix):
-            return
+        if self.bot.user.mentioned_in(message):
+            # strip bot mention from message content
+            content = message.clean_content.replace(
+                f"@{self.bot.user.name}", ""
+            ).strip()
+            if not content:
+                return
 
-        is_reply = False
-        is_embed = False
-        if message.reference:
-            referenced_msg = await message.channel.fetch_message(
-                message.reference.message_id
-            )
-            if referenced_msg.author.id == self.bot.user.id:
-                is_reply = True
-            if referenced_msg.embeds:
-                is_embed = True
+            text = message.content.strip()
 
-        if is_embed:
-            return
-
-        if is_reply or self.bot.user.mentioned_in(message):
-            prompt = message.content.replace(f"<@!{self.bot.user.id}>", "").strip()
+            agent = self.get_agent(message.channel)
+            last_response = self.get_last_response(message.channel)
+            history = []
+            if last_response:
+                history = last_response.new_messages()
 
             await message.channel.typing()
+            response = await agent.run(text, history=history)
 
-            key = self.get_conversation_key(message)
-            response = await self.get_response(key, prompt)
+            # Store the response for future reference
+            self.channel_responses[message.channel.id] = response
 
-            if not response:
-                self.error("No response from LLM")
-                await message.channel.send("I'm sorry, I don't know how to respond.")
-
-            self.conversations[key].append((prompt, response))
-            await message.channel.send(response, reference=message)
-
-    async def get_response(self, conversation_key: str, user_prompt: str):
-        if not conversation_key in self.conversations:
-            self.conversations[conversation_key] = []
-        previous_questions_and_answers = self.conversations[conversation_key]
-
-        messages = []
-
-        # add the previous questions and answers
-        for question, answer in previous_questions_and_answers[
-            -self.MAX_CONTEXT_QUESTIONS :
-        ]:
-            messages.append({"role": "user", "content": question})
-            messages.append({"role": "assistant", "content": answer})
-        # add the new question
-        messages.append({"role": "user", "content": user_prompt})
-
-        stream = await self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=self.TEMPERATURE,
-            max_tokens=self.MAX_TOKENS,
-            top_p=1,
-            frequency_penalty=self.FREQUENCY_PENALTY,
-            presence_penalty=self.PRESENCE_PENALTY,
-        )
-
-        content = stream.choices[0].message.content
-
-        return content.encode("utf-8").decode()
+            await message.channel.send(response.output.response)
 
 
 async def setup(bot):
-    await bot.add_cog(Chatbot(bot))
+    await bot.add_cog(ChatBot(bot))
