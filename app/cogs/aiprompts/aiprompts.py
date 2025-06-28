@@ -3,11 +3,10 @@ import os
 
 import discord
 from cogs.lancocog import LancoCog
-from discord import TextChannel, app_commands
+from discord import app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
 from reactionmenu import ReactionButton, ReactionMenu
-from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
@@ -213,80 +212,6 @@ class OpenAIPrompts(
         prompt = await self.get_user_prompt(ctx)
         ai_response = await self.prompt_openai("ai", ctx.message, prompt)
         await ctx.send(ai_response)
-
-    @commands.command(name="chime", description="Chime in on the current topic")
-    @command_channel_lock()
-    async def chime(self, ctx: commands.Context):
-        channel = ctx.channel
-        topics = await self.get_current_channel_topics(channel, history_limit=5)
-
-        if not topics or len(topics) == 0:
-            await ctx.send("No topics found")
-            return
-
-        top_topics = topics[:3]
-
-        self.logger.info(f"Topics: {top_topics}")
-
-        response = await self.prompt_openai(
-            "Chime in on or more of the following topics: "
-            + ", ".join(top_topics)
-            + "\nTry to keep it short and concise, ideally less than 75 words"
-        )
-
-        await ctx.send(response)
-
-    async def get_current_channel_convo(
-        self, channel: TextChannel, history_limit: int = 25
-    ) -> list[str]:
-        messages = []
-        messages = [
-            msg
-            async for msg in channel.history(limit=history_limit, oldest_first=False)
-        ]
-        messages = [
-            m
-            for m in messages
-            if not m.author.bot
-            and m.content.strip() != ""
-            and not m.content.startswith(".")
-            and not m.content.startswith("!")
-            and not m.embeds
-            and not m.attachments
-            and not m.author.bot
-        ]
-        messages.reverse()
-        return messages
-
-    async def get_current_channel_topics(
-        self, channel: TextChannel, history_limit: int = 25
-    ) -> list[str]:
-        messages = await self.get_current_channel_convo(channel, history_limit)
-
-        if len(messages) == 0:
-            self.logger.info("No messages found")
-            return []
-
-        response = await self.prompt_openai(
-            None,
-            None,
-            "Extract primary topics from the following messages and list them in json format with a 'topic' property, ordered by newest first:\n"
-            + "\n".join([m.content for m in messages]),
-        )
-
-        response = response.replace("```json\n", "").replace("```", "")
-        topics = []
-
-        try:
-            data = json.loads(response)
-
-            for topic in data:
-                topics.append(topic["topic"])
-
-        except Exception as e:
-            self.logger.error(f"Error parsing JSON: {e}")
-
-        return topics
 
 
 async def setup(bot):

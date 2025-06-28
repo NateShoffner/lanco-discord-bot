@@ -27,6 +27,10 @@ class ChannelDiscussion(BaseModel):
         ...,
         description="A simple explanation of the current channel's vibe, suitable for a 5-year-old",
     )
+    opinion: str = Field(
+        ...,
+        description="Provide some insight or opinion on the current discussion in the channel. Being critical is okay, but be respectful, constructive, and concise.",
+    )
 
 
 class Summarize(
@@ -99,6 +103,8 @@ class Summarize(
     @track_message_ids()
     async def eli5(self, ctx: commands.Context):
         await ctx.channel.typing()
+
+        # TODO - if a message is not referenced, get the summary of the channel and then use that as the prompt
         prompt = await self.get_user_prompt(ctx)
 
         if not prompt:
@@ -112,6 +118,30 @@ class Summarize(
 
         eli5_explanation = result.output.eli5_explanation
         msg = await ctx.send(eli5_explanation)
+        return msg
+
+    @commands.command(
+        name="chime",
+        description="Chime in on the current conversation with an opinion or insight",
+    )
+    @command_channel_lock()
+    @track_message_ids()
+    async def chime(self, ctx: commands.Context):
+        await ctx.channel.typing()
+        messages = await get_user_messages(ctx.channel, limit=25)
+
+        if not messages or len(messages) == 0:
+            self.logger.info("No messages found")
+            return None
+
+        result = await self.agent.run([m.content for m in messages])
+
+        if not result or not result.output or not result.output.opinion:
+            self.logger.info("No opinion found")
+            return await ctx.send("No opinion could be determined for the channel.")
+
+        opinion = result.output.opinion
+        msg = await ctx.send(opinion)
         return msg
 
     async def get_user_prompt(self, ctx: commands.Context) -> str:
