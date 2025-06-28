@@ -189,6 +189,22 @@ class RedditFeed(LancoCog):
             channel = self.bot.get_channel(ctx.channel.id)
             await self.share_post(submission, channel)
 
+    @commands.command(
+        name="reddittest2", description="Test the Reddit feed with a specific URL"
+    )
+    @is_bot_owner_or_admin()
+    async def test(self, ctx: commands.Context):
+        """Test the Reddit feed by posting a new post from /r/lancaster"""
+        url = "https://www.reddit.com/r/lancaster/comments/1lkcjqb/meet_bluey_the_dog_redditors_rescuers_came/"
+
+        try:
+            submission = await self.reddit.submission(url=url)
+            channel = self.bot.get_channel(ctx.channel.id)
+            await self.share_post(submission, channel)
+        except Exception as e:
+            await ctx.send(f"Error: {e}")
+            self.logger.error(f"Error in redditposttest: {e}")
+
     async def share_post(
         self, submission: Submission, channel: TextChannel
     ) -> discord.Message:
@@ -229,20 +245,44 @@ class RedditFeed(LancoCog):
 
         manual_blur = False
         msg = None
-        if hasattr(submission, "preview"):
-            high_res = submission.preview["images"][0]["source"]["url"]
 
+        image_url = None
+        if hasattr(submission, "preview"):
+            image_url = submission.preview["images"][0]["source"]["url"]
+        elif hasattr(submission, "url"):
+            image_url = submission.url
+        if hasattr(submission, "media_metadata"):
+            # handle media metadata for gallery posts
+            # Get the first image in the order shown in the post
+            if (
+                hasattr(submission, "gallery_data")
+                and "items" in submission.gallery_data
+            ):
+                for gallery_item in submission.gallery_data["items"]:
+                    media_id = gallery_item["media_id"]
+                    item = submission.media_metadata.get(media_id)
+                    if item and item["status"] == "valid" and item["e"] == "Image":
+                        image_url = item["s"]["u"]
+                        break
+            else:
+                # fallback: just get the first valid image
+                for item in submission.media_metadata.values():
+                    if item["status"] == "valid" and item["e"] == "Image":
+                        image_url = item["s"]["u"]
+                        break
+
+        if image_url:
             if nsfw:
                 # blur the image, save, and re-upload
-                self.logger.info(f"Downloading image: {high_res}")
+                self.logger.info(f"Downloading image: {image_url}")
                 image_path = await self.file_downloader.download_file(
-                    high_res, self.cache_dir
+                    image_url, self.cache_dir
                 )
                 temp_files.append(image_path)
 
                 self.logger.info(f"Blurring image: {image_path}")
                 blurred_path = self.file_downloader.get_random_filename(
-                    high_res, self.cache_dir
+                    image_url, self.cache_dir
                 )
                 blur_image(image_path, blurred_path, 75)
                 temp_files.append(blurred_path)
@@ -251,7 +291,7 @@ class RedditFeed(LancoCog):
                 manual_blur = True
                 embed.set_image(url=f"attachment://{filename}")
             else:
-                embed.set_image(url=high_res)
+                embed.set_image(url=image_url)
 
         if manual_blur:
             msg = await channel.send(embed=embed, file=file)
