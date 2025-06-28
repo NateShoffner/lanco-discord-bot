@@ -1,15 +1,19 @@
-import base64
 import datetime
-import json
+import mimetypes
 import os
 from dataclasses import dataclass
 
 import discord
-import openai
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from pydantic import BaseModel
+from pydantic_ai import Agent, BinaryContent
 from utils.file_downloader import FileDownloader
+
+
+class SleepScreenshot(BaseModel):
+    total_sleep_time_minutes: int
 
 
 @dataclass
@@ -35,7 +39,11 @@ class SleepCheck(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
+        self.agent = Agent(
+            model="openai:gpt-4o",
+            system_prompt="Describe this image.",
+            output_type=SleepScreenshot,
+        )
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
         self.active_royales = {}
@@ -122,9 +130,10 @@ class SleepCheck(
                 continue
 
             self.logger.info(f"Processing message from {message.author.name}")
-            sleep_time = await self.get_sleep_time(message)
-            if sleep_time:
-                users[message.author] = sleep_time
+            ss = await self.process_screenshot(message)
+            if ss:
+                delta = datetime.timedelta(minutes=ss.total_sleep_time_minutes)
+                users[message.author] = delta
 
         return users
 
@@ -143,56 +152,35 @@ class SleepCheck(
 
         return messages
 
-    async def get_sleep_time(self, message: discord.Message) -> datetime.timedelta:
+    async def process_screenshot(self, message: discord.Message) -> SleepScreenshot:
         results = await self.file_downloader.download_attachments(
             message, self.cache_dir
         )
         filename = results[0].filename
-        encoded = self.encode_image(filename)
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that responds in JSON.",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "If this appears to be a screenshot of a sleep tracker, please provide the total sleep time in minutes.",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{encoded}"},
-                        },
-                    ],
-                },
-            ],
-            temperature=0.0,
+        with open(filename, "rb") as f:
+            image_bytes = f.read()
+
+        # TODO might want to use python-magic so it's content-based
+        mime_type, _ = mimetypes.guess_type(filename)
+
+        # throw it out if it's not an image
+        if not mime_type or not mime_type.startswith("image/"):
+            self.logger.error(f"File {filename} is not an image.")
+            return None
+
+        result = await self.agent.run(
+            [
+                "Determine if this photo is a screenshot of a sleep tracker and if so, parse out the details.",
+                BinaryContent(data=image_bytes, media_type=mime_type),
+            ]
         )
 
-        response = response.choices[0].message.content
-        # remove markdown
-        response = response.replace("```json\n", "").replace("```", "")
-
+        # cleanup
         for r in results:
             os.remove(r.filename)
 
-        try:
-            json_parsed = json.loads(response)
-            mins = json_parsed["total_sleep_time_minutes"]
-            self.logger.info(f"Sleep time: {mins}")
-            return datetime.timedelta(minutes=mins)
-        except Exception as e:
-            self.logger.error(f"Error parsing JSON: {e}")
-            return None
-
-    def encode_image(self, image_path: str):
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
+        return result.output
 
 
 async def setup(bot):
