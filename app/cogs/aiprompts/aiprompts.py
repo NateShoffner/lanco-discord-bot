@@ -1,4 +1,3 @@
-import json
 import os
 
 import discord
@@ -6,11 +5,20 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
 from reactionmenu import ReactionButton, ReactionMenu
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
 from .models import AIPromptConfig
+
+
+class CustomBotConversation(BaseModel):
+    response: str = Field(
+        ...,
+        description="The response from the chatbot based on the user's input",
+    )
 
 
 class PromptModal(discord.ui.Modal, title="Prompt Info"):
@@ -65,9 +73,18 @@ class OpenAIPrompts(
         super().__init__(bot)
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.bot.database.create_tables([AIPromptConfig])
-        self.conversations = (
-            {}
-        )  # key: conversation list of prompts and responses (tuple)
+        self.custom_agents: dict[int, Agent] = {}  # AI ID -> Agent
+
+    def get_agent(self, AIpromptConfig: AIPromptConfig) -> Agent:
+        ai_id = AIpromptConfig.id
+        if ai_id not in self.custom_agents:
+            agent = Agent(
+                model="openai:gpt-4o",
+                system_prompt="You are a helpful assistant that responds to user queries.",
+                output_type=CustomBotConversation,
+            )
+            self.custom_agents[ai_id] = agent
+        return self.custom_agents[ai_id]
 
     async def get_user_prompt(self, ctx: commands.Context) -> str:
         if ctx.message.reference:
@@ -79,47 +96,6 @@ class OpenAIPrompts(
             return ctx.message.content.split(" ", 1)[1]
 
         return None
-
-    def get_conversation_key(self, user_message: discord.Message, ai_name: str):
-        return f"{user_message.guild.id}-{user_message.channel.id}-{user_message.author.id}-{ai_name}"
-
-    async def prompt_openai(
-        self,
-        ai_name: str,
-        user_message: discord.Message,
-        user_prompt: str,
-        max_tokens: int = 250,
-        temperature: int = 0,
-        n: int = 1,
-    ) -> str:
-        messages = []
-
-        if ai_name and user_message:
-            conversation_key = self.get_conversation_key(user_message, ai_name)
-
-            if not conversation_key in self.conversations:
-                self.conversations[conversation_key] = []
-            previous_questions_and_answers = self.conversations[conversation_key]
-
-            # add the previous questions and answers
-            for question, answer in previous_questions_and_answers[
-                -self.MAX_CONTEXT_QUESTIONS :
-            ]:
-                messages.append({"role": "user", "content": question})
-                messages.append({"role": "assistant", "content": answer})
-            # add the new question
-        messages.append({"role": "user", "content": user_prompt})
-
-        response = await self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=1,
-        )
-
-        content = response.choices[0].message.content
-        return content.encode("utf-8").decode()
 
     @g.command(name="add", description="Add an AI prompt")
     @is_bot_owner_or_admin()
@@ -201,11 +177,22 @@ class OpenAIPrompts(
             user_prompt = await self.get_user_prompt(ctx)
 
             formatted_message = prompt_config.prompt.replace("%prompt%", user_prompt)
-            ai_response = await self.prompt_openai(
-                prompt_config.name, message, formatted_message
-            )
 
-            return await message.channel.send(ai_response)
+            agent = self.get_agent(prompt_config)
+
+            if not agent:
+                await message.channel.send("No AI agent configured for this prompt.")
+                return
+
+            await message.channel.typing()
+
+            self.logger.info(f"Running AI agent for prompt: {prompt_config.name}")
+            self.logger.info(f"Formatted message: {formatted_message}")
+
+            # TODO pass in message history
+            response = await agent.run(formatted_message)
+
+            await message.channel.send(response.output.response)
 
     @commands.command(name="ai", description="Generic AI prompt")
     async def ai(self, ctx: commands.Context):
