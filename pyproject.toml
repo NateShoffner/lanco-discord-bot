@@ -28,7 +28,6 @@ spotipy = "^2.25.1"
 watchfiles = "^0.21.0"
 pymupdf = "^1.24.2"
 vt-py = "^0.18.2"
-openai = "1.33.0"
 bs4 = "^0.0.2"
 emoji = "^2.13.2"
 imageio = "^2.35.1"
@@ -45,6 +44,7 @@ num2words = "^0.5.14"
 wolframalpha = "^5.1.3"
 openai-whisper = "^20240930"
 elasticsearch = "^9.0.2"
+pydantic-ai = "^0.3.2"
 
 
 [tool.poetry.group.dev.dependencies]

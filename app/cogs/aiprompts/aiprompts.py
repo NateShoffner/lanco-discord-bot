@@ -1,17 +1,24 @@
-import json
 import os
 
 import discord
 from cogs.lancocog import LancoCog
-from discord import TextChannel, app_commands
+from discord import app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
 from reactionmenu import ReactionButton, ReactionMenu
-from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
 from .models import AIPromptConfig
+
+
+class CustomBotConversation(BaseModel):
+    response: str = Field(
+        ...,
+        description="The response from the chatbot based on the user's input",
+    )
 
 
 class PromptModal(discord.ui.Modal, title="Prompt Info"):
@@ -66,9 +73,18 @@ class OpenAIPrompts(
         super().__init__(bot)
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.bot.database.create_tables([AIPromptConfig])
-        self.conversations = (
-            {}
-        )  # key: conversation list of prompts and responses (tuple)
+        self.custom_agents: dict[int, Agent] = {}  # AI ID -> Agent
+
+    def get_agent(self, AIpromptConfig: AIPromptConfig) -> Agent:
+        ai_id = AIpromptConfig.id
+        if ai_id not in self.custom_agents:
+            agent = Agent(
+                model="openai:gpt-4o",
+                system_prompt="You are a helpful assistant that responds to user queries.",
+                output_type=CustomBotConversation,
+            )
+            self.custom_agents[ai_id] = agent
+        return self.custom_agents[ai_id]
 
     async def get_user_prompt(self, ctx: commands.Context) -> str:
         if ctx.message.reference:
@@ -80,47 +96,6 @@ class OpenAIPrompts(
             return ctx.message.content.split(" ", 1)[1]
 
         return None
-
-    def get_conversation_key(self, user_message: discord.Message, ai_name: str):
-        return f"{user_message.guild.id}-{user_message.channel.id}-{user_message.author.id}-{ai_name}"
-
-    async def prompt_openai(
-        self,
-        ai_name: str,
-        user_message: discord.Message,
-        user_prompt: str,
-        max_tokens: int = 250,
-        temperature: int = 0,
-        n: int = 1,
-    ) -> str:
-        messages = []
-
-        if ai_name and user_message:
-            conversation_key = self.get_conversation_key(user_message, ai_name)
-
-            if not conversation_key in self.conversations:
-                self.conversations[conversation_key] = []
-            previous_questions_and_answers = self.conversations[conversation_key]
-
-            # add the previous questions and answers
-            for question, answer in previous_questions_and_answers[
-                -self.MAX_CONTEXT_QUESTIONS :
-            ]:
-                messages.append({"role": "user", "content": question})
-                messages.append({"role": "assistant", "content": answer})
-            # add the new question
-        messages.append({"role": "user", "content": user_prompt})
-
-        response = await self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=1,
-        )
-
-        content = response.choices[0].message.content
-        return content.encode("utf-8").decode()
 
     @g.command(name="add", description="Add an AI prompt")
     @is_bot_owner_or_admin()
@@ -202,146 +177,28 @@ class OpenAIPrompts(
             user_prompt = await self.get_user_prompt(ctx)
 
             formatted_message = prompt_config.prompt.replace("%prompt%", user_prompt)
-            ai_response = await self.prompt_openai(
-                prompt_config.name, message, formatted_message
-            )
 
-            return await message.channel.send(ai_response)
+            agent = self.get_agent(prompt_config)
+
+            if not agent:
+                await message.channel.send("No AI agent configured for this prompt.")
+                return
+
+            await message.channel.typing()
+
+            self.logger.info(f"Running AI agent for prompt: {prompt_config.name}")
+            self.logger.info(f"Formatted message: {formatted_message}")
+
+            # TODO pass in message history
+            response = await agent.run(formatted_message)
+
+            await message.channel.send(response.output.response)
 
     @commands.command(name="ai", description="Generic AI prompt")
     async def ai(self, ctx: commands.Context):
         prompt = await self.get_user_prompt(ctx)
         ai_response = await self.prompt_openai("ai", ctx.message, prompt)
         await ctx.send(ai_response)
-
-    @commands.command(name="eli5", description="Explain like I'm 5")
-    async def eli5(self, ctx: commands.Context):
-        question = await self.get_user_prompt(ctx)
-        eli5_response = await self.prompt_openai(
-            "eli5",
-            ctx.message,
-            "Give me a dumbed down version of this message as if I'm 5 years old:\n"
-            + question,
-        )
-
-        if not eli5_response or len(eli5_response) == 0:
-            await ctx.send("There's no possible way to dumb this down further")
-            return
-
-        await ctx.send("Here's the dumbed down version:\n\n" + eli5_response)
-
-    @commands.command(
-        name="topic", description="Will say what the current channel is talking about"
-    )
-    @command_channel_lock()
-    @track_message_ids()
-    async def topic(self, ctx: commands.Context) -> discord.Message:
-        channel = ctx.channel
-        await channel.typing()
-        topics = await self.get_current_channel_topics(channel, history_limit=75)
-
-        if not topics or len(topics) == 0:
-            await ctx.send("No topics found")
-            return
-
-        max_topics = 3
-
-        top_topics = topics[:max_topics]
-        markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
-        msg = await ctx.send(f"Currently being discussed: \n{markdown_list}")
-        return msg
-
-    @commands.command(name="vibecheck", description="Check the vibe")
-    @command_channel_lock()
-    async def vibecheck(self, ctx: commands.Context):
-        messages = await self.get_current_channel_convo(ctx.channel)
-
-        if len(messages) == 0:
-            await ctx.send("No messages found")
-            return
-
-        vibe_response = await self.prompt_openai(
-            "vibecheck",
-            ctx.message,
-            "Check the vibe of the following messages and try to keep it under 75 words:\n"
-            + "\n".join([m.content for m in messages]),
-        )
-
-        await ctx.send(vibe_response)
-
-    @commands.command(name="chime", description="Chime in on the current topic")
-    @command_channel_lock()
-    async def chime(self, ctx: commands.Context):
-        channel = ctx.channel
-        topics = await self.get_current_channel_topics(channel, history_limit=5)
-
-        if not topics or len(topics) == 0:
-            await ctx.send("No topics found")
-            return
-
-        top_topics = topics[:3]
-
-        self.logger.info(f"Topics: {top_topics}")
-
-        response = await self.prompt_openai(
-            "Chime in on or more of the following topics: "
-            + ", ".join(top_topics)
-            + "\nTry to keep it short and concise, ideally less than 75 words"
-        )
-
-        await ctx.send(response)
-
-    async def get_current_channel_convo(
-        self, channel: TextChannel, history_limit: int = 25
-    ) -> list[str]:
-        messages = []
-        messages = [
-            msg
-            async for msg in channel.history(limit=history_limit, oldest_first=False)
-        ]
-        messages = [
-            m
-            for m in messages
-            if not m.author.bot
-            and m.content.strip() != ""
-            and not m.content.startswith(".")
-            and not m.content.startswith("!")
-            and not m.embeds
-            and not m.attachments
-            and not m.author.bot
-        ]
-        messages.reverse()
-        return messages
-
-    async def get_current_channel_topics(
-        self, channel: TextChannel, history_limit: int = 25
-    ) -> list[str]:
-        messages = await self.get_current_channel_convo(channel, history_limit)
-
-        if len(messages) == 0:
-            self.logger.info("No messages found")
-            return []
-
-        response = await self.prompt_openai(
-            None,
-            None,
-            "Extract primary topics from the following messages and list them in json format with a 'topic' property, ordered by newest first:\n"
-            + "\n".join([m.content for m in messages]),
-        )
-
-        response = response.replace("```json\n", "").replace("```", "")
-        topics = []
-
-        try:
-            data = json.loads(response)
-
-            for topic in data:
-                topics.append(topic["topic"])
-
-        except Exception as e:
-            self.logger.error(f"Error parsing JSON: {e}")
-
-        return topics
 
 
 async def setup(bot):

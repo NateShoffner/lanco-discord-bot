@@ -1,13 +1,18 @@
-import base64
-import json
 import math
+import mimetypes
 import os
 
-import openai
 from cogs.lancocog import LancoCog
 from discord import Embed, Message
 from discord.ext import commands
+from pydantic import BaseModel
+from pydantic_ai import Agent, BinaryContent
 from utils.file_downloader import FileDownloader
+
+
+class BillDetails(BaseModel):
+    is_bill: bool
+    bill_total: float
 
 
 class TipSuggestion:
@@ -28,7 +33,11 @@ class TipSuggestion:
 class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.client = openai.Client(api_key=os.getenv("OPENAI_API_KEY"))
+        self.agent = Agent(
+            model="openai:gpt-4o",
+            system_prompt="Describe this image.",
+            output_type=BillDetails,
+        )
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
 
@@ -66,8 +75,8 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
                         color=0x00FF00,
                     )
                     response_msg = await prompt_msg.reply(embed=response_embed)
-                    bill_amount = await self.get_bill_total_from_image(prompt_msg)
-                    if bill_amount is None:
+                    bill_details = await self.get_bill_details_from_image(prompt_msg)
+                    if bill_details is None:
                         response_embed = Embed(
                             title="Error",
                             description="Error processing the image. Please try again.",
@@ -75,7 +84,8 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
                         )
                         await response_msg.edit(embed=response_embed)
                         return
-                else:
+                    bill_amount = bill_details.bill_total
+                else:  # TODO can probably just also have the agent handle manual calc
                     bill_amount = prompt_msg.content
             except Exception as e:
                 response_embed = Embed(
@@ -139,11 +149,7 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
         else:
             await ctx.send(embed=response_embed)
 
-    def encode_image(self, image_path: str):
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
-
-    async def get_bill_total_from_image(self, message: Message) -> str:
+    async def get_bill_details_from_image(self, message: Message) -> BillDetails:
         results = await self.file_downloader.download_attachments(
             message, self.cache_dir
         )
@@ -152,50 +158,30 @@ class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
             return None
 
         filename = results[0].filename
-        encoded = self.encode_image(filename)
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that responds in JSON.",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "If this appears to be a screenshot of a receipt, please provide the bill amount in json format with the property 'bill_total'.",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{encoded}"},
-                        },
-                    ],
-                },
-            ],
-            temperature=0.0,
+        with open(filename, "rb") as f:
+            image_bytes = f.read()
+
+        # TODO might want to use python-magic so it's content-based
+        mime_type, _ = mimetypes.guess_type(filename)
+
+        # throw it out if it's not an image
+        if not mime_type or not mime_type.startswith("image/"):
+            self.logger.error(f"File {filename} is not an image.")
+            return None
+
+        result = await self.agent.run(
+            [
+                "Determine if this photo is a receipt and if so, parse out the bill details.",
+                BinaryContent(data=image_bytes, media_type=mime_type),
+            ]
         )
 
         # cleanup
         for r in results:
             os.remove(r.filename)
 
-        response = response.choices[0].message.content
-        print(response)
-        # remove markdown
-        response = response.replace("```json\n", "").replace("```", "")
-
-        try:
-            json_parsed = json.loads(response)
-            total = json_parsed["bill_total"]
-            self.logger.info(f"Bill total: {total}")
-            return total
-
-        except Exception as e:
-            self.logger.error(f"Error parsing JSON: {e}")
-            return None
+        return result.output
 
 
 async def setup(bot):
