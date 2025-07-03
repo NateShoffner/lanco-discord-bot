@@ -9,4 +9,4 @@ class AutoResponseConfig(BaseModel):
     guild_id = BigIntegerField()
 
     class Meta:
-        table_name = "auto-response"
+        table_name = "auto_response"
