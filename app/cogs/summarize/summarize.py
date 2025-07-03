@@ -52,7 +52,14 @@ class Summarize(
     @command_channel_lock()
     @track_message_ids()
     async def topic(self, ctx: commands.Context):
+        embed = discord.Embed(
+            title="Analyzing Channel Topics",
+            description="Please wait while we analyze the channel for trending topics.",
+        )
+
         await ctx.channel.typing()
+        msg = await ctx.send(embed=embed)
+
         messages = await get_user_messages(ctx.channel, limit=50)
 
         if not messages or len(messages) == 0:
@@ -69,7 +76,12 @@ class Summarize(
 
         top_topics = result.output.topics[:max_topics]
         markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
-        msg = await ctx.send(f"Currently being discussed: \n{markdown_list}")
+        embed = discord.Embed(
+            title="Trending Topics",
+            description=f"The current trending topics in this channel are:\n{markdown_list}",
+        )
+
+        await msg.edit(embed=embed)
         return msg
 
     @commands.command(
