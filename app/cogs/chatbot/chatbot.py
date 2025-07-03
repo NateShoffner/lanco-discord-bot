@@ -42,6 +42,24 @@ class ChatBot(
         if message.author.bot:
             return
 
+        if message.content.startswith(self.bot.command_prefix):
+            return
+
+        is_reply = False
+        is_embed = False
+
+        if message.reference:
+            referenced_msg = await message.channel.fetch_message(
+                message.reference.message_id
+            )
+            if referenced_msg.author.id == self.bot.user.id:
+                is_reply = True
+            if referenced_msg.embeds:
+                is_embed = True
+
+        if is_embed:
+            return
+
         if self.bot.user.mentioned_in(message):
             # strip bot mention from message content
             content = message.clean_content.replace(
