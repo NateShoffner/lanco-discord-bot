@@ -15,10 +15,11 @@ class TraceMoe(
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
-        self.register_context_menu(
-            name="Sauce", callback=self.ctx_menu, errback=self.ctx_menu_error
-        )
+        # self.register_context_menu(
+        #    name="Sauce", callback=self.ctx_menu, errback=self.ctx_menu_error
+        # )
 
+    """
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
@@ -30,6 +31,7 @@ class TraceMoe(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
         await interaction.response.send_message("An error occurred", ephemeral=True)
+    """
 
     async def process_sauce(self, message: discord.Message) -> discord.Embed:
         download = await self.file_downloader.download_attachments(
