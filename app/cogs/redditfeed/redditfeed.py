@@ -249,8 +249,6 @@ class RedditFeed(LancoCog):
         image_url = None
         if hasattr(submission, "preview"):
             image_url = submission.preview["images"][0]["source"]["url"]
-        elif hasattr(submission, "url"):
-            image_url = submission.url
         if hasattr(submission, "media_metadata"):
             # handle media metadata for gallery posts
             # Get the first image in the order shown in the post
