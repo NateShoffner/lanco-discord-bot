@@ -1,5 +1,6 @@
 import datetime
 import os
+import urllib.parse
 
 import asyncpraw
 import cachetools
@@ -238,16 +239,10 @@ class RedditFeed(LancoCog):
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
-        flair_search_url = (
-            f"https://reddit.com/r/{submission.subreddit.display_name}/?f=flair_name%3A%22{submission.link_flair_text}%22"
-            if submission.link_flair_text
-            else None
-        )
-
         embed.add_field(
             name="Flair",
             value=(
-                f"[{submission.link_flair_text}]({flair_search_url})"
+                f"[{submission.link_flair_text}](https://reddit.com/r/{submission.subreddit.display_name}/?f=flair_name%3A%22{urllib.parse.quote(submission.link_flair_text)}%22)"
                 if submission.link_flair_text
                 else "None"
             ),
