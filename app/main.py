@@ -10,6 +10,7 @@ from time import monotonic
 from typing import Optional
 
 import discord
+import psutil
 from cogs.lancocog import CogDefinition, LancoCog, UrlHandler, get_cog_def
 from db import BaseModel, DatabaseType, database_proxy
 from discord.ext import commands
@@ -261,21 +262,6 @@ async def sync(ctx):
         logger.error(e)
 
 
-@bot.tree.command(name="about", description="Some basic info about the bot")
-async def about(interaction: discord.Interaction):
-    fun_facts = [
-        "🤖 I'm a bot created for the Lancaster County, PA Discord",
-        "✨ I'm from B̶e̶r̶k̶s̶ Lancaster ✨",
-        "🖥️ I'm open-source, check out my code on [GitHub](https://github.com/NateShoffner/Lanco-Discord-Bot)",
-    ]
-
-    embed = discord.Embed(
-        title=f"About {bot.user.name}",
-        description="\n\n".join([f"{fact}" for fact in fun_facts]),
-    )
-    await interaction.response.send_message(embed=embed)
-
-
 @bot.tree.command(name="ping", description="Ping the bot")
 async def ping(interaction: discord.Interaction):
     lat = round(bot.latency * 1000)
@@ -347,59 +333,134 @@ async def netstats(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-@bot.tree.command(name="status", description="Show bot status")
-async def status(interaction: discord.Interaction):
+@bot.tree.command(name="info", description="Show bot info")
+async def info(interaction: discord.Interaction):
     info = await bot.application_info()
 
+    desc = f"{bot.user.name} is a general-purpose Discord bot tailored for Lancaster County, PA Discord servers.\n\n"
+
+    links = {
+        "Homepage": "https://lancobot.dev",
+        "GitHub": "https://github.com/NateShoffner/lanco-discord-bot",
+        "Privacy Policy": "https://lancobot.dev/privacy",
+        "Terms of Service": "https://lancobot.dev/terms",
+    }
+
+    for name, url in links.items():
+        desc += f"[{name}]({url})\n"
+
     embed = discord.Embed(
-        title=f"{bot.user.name} Status",
-        description=f"Various diagnostic information",
+        title=f"{bot.user.name} Info",
+        description=desc,
         color=0x00FF00,
     )
 
-    embed.add_field(name="Python", value=f"{sysv.major}.{sysv.minor}.{sysv.micro}")
-    embed.add_field(name="Discord.py", value=f"{discord.__version__}")
-    embed.add_field(name="Guilds", value=f"{len(bot.guilds)}")
-    embed.add_field(name="Users", value=f"{len(bot.users)}")
-    embed.add_field(name="Commands", value=f"{len(bot.commands)}")
-    embed.add_field(name="Slash Commands", value=f"{len(bot.tree.get_commands())}")
-    embed.add_field(name="Latency", value=f"{round(bot.latency * 1000)}ms")
+    discord_py_version = discord.__version__
+
+    users = len(bot.users)
+    unique_users = 0
+    for g in bot.guilds:
+        unique_users += len(g.members)
+
+    channels = [c for c in bot.get_all_channels()]
+    total_channels = 0
+    text_channels = 0
+    voice_channels = 0
+
+    for channel in channels:
+        total_channels += 1
+        if isinstance(channel, discord.TextChannel):
+            text_channels += 1
+        elif isinstance(channel, discord.VoiceChannel):
+            voice_channels += 1
+
+    guilds = len(bot.guilds)
+    shards = bot.shard_count if bot.shard_count else 1
+
+    commands = len(bot.commands)
+    slash_commands = len(bot.tree.get_commands())
+
+    uptime = datetime.datetime.now() - bot.start_time
+    uptime_str = f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s"
+
+    message_cache = len(bot.cached_messages)
+    voice_clients = len(bot.voice_clients)
+
+    emojis = len(bot.emojis)
+    application_emojis = await bot.fetch_application_emojis()
+    app_emojis = len(application_emojis)
+
+    stickers = len(bot.stickers)
+    url_handlers = len(bot.url_handlers)
+
+    latency = round(bot.latency * 1000)
+    memory_usage = "N/A"
+    cpu_usage = "N/A"
+
+    try:
+        process = psutil.Process(os.getpid())
+        memory_usage = f"{process.memory_info().rss / 1024 / 1024:.2f} MB"
+        cpu_usage = f"{psutil.cpu_percent(interval=1)}%"
+    except Exception as e:
+        logger.error(f"Failed to get memory/cpu usage: {e}")
+
+    owner_str = "Unknown"
+    if info.owner:
+        owner_str = f"{info.owner.name}"
+    if info.team:  # TODO get team info
+        owner_str = f"{info.team.name}"
+
+    embed.add_field(name="Servers", value=f"Total: {guilds}\nShards: {shards}")
+    embed.add_field(name="Users", value=f"Total: {users}\nUnique: {unique_users}")
+    embed.add_field(
+        name="Channels",
+        value=f"Total: {total_channels}\nText: {text_channels}\nVoice: {voice_channels}",
+    )
+    embed.add_field(
+        name="Commands", value=f"Normal: {commands}\nSlash: {slash_commands}"
+    )
+    embed.add_field(
+        name="Assets",
+        value=f"Emojis: {emojis}\nApp Emojis: {app_emojis}\nStickers: {stickers}",
+    )
+    embed.add_field(name="Process", value=f"RAM: {memory_usage}\nCPU: {cpu_usage}")
+    embed.add_field(name="Latency", value=f"{latency}ms")
     embed.add_field(
         name="Dev Mode", value=f"{'Enabled' if bot.dev_mode else 'Disabled'}"
     )
-    uptime = datetime.datetime.now() - bot.start_time
     embed.add_field(
         name="Uptime",
-        value=f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
+        value=uptime_str,
     )
-    embed.add_field(name=f"Cogs", value=f"{len(bot.get_lanco_cogs())}")
+    embed.add_field(name="Cogs", value=f"{len(bot.get_lanco_cogs())}")
 
-    owner = bot.get_user(info.owner.id)
-    embed.add_field(
-        name="Owner", value=f"{owner.mention if owner else info.owner.global_name}"
-    )
+    embed.add_field(name="Owner", value=owner_str)
 
-    # TODO set these as env during build
     commit = get_commit_hash()
     github = os.getenv("GITHUB_REPO")
     if github:
         commit_url = f"{github}/commit/{commit}"
-        embed.add_field(name="Commit", value=f"[{commit[:7]}]({commit_url})")
+        embed.add_field(
+            name="Version", value=f"v{get_bot_version()} - [{commit[:7]}]({commit_url})"
+        )
     else:
-        embed.add_field(name="Commit", value=f"{commit[:7]}")
+        embed.add_field(
+            name="Version", value=f"v{get_bot_version()} - Commit: {commit[:7]}"
+        )
 
-    embed.add_field(name="Message Cache", value=f"{len(bot.cached_messages)}")
-    embed.add_field(name="Voice Clients", value=f"{len(bot.voice_clients)}")
+    embed.add_field(name="Message Cache", value=f"{message_cache}")
+    embed.add_field(name="Voice Clients", value=f"{voice_clients}")
 
-    application_emojis = await bot.fetch_application_emojis()
-    embed.add_field(name="Emojis", value=f"{len(bot.emojis)}")
-    embed.add_field(name="App Emojis", value=f"{len(application_emojis)}")
-    embed.add_field(name="Stickers", value=f"{len(bot.stickers)}")
+    embed.add_field(name="URL Handlers", value=f"{url_handlers}")
 
-    embed.add_field(name="URL Handlers", value=f"{len(bot.url_handlers)}")
+    logo_url = "https://lancobot.dev/discord.py.png"
 
-    version = get_bot_version()
-    embed.set_footer(text=f"Version: {version}")
+    python_version_str = f"{sysv.major}.{sysv.minor}.{sysv.micro}"
+
+    embed.set_footer(
+        text=f"Made with ❤️ with Discord.py v{discord_py_version} on Python {python_version_str}",
+        icon_url=logo_url,
+    ),
 
     await interaction.response.send_message(embed=embed)
 
