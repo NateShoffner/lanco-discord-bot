@@ -394,11 +394,13 @@ async def info(interaction: discord.Interaction):
     url_handlers = len(bot.url_handlers)
 
     latency = round(bot.latency * 1000)
+    pid = None
     memory_usage = "N/A"
     cpu_usage = "N/A"
 
     try:
-        process = psutil.Process(os.getpid())
+        pid = os.getpid()
+        process = psutil.Process(pid)
         memory_usage = f"{process.memory_info().rss / 1024 / 1024:.2f} MB"
         cpu_usage = f"{psutil.cpu_percent(interval=1)}%"
     except Exception as e:
@@ -423,7 +425,9 @@ async def info(interaction: discord.Interaction):
         name="Assets",
         value=f"Emojis: {emojis}\nApp Emojis: {app_emojis}\nStickers: {stickers}",
     )
-    embed.add_field(name="Process", value=f"RAM: {memory_usage}\nCPU: {cpu_usage}")
+    embed.add_field(
+        name="Process", value=f"RAM: {memory_usage}\nCPU: {cpu_usage}\nPID: {pid}"
+    )
     embed.add_field(name="Latency", value=f"{latency}ms")
     embed.add_field(
         name="Dev Mode", value=f"{'Enabled' if bot.dev_mode else 'Disabled'}"
