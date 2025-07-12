@@ -5,24 +5,82 @@ import cachetools
 import discord
 import pyowm
 from cogs.lancocog import LancoCog
+from discord import app_commands
 from discord.ext import commands
 from opencage.geocoder import OpenCageGeocode
+from pydantic import BaseModel
+
+from .models import WeatherUserConfig
+
+
+class Cooordinates(BaseModel):
+    lat: float
+    lon: float
+    name: str
+
+    class Config:
+        frozen = True
+        allow_mutation = False
 
 
 class Weather(LancoCog, name="Weather", description="Fetches the weather"):
+    weather_group = app_commands.Group(
+        name="weather",
+        description="Weather commands",
+    )
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.geocoder = OpenCageGeocode(os.getenv("OPENCAGE_API_KEY"))
         self.owm = pyowm.OWM(os.getenv("OPENWEATHERMAP_API_KEY"))
-        self.location_cache = {}
+        self.location_cache = dict[str, Cooordinates]()  # location -> coordinates
         self.weather_statuses = cachetools.TTLCache(
             maxsize=100, ttl=120
         )  # cache for 2 minutes
         self.air_statuses = cachetools.TTLCache(
             maxsize=100, ttl=120
         )  # cache for 2 minutes
+        self.bot.database.create_tables([WeatherUserConfig])
 
-    async def get_coords(self, location):
+    @weather_group.command(
+        name="set_location", description="Set your default weather location"
+    )
+    async def set_location(self, interaction: discord.Interaction, location: str):
+        """Set your default weather location"""
+
+        # first check if the coords are valid
+        try:
+            coords = await self.get_coords(location)
+        except Exception as e:
+            self.logger.error(f"Error getting coordinates for {location}: {e}")
+            embed = discord.Embed(
+                title="Error",
+                description=f"Could not find location: {location}. Please try again.",
+                color=discord.Color.red(),
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        user_id = interaction.user.id
+        user_config, created = WeatherUserConfig.get_or_create(user_id=user_id)
+        user_config.user_location = location
+        user_config.location = coords.name
+        user_config.lon = coords.lon
+        user_config.lat = coords.lat
+        user_config.save()
+
+        embed = discord.Embed(
+            title="Weather Location Set",
+            description=f"You have successfully set your default weather location",
+            color=discord.Color.green(),
+        )
+        embed.add_field(name="Location", value=f"{coords.name}", inline=False)
+        embed.add_field(name="Latitude", value=f"{coords.lat}", inline=True)
+
+        embed.add_field(name="Longitude", value=f"{coords.lon}", inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def get_coords(self, location) -> Cooordinates:
         """Get the coordinates for a location"""
         query = None
         if location.isnumeric():  # zip code
@@ -34,8 +92,14 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
             return self.location_cache[query]
 
         results = self.geocoder.geocode(query)
-        coords = results[0]["geometry"]["lat"], results[0]["geometry"]["lng"]
 
+        first_result = results[0] if results else None
+
+        coords = Cooordinates(
+            lat=first_result["geometry"]["lat"],
+            lon=first_result["geometry"]["lng"],
+            name=first_result["components"]["_normalized_city"],
+        )
         self.location_cache[query] = coords
         return coords
 
@@ -46,7 +110,7 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
         if coords in self.weather_statuses:
             return self.weather_statuses[coords]
 
-        result = self.owm.weather_manager().weather_at_coords(coords[0], coords[1])
+        result = self.owm.weather_manager().weather_at_coords(coords.lat, coords.lon)
         if result:
             self.weather_statuses[coords] = result.weather
             return result.weather
@@ -60,16 +124,20 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
             return self.air_statuses[coords]
 
         air_status = self.owm.airpollution_manager().air_quality_at_coords(
-            coords[0], coords[1]
+            coords.lat, coords.lon
         )
 
         if air_status:
             self.air_statuses[coords] = air_status
         return air_status
 
-    @commands.hybrid_command()
+    @commands.command(name="weather", help="Get the weather for a location")
     async def weather(self, ctx: commands.Context, location: str = "Lancaster, PA"):
         """Get the weather for a location"""
+        user_config = WeatherUserConfig.get_or_none(user_id=ctx.author.id)
+        if user_config and user_config.location:
+            location = user_config.location
+
         air_status = await self.get_air_status(location)
         weather = await self.get_weather(location)
 
