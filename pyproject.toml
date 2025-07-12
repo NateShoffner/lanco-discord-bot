@@ -46,6 +46,7 @@ openai-whisper = "^20240930"
 elasticsearch = "^9.0.2"
 pydantic-ai = "^0.3.2"
 psutil = "^7.0.0"
+everbridge = "^0.1.0"
 
 
 [tool.poetry.group.dev.dependencies]
