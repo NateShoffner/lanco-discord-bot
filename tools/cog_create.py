@@ -17,6 +17,9 @@ def main():
     template_path = os.path.join(
         os.path.dirname(__file__), "templates", "cog_template.py"
     )
+    readme_path = os.path.join(
+        os.path.dirname(__file__), "templates", "readme_template.md"
+    )
 
     if not os.path.exists(template_path):
         print("Template file not found.")
@@ -41,3 +44,16 @@ def main():
         f.write(rendered)
 
     print(f"✅ Cog '{name}' created at {file_path}")
+
+    with open(readme_path, "r") as f:
+        readme_template = f.read()
+
+    readme_rendered = readme_template.replace("COGNAME", name).replace(
+        "COGDESCRIPTION", description
+    )
+
+    readme_file_path = os.path.join(dir_path, "README.md")
+    with open(readme_file_path, "w") as f:
+        f.write(readme_rendered)
+
+    print(f"✅ README created at {readme_file_path}")
