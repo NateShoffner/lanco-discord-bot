@@ -1009,14 +1009,14 @@ tests = ["pytest"]
 
 [[package]]
 name = "everbridge"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "A Python client for the Everbridge API"
 optional = false
-python-versions = "<4.0,>=3.10"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "everbridge-0.1.0-py3-none-any.whl", hash = "sha256:47c31d2045f705f8eb7097985bb2a0e8d4b43b8bfb5b80ef01c2cd815aac11c4"},
-    {file = "everbridge-0.1.0.tar.gz", hash = "sha256:b7247bdc39b732d2366bea629ce6180e4c2a39e644fc49660ba0cccb5542ddcb"},
+    {file = "everbridge-0.2.0-py3-none-any.whl", hash = "sha256:ec8bbb76321e5b6f5aa9d31dc05259afe49eba1f269f4abe90e76bb3dd0c8d06"},
+    {file = "everbridge-0.2.0.tar.gz", hash = "sha256:a340a51845492d620b64e0f201f0e4eab8ebb6e6b83e3f3ae8fc14d7082e8088"},
 ]
 
 [package.dependencies]
@@ -5074,4 +5074,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "814e512760537fd85be5c8a3fcd1d22366625fcfe2161ed65b3bb065c1cc0c0c"
+content-hash = "94f64dd2dd0fe69b9dd9f740dc6251cceb61bd9d65194f4e95d413e1d3ff8aa0"
