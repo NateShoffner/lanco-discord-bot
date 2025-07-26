@@ -21,6 +21,11 @@ class ImageDetails(BaseModel):
         description="Indicates whether the image is pretending to be a hotdog.",
     )
 
+    reasoning: str = Field(
+        ...,
+        description="The reasoning behind the classification of the image.",
+    )
+
 
 class HotDog(LancoCog, name="HotDog", description="Profile Glizzies"):
     def __init__(self, bot: commands.Bot):
@@ -73,13 +78,19 @@ class HotDog(LancoCog, name="HotDog", description="Profile Glizzies"):
 
         if details.is_hotdog:
             response += "This is a hotdog! 🌭"
+            embed.title = "Hotdog Analysis Result"
             embed.color = discord.Color.green()
         elif details.is_pretending_to_be_hotdog:
             response += "This image is pretending to be a hotdog! 🤥🌭"
+            embed.title = "Hotdog Analysis Result"
             embed.color = discord.Color.red()
         else:
             response += "This is NOTdog! 🚫🌭"
+            embed.title = "Hotdog Analysis Result"
             embed.color = discord.Color.red()
+
+        response += f"\n\n**Reasoning:** {details.reasoning}"
+
         embed.description = response
         await msg.edit(embed=embed)
         return msg
