@@ -39,7 +39,9 @@ class RoleStats(
 
         users = []
         for member in role.members:
-            users.append(f"{member.name}#{member.discriminator}")
+            users.append(
+                f"{member.name}#{member.discriminator} - {member.display_name}"
+            )
 
         if len(users) > 0:
             embed = discord.Embed(
