@@ -60,7 +60,7 @@ class Summarize(
         await ctx.channel.typing()
         msg = await ctx.send(embed=embed)
 
-        messages = await get_user_messages(ctx.channel, limit=50)
+        messages = await get_user_messages(ctx.channel, limit=100)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
