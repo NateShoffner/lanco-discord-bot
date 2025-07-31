@@ -118,12 +118,48 @@ class RandomNsfwReddit(
                 continue
         return None
 
+    async def find_nsfw_subreddit_by_keyword(self, keyword: str) -> Subreddit:
+        """Find a NSFW subreddit by keyword."""
+        candidates = self.nsfw_subreddits_cache
+        for name in candidates:
+            if keyword.lower() in name.lower():
+                try:
+                    sub = await self.reddit.subreddit(name, fetch=True)
+                    if sub.over18:
+                        return sub
+                except:
+                    continue
+        return None
+
     @commands.command(name="randomnsfw")
     @commands.is_nsfw()
     async def random_nsfw(self, ctx):
         sub = await self.get_random_nsfw_subreddit()
         if not sub:
             return await ctx.send("Couldn't find a valid NSFW subreddit from NSFW411.")
+
+        url = f"https://reddit.com/r/{sub.display_name}"
+
+        embed = discord.Embed(
+            title=f"r/{sub.display_name}",
+            url=url,
+            description=sub.public_description or "No description available.",
+            color=discord.Color.red(),
+        )
+
+        if sub.icon_img:
+            embed.set_thumbnail(url=sub.icon_img)
+
+        await ctx.send(embed=embed)
+
+    @commands.command(name="nsfw")
+    @commands.is_nsfw()
+    async def nsfw_search(self, ctx: commands.Context, keyword: str):
+        sub = await self.find_nsfw_subreddit_by_keyword(keyword)
+        if not sub:
+            return await ctx.send(
+                f"Couldn't find a valid NSFW subreddit matching '{keyword}' from NSFW411."
+            )
 
         url = f"https://reddit.com/r/{sub.display_name}"
 
