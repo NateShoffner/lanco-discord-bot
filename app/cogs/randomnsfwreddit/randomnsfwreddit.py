@@ -155,9 +155,9 @@ class RandomNsfwReddit(
         )
         if self.last_updated:
             rel_time = discord.utils.format_dt(self.last_updated, style="R")
-            updated_text = f"Last updated: {rel_time}"
+            updated_text = f"{rel_time}"
         else:
-            updated_text = "Last updated: Never"
+            updated_text = "Never"
         embed.add_field(
             name="Last Updated",
             value=updated_text,
