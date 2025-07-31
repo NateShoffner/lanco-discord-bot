@@ -5,6 +5,7 @@ Description:
 RandomNsfwSubreddit cog
 """
 
+import asyncio
 import os
 import random
 import re
@@ -40,24 +41,43 @@ class RandomNsfwReddit(
 
         self.logger.debug("Fetching NSFW411 subreddits...")
 
-        url = "https://www.reddit.com/r/NSFW411/wiki/index/.json"
-        headers = {"User-Agent": "DiscordBot/1.0"}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
-                content = data["data"]["content_md"]
+        def get_full_list_url(page_num: int) -> str:
+            return f"https://www.reddit.com/r/NSFW411/wiki/fulllist{page_num}.json"
 
-        # Extract subreddit names
-        matches = re.findall(r"r/([A-Za-z0-9_]+)", content)
-        unique_subs = list(set(matches))
-        self.logger.debug(f"Fetched {len(unique_subs)} NSFW subreddits.")
+        headers = {"User-Agent": "DiscordBot/1.0"}
+        total_pages = 9  # TODO infer from the wiki page
+
+        unique_subs = set()
+
+        for page in range(1, total_pages + 1):
+            url = get_full_list_url(page)
+            self.logger.debug(f"Fetching page {page} from NSFW411: {url}")
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status != 200:
+                        self.logger.error(
+                            f"Failed to fetch page {page}: {resp.status} - {url}"
+                        )
+                        continue
+                    data = await resp.json()
+                    content = data["data"]["content_md"]
+
+                    # Extract subreddit names
+                    matches = re.findall(r"r/([A-Za-z0-9_]+)", content)
+                    unique_subs.update(matches)
+                    self.logger.debug(
+                        f"Fetched {len(matches)} subreddits from page {page}."
+                    )
+                    await asyncio.sleep(0.25)  # rate limit
 
         # Cache the result
         self.nsfw_subreddits_cache["nsfw_subreddits"] = unique_subs
 
-        return unique_subs
+        self.logger.debug(
+            f"Fetched a total of {len(unique_subs)} NSFW subreddits from all pages."
+        )
+        return list(unique_subs)
 
     async def get_random_nsfw_subreddit(self) -> Subreddit:
         candidates = await self.fetch_subreddits_from_nsfw411()
