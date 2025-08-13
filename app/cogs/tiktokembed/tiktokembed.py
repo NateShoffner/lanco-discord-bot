@@ -14,7 +14,9 @@ class TikTokEmbed(
 ):
     g = app_commands.Group(name="tiktokembed", description="TikTokEmbed commands")
 
-    tiktok_pattern = re.compile(r"https?://(?:www\.)?tiktok\.com/\S+")
+    tiktok_pattern = re.compile(
+        r"https?://(?:www\.)?tiktok\.com/(?!shop(?:/|$)|product(?:/|$))\S+"
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(
