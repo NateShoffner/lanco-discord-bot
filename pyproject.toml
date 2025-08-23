@@ -47,6 +47,7 @@ elasticsearch = "^9.0.2"
 pydantic-ai = "^0.3.2"
 psutil = "^7.0.0"
 everbridge = "^0.2.0"
+sightengine-async = "^0.2"
 
 
 [tool.poetry.group.dev.dependencies]
