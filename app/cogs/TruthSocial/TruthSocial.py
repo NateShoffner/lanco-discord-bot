@@ -7,104 +7,17 @@ TruthSocial embed support
 
 import os
 import re
-from datetime import datetime
-from typing import Any, Optional
 
 import discord
 from cogs.lancocog import LancoCog
+from discord import app_commands
 from discord.ext import commands
-from pydantic import BaseModel
 from truthbrush.api import Api
+from utils.command_utils import is_bot_owner_or_admin
 from utils.file_downloader import FileDownloader
-from utils.markdown_utils import html_to_markdown
 from utils.tracked_message import track_message_ids
 
-
-class UserModel(BaseModel):
-    id: str
-    username: str
-    acct: str
-    display_name: str
-    locked: bool
-    bot: bool
-    group: bool
-    created_at: datetime
-    note: str
-    url: str
-    avatar: str
-    avatar_static: str
-    header: str
-    header_static: str
-    followers_count: int
-    following_count: int
-    statuses_count: int
-    last_status_at: str
-    verified: bool
-    location: str
-    website: str
-
-    # note needs to be converted from HTML to markdown
-    def markdown_note(self):
-        return html_to_markdown(self.note)
-
-
-class MetaData(BaseModel):
-    aspect: float
-    height: int
-    size: str
-    width: int
-
-
-class Meta(BaseModel):
-    original: MetaData
-    small: MetaData
-
-
-class MediaAttachment(BaseModel):
-    id: str
-    type: str
-    url: str
-    preview_url: str
-    external_video_id: Any
-    remote_url: Any
-    preview_remote_url: Any
-    text_url: Any
-    meta: Meta
-    description: Optional[str]
-    blurhash: str
-    processing: str
-
-
-class StatusModel(BaseModel):
-    id: str
-    created_at: datetime
-    sensitive: bool
-    spoiler_text: str
-    visibility: str
-    uri: str
-    url: str
-    content: str
-    account: UserModel
-    media_attachments: list[MediaAttachment]
-    sponsored: bool
-    replies_count: int
-    reblogs_count: int
-    favourites_count: int
-    upvotes_count: int
-    downvotes_count: int
-    favourited: bool
-    reblogged: bool
-    muted: bool
-    pinned: bool
-    bookmarked: bool
-    votable: bool
-    edited_at: Any
-    version: str
-    editable: bool
-
-    def markdown_content(self):
-        return html_to_markdown(self.content)
-
+from .models import StatusModel, TruthSocialEmbedConfig, UserModel
 
 EMBED_ICON_URL = "https://truthsocial.com/favicon.png"
 
@@ -115,7 +28,10 @@ class TruthSocial(
     description="TruthSocial cog",
 ):
 
-    # https://truthsocial.com/@realDonaldTrump/posts/114279756371714617
+    truth_social_group = app_commands.Group(
+        name="truthsocial", description="TruthSocial commands"
+    )
+
     status_pattern = re.compile(
         r"https?://truthsocial\.com/@(?P<handle>[A-Za-z0-9_]+)/posts/(?P<status_id>\d+)"
     )
@@ -130,6 +46,7 @@ class TruthSocial(
             username=os.getenv("TRUTH_SOCIAL_USERNAME"),
             password=os.getenv("TRUTH_SOCIAL_PASSWORD"),
         )
+        self.bot.database.create_tables([TruthSocialEmbedConfig])
         self.avatar_cache_dir = os.path.join(
             self.get_cog_data_directory(), "AvatarCache"
         )
@@ -140,6 +57,10 @@ class TruthSocial(
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> discord.Message | None:
         if message.author.bot:
+            return
+
+        config = TruthSocialEmbedConfig.get_or_none(guild_id=message.guild.id)
+        if not config or not config.enabled:
             return
 
         status_match = self.status_pattern.search(message.content)
@@ -233,6 +154,28 @@ class TruthSocial(
             )
             embed.set_thumbnail(url=f"attachment://{avatar_filename}")
             return await message.channel.send(embed=embed, file=file)
+
+    @truth_social_group.command(
+        name="toggle", description="Enable or disable TruthSocial embeds"
+    )
+    @is_bot_owner_or_admin()
+    async def toggle(self, interaction: discord.Interaction):
+        """Enable or disable TruthSocial embeds in this server"""
+        config, created = TruthSocialEmbedConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
+        if created or not config.enabled:
+            config.enabled = True
+            config.save()
+            await interaction.response.send_message(
+                f"TruthSocial embeds enabled for this server"
+            )
+        else:
+            config.enabled = False
+            config.save()
+            await interaction.response.send_message(
+                f"TruthSocial embeds disabled for this server"
+            )
 
 
 async def setup(bot):
