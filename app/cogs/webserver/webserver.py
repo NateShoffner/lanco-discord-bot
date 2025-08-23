@@ -16,7 +16,7 @@ from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner
 
-from app.utils.dist_utils import get_bot_version, get_commit_hash
+from utils.dist_utils import get_bot_version, get_commit_hash
 
 
 class WebServer(
