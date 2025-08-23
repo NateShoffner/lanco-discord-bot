@@ -64,6 +64,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 migrate-db = "migrate:run_migrations"
 bot = "app.main:main"
-create-cog = "tools.cog_create:main"
-delete-cog = "tools.cog_delete:main"
-report-cogs = "tools.cog_report:main"
+cog = "tools.cog:main"
