@@ -45,7 +45,7 @@ class PeeCheck(LancoCog, name="PeeCheck", description="PeeCheck cog"):
             img.save(emoji.path)
 
         self.logger.info("Setting up PeeCheck emojis")
-        await self.emoji_uploader.setup_emojis(local_emojis, force_update=True)
+        await self.emoji_uploader.setup_emojis(local_emojis, force_update=False)
 
     @commands.command(name="peecheck", description="Mark your pee clarity")
     async def peecheck(self, ctx: commands.Context):
