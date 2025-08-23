@@ -15,7 +15,6 @@ from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner
-
 from utils.dist_utils import get_bot_version, get_commit_hash
 
 

@@ -23,7 +23,9 @@ class DatabaseBackupper(
         super().__init__(bot)
 
         self.backup_dir = os.getenv("DATABASE_BACKUP_DIRECTORY", "db_backups")
-        self.backup_filename = os.getenv("DATABASE_BACKUP_FILENAME", "db_backup_{}.sqlite")
+        self.backup_filename = os.getenv(
+            "DATABASE_BACKUP_FILENAME", "db_backup_{}.sqlite"
+        )
         self.backup_interval = int(
             os.getenv("DATABASE_BACKUP_INTERVAL", 8640)
         )  # default to 24 hours

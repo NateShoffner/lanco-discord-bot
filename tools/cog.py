@@ -1,11 +1,10 @@
-
 import argparse
 import ast
 import os
 import shutil
 
-
 COG_DIR = os.path.join("app", "cogs")
+
 
 def cmd_create(args: argparse.Namespace) -> int:
     """
@@ -61,6 +60,7 @@ def cmd_create(args: argparse.Namespace) -> int:
 
     print(f"✅ README created at {readme_file_path}")
     return 0
+
 
 def cmd_delete(args: argparse.Namespace) -> int:
     """
