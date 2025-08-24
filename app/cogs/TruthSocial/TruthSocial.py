@@ -25,7 +25,7 @@ EMBED_ICON_URL = "https://truthsocial.com/favicon.png"
 class TruthSocial(
     LancoCog,
     name="TruthSocial",
-    description="TruthSocial cog",
+    description="TruthSocial embed support",
 ):
 
     truth_social_group = app_commands.Group(

@@ -12,7 +12,11 @@ from utils.voice_message import download_voice_message, is_voice_message
 from .models import TranscribeConfig
 
 
-class Transcribe(LancoCog, name="Transcribe", description="Transcription commands for audio files and voice messages"):
+class Transcribe(
+    LancoCog,
+    name="Transcribe",
+    description="Transcription commands for audio files and voice messages",
+):
     g = app_commands.Group(name="transcribe", description="Transcribe commands")
 
     def __init__(self, bot: commands.Bot):

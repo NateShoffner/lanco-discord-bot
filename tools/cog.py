@@ -161,9 +161,77 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+COG_BLACKLIST = [
+    "LancoCog",
+    "Demo",
+    "JeffVacation",
+    "ChatRelay",
+]
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    """
+    Generate a markdown table of all cogs with links and descriptions, skipping blacklisted cogs.
+    Output is formatted as a grid of 3 columns per row, each cell containing a link and description.
+    """
+    # Adjust these as needed for your repo
+    GITHUB_BASE = (
+        "https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs"
+    )
+
+    cogs = []
+    for root, _, files in os.walk(COG_DIR):
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+            full_path = os.path.join(root, f)
+            try:
+                class_node = _find_cog_class(full_path)
+                if class_node and isinstance(class_node, ast.ClassDef):
+                    name, description = _extract_cog_metadata(class_node)
+                    if not name:
+                        name = os.path.splitext(f)[0]
+                    if name in COG_BLACKLIST:
+                        continue
+                    if not description:
+                        description = "No description"
+                    rel_dir = os.path.relpath(root, COG_DIR)
+                    url = f"{GITHUB_BASE}/{rel_dir}"
+                    link = f"[{name}]({url})"
+                    cell = f"{link}<br>{description}"
+                    cogs.append(cell)
+            except Exception:
+                continue
+
+    # Format as a 3-column grid
+    COLS = 3
+    rows = []
+    for i in range(0, len(cogs), COLS):
+        row = cogs[i : i + COLS]
+        # Pad row to COLS columns
+        while len(row) < COLS:
+            row.append("")
+        rows.append(row)
+
+    if rows:
+        output_lines = ["| " + " | ".join([""] * COLS) + " |"]
+        output_lines.append("|" + "|".join("---" for _ in range(COLS)) + "|")
+        for row in rows:
+            output_lines.append("| " + " | ".join(row) + " |")
+    else:
+        output_lines = ["No cogs found."]
+
+    output_str = "\n".join(output_lines)
+    output_file = getattr(args, "output", None) or "COGS.md"
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(output_str + "\n")
+    print(f"✅ Markdown table written to {output_file}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cog", description="Manage project cogs (create, delete, report)."
+        prog="cog", description="Manage project cogs (create, delete, report, generate)"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -180,6 +248,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_report = sub.add_parser("report", help="Report cog names & descriptions")
     p_report.set_defaults(func=cmd_report)
+
+    p_generate = sub.add_parser("generate", help="Generate markdown table of cogs")
+    p_generate.set_defaults(func=cmd_generate)
 
     return parser
 
