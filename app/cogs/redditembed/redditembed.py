@@ -9,7 +9,7 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import RedditEmbedConfig
 
 
-class RedditEmbed(EmbedFixCog):
+class RedditEmbed(EmbedFixCog, name="RedditEmbed", description="RedditEmbed cog"):
     g = app_commands.Group(name="redditembed", description="RedditEmbed commands")
 
     reddit_pattern = re.compile(r"https?://(?:www\.)?reddit\.com/\S+")

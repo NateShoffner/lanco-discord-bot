@@ -31,7 +31,7 @@ class Story:
         return len(self.words)
 
 
-class OneWordStory(LancoCog):
+class OneWordStory(LancoCog, name="OneWordStory", description="One Word Story game"):
     story_group = app_commands.Group(name="story", description="One Word Story")
 
     def __init__(self, bot: commands.Bot):

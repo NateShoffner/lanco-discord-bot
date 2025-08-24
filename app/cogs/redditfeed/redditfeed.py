@@ -16,7 +16,7 @@ from utils.image_utils import blur_image
 from .models import RedditFeedConfig, RedditPost
 
 
-class RedditFeed(LancoCog):
+class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling"):
     reddit_feed_group = app_commands.Group(
         name="reddit", description="Poll Reddit for new posts"
     )

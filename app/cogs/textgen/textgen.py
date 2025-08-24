@@ -7,7 +7,7 @@ from discord.ext import commands
 from zalgo_text import zalgo
 
 
-class TextGen(LancoCog):
+class TextGen(LancoCog, name="TextGen", description="Text generator commands"):
     textgen_group = app_commands.Group(
         name="textgen", description="Text generator commands"
     )

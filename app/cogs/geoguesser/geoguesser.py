@@ -18,7 +18,7 @@ from .models import Coordinates, GeoGuesserLocation, Mode
 from .session import GameSession
 
 
-class GeoGuesser(LancoCog):
+class GeoGuesser(LancoCog, name="GeoGuesser", description="Lancaster-themed GeoGuesser game"):
     geoguesser_group = app_commands.Group(
         name="geoguesser", description="GeoGuesser commands"
     )

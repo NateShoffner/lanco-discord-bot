@@ -13,7 +13,7 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import RSSFeedConfig
 
 
-class RssFeed(LancoCog, name="RSSFeed", description="RssFeed cog"):
+class RssFeed(LancoCog, name="RSSFeed", description="RssFeed polling"):
     UPDATE_INTERVAL = 10  # seconds
     g = app_commands.Group(name="rssfeed", description="RSSFeed commands")
 

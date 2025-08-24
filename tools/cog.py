@@ -3,6 +3,8 @@ import ast
 import os
 import shutil
 
+from tabulate import tabulate
+
 COG_DIR = os.path.join("app", "cogs")
 
 
@@ -119,8 +121,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     Recursively scan app/cogs for classes inheriting from *Cog and
     print a summary of cog name/description (✅/❌ when present/missing).
     """
-    found_any = False
-    print("\nCog Summary:")
+    rows = []
     for root, _, files in os.walk(COG_DIR):
         for f in files:
             if not f.endswith(".py"):
@@ -129,18 +130,33 @@ def cmd_report(args: argparse.Namespace) -> int:
             try:
                 class_node = _find_cog_class(full_path)
                 if class_node and isinstance(class_node, ast.ClassDef):
-                    found_any = True
                     name, description = _extract_cog_metadata(class_node)
                     name_display = name or "Unnamed Cog"
                     desc_display = description or "No description"
                     name_emoji = "✅" if name else "❌"
                     desc_emoji = "✅" if description else "❌"
-                    print(
-                        f" - {name_display} {name_emoji} ({full_path}): {desc_display} {desc_emoji}"
+                    rows.append(
+                        [
+                            f"{name_emoji} {name_display}",
+                            f"{desc_emoji} {desc_display}",
+                            full_path,
+                            (
+                                "✅"
+                                if os.path.exists(os.path.join(root, "README.md"))
+                                else "❌"
+                            ),
+                        ]
                     )
             except Exception as e:
-                print(f"Error processing {full_path}: {e}")
-    if not found_any:
+                rows.append(["Error", "❌", str(e), "❌", full_path])
+    if rows:
+        print("\nCog Summary:")
+        print(
+            tabulate(
+                rows, headers=["Name", "Description", "Path", "README"], tablefmt="grid"
+            )
+        )
+    else:
         print("No cogs found.")
     return 0
 

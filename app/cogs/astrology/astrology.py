@@ -15,7 +15,7 @@ class Horoscope(BaseModel):
     day: datetime.datetime
 
 
-class Astrology(LancoCog, name="Astrology", description="Astrology cog"):
+class Astrology(LancoCog, name="Astrology", description="Astrology commands"):
     g = app_commands.Group(name="horoscope", description="Horoscope commands")
 
     def __init__(self, bot: commands.Bot):
