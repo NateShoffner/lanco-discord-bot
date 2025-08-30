@@ -165,3 +165,4 @@ logs/
 config/config.json
 /data*
 .env.dev
+*.sqlite

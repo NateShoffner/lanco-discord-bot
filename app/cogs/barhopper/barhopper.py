@@ -19,7 +19,7 @@ from utils.command_utils import is_bot_owner
 from .models import Bar
 
 
-class BarHopper(LancoCog):
+class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
     barhopper_group = app_commands.Group(
         name="barhopper", description="Bar hopper commands"
     )

@@ -9,7 +9,7 @@ from utils.tracked_message import track_message_ids
 from .models import CustomCommands
 
 
-class Commands(LancoCog):
+class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     commands_group = app_commands.Group(
         name="commands",
         description="Custom commands commands so you can command commands with commands",

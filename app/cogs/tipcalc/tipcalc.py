@@ -30,7 +30,7 @@ class TipSuggestion:
         return rounded_tip_amount
 
 
-class TipCalc(LancoCog, name="TipCalc", description="TipCalc cog"):
+class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.agent = Agent(

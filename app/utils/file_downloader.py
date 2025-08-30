@@ -27,7 +27,8 @@ class FileDownloader:
         random_filename = os.path.join(dir, f"{random_uuid}.{ext}")
         return random_filename
 
-    async def download_file(self, url: str, dir: str) -> str:
+    async def download_file(self, url: str, dir: str, filename: str = None) -> str:
+        """Download a file from a URL"""
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
@@ -36,7 +37,11 @@ class FileDownloader:
                     if not os.path.exists(dir):
                         os.makedirs(dir)
 
-                    filename = self.get_random_filename(url, dir)
+                    if not filename:
+                        filename = self.get_random_filename(url, dir)
+                    else:
+                        filename = os.path.join(dir, filename)
+
                     with open(filename, "wb") as f:
                         f.write(data)
 

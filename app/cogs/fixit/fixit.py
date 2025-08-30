@@ -12,7 +12,7 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import FixItConfig
 
 
-class FixIt(LancoCog):
+class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
     g = app_commands.Group(name="fixit", description="Fix it")
 
     UPDATE_INTERVAL = 30  # seconds

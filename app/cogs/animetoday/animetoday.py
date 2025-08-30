@@ -11,7 +11,9 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import AnimeTodayConfig
 
 
-class AnimeToday(LancoCog):
+class AnimeToday(
+    LancoCog, name="AnimeToday", description="Daily anime shot announcements"
+):
     embed_group = app_commands.Group(
         name="animetoday", description="AnimeToday commands"
     )

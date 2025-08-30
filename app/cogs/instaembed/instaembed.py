@@ -9,7 +9,7 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import InstaEmbedConfig
 
 
-class InstaEmbed(EmbedFixCog):
+class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fix"):
     g = app_commands.Group(name="instaembed", description="InstaEmbed commands")
 
     insta_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/[a-zA-Z0-9_-]+")

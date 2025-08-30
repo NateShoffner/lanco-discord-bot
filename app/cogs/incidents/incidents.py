@@ -33,7 +33,7 @@ class IncidentFeedOption:
     description: str
 
 
-class Incidents(LancoCog):
+class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
     incidents_group = app_commands.Group(
         name="incidents", description="Incident commands"
     )

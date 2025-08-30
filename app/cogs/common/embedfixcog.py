@@ -13,7 +13,7 @@ class EmbedFixConfigBase(BaseModel):
     enabled = BooleanField(default=False)
 
 
-class EmbedFixCog(LancoCog):
+class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix cog"):
     """Abstract class for fixing embeds to be extended by other cogs"""
 
     class PatternReplacement:
