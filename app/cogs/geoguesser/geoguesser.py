@@ -422,7 +422,7 @@ class GeoGuesser(
         streetview_attachment = discord.File(
             cached_image_path, filename="streetview.jpg"
         )
-        # print(current_round.location.street_view)
+
         embed.set_image(url="attachment://streetview.jpg")
         await session.channel.send(embed=embed, file=streetview_attachment)
 

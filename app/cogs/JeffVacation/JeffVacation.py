@@ -24,7 +24,6 @@ class DawnScreen:
         self.text_color = "white"
 
         font_path = os.path.join("assets", "font", "arial-narrow-bold.ttf")
-        print(f"Using font from: {font_path}")
         self.font_top = ImageFont.truetype(font_path, 36)
         self.font_middle = ImageFont.truetype(font_path, 80)
         self.font_bottom = ImageFont.truetype(font_path, 40)

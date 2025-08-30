@@ -76,7 +76,7 @@ class WebServer(
         await runner.setup()
         site = web.TCPSite(runner, "0.0.0.0", self.PORT)
         await site.start()
-        print(f"Webserver started on port {self.PORT}")
+        self.logger.info(f"Webserver started on port {self.PORT}")
 
     async def stop_webserver(self):
         app = web.Application()

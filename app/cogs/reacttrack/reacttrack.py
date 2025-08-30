@@ -76,8 +76,6 @@ class ReactTrack(
 
         oldest_timestamp = events[0].timestamp
 
-        print(oldest_timestamp)
-
         # calculate reactions per hour, using the oldest timestamp as the start
         time_diff = datetime.datetime.now() - oldest_timestamp
         hours = time_diff.total_seconds() / 3600

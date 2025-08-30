@@ -60,7 +60,7 @@ class dadjoke(
                 try:
                     await member.edit(nick=old_nick)
                 except Exception as e:
-                    print(f"Failed to reset nickname: {e}")
+                    self.logger.error(f"Failed to reset nickname: {e}")
 
             asyncio.create_task(reset_nick())
         except discord.Forbidden:

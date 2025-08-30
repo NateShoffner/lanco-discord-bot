@@ -12,7 +12,6 @@ class Anime(LancoCog, name="Anime", description="Anime commands"):
     async def anime(self, ctx: commands.Context, *, title: str):
         async with AioJikan() as aio_jikan:
             anime = await aio_jikan.search("anime", title)
-            print(anime)
             if not anime:
                 await ctx.send("No anime found")
                 return

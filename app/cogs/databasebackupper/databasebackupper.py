@@ -33,7 +33,7 @@ class DatabaseBackupper(
         self.database_path = os.getenv("SQLITE_DB")
 
         if not self.backup_dir or not self.backup_dir.strip():
-            print("Database backup is disabled. No backup directory specified.")
+            self.logger.info("Database backup is disabled. No backup directory specified.")
             return
 
         if not os.path.exists(self.backup_dir):
@@ -66,9 +66,9 @@ class DatabaseBackupper(
 
         try:
             shutil.copy2(self.database_path, backup_filename)
-            print(f"Database backed up to {backup_filename}")
+            self.logger.info(f"Database backed up to {backup_filename}")
         except Exception as e:
-            print(f"Failed to back up database: {e}")
+            self.logger.info(f"Failed to back up database: {e}")
 
     @commands.command(name="backup_db", description="Manually back up the database")
     @is_bot_owner()

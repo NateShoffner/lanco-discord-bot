@@ -113,11 +113,11 @@ class GameSession:
 
         meters = matrix_elements["distance"]["value"]
         """
-        print(f"Difference in meters: {meters}")
-        print(f"Your guess: {guess_location}")
-        print(f"Actual location: {r.location.road_coords}")
-        print(f"Distance: {distance:.5f} degrees")
-        print(f"Score: {score:.2f}")
+        self.logger.debug(f"Difference in meters: {meters}")
+        self.logger.debug(f"Your guess: {guess_location}")
+        self.logger.debug(f"Actual location: {r.location.road_coords}")
+        self.logger.debug(f"Distance: {distance:.5f} degrees")
+        self.logger.debug(f"Score: {score:.2f}")
         """
 
         result = GuessResult(meters, score)

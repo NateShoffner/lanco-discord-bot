@@ -28,13 +28,9 @@ class SpyDotKick(LancoCog, name="SpyDotKick", description="Check for loser bots"
         if guild_id is None:
             guild_id = ctx.guild.id
 
-        print(guild_id)
-
         guild = self.bot.get_guild(guild_id)
 
         bots = await self.get_bots(guild_id)
-
-        print(bots)
 
         embed = discord.Embed(title="Bot Check")
 
