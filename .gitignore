@@ -164,3 +164,4 @@ logs/
 *.db
 config/config.json
 /data*
+.env.dev

@@ -2,8 +2,8 @@ import asyncio
 import datetime
 import logging
 import os
+import sys
 from dataclasses import dataclass
-from enum import Enum
 from logging.handlers import TimedRotatingFileHandler
 from sys import version_info as sysv
 from time import monotonic
@@ -22,9 +22,41 @@ from utils.dist_utils import get_bot_version, get_commit_hash
 from utils.network_utils import get_external_ip
 from watchfiles import Change, awatch
 
-load_dotenv()
+DATA_DIR = "data"
+LOGS_DIR = "logs"
+COGS_DIR = "app/cogs"
 
 logger = logging.getLogger()
+
+formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+
+file_logger = TimedRotatingFileHandler(
+    filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
+)
+file_logger.setFormatter(formatter)
+logger.addHandler(file_logger)
+
+console_logger = logging.StreamHandler()
+console_logger.setFormatter(formatter)
+logger.addHandler(console_logger)
+
+# supress discord logging
+# logging.getLogger('discord').setLevel(logging.WARNING)
+
+logger.setLevel(logging.INFO)
+
+env_file = ".env"
+if len(sys.argv) > 1:
+    env = sys.argv[1]
+    env_file = f".env.{env}"
+
+if not os.path.exists(env_file):
+    logger.error(f"Environment file {env_file} does not exist!")
+    exit(1)
+
+
+load_dotenv(env_file, override=True)
+logger.info(f"Loaded environment: {env_file}")
 
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
@@ -63,10 +95,6 @@ else:
 
 database_proxy.initialize(database)
 database.connect()
-
-DATA_DIR = "data"
-LOGS_DIR = "logs"
-COGS_DIR = "app/cogs"
 
 
 class BlacklistedUser(BaseModel):
@@ -194,25 +222,6 @@ bot = LancoBot(
     owner_id=owner_id,
     max_messages=message_cache_size,
 )
-
-
-def init_logging():
-    formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
-
-    file_logger = TimedRotatingFileHandler(
-        "./logs/logfile.log", when="midnight", backupCount=10
-    )
-    file_logger.setFormatter(formatter)
-    logger.addHandler(file_logger)
-
-    console_logger = logging.StreamHandler()
-    console_logger.setFormatter(formatter)
-    logger.addHandler(console_logger)
-
-    # supress discord logging
-    # logging.getLogger('discord').setLevel(logging.WARNING)
-
-    logger.setLevel(logging.INFO)
 
 
 @bot.command(name="gsync")
@@ -713,7 +722,6 @@ async def unblock(interaction: discord.Interaction, user: discord.User):
 
 
 async def main():
-    init_logging()
     await load_cogs(bot)
     await bot.start(os.getenv("DISCORD_TOKEN"))
 
