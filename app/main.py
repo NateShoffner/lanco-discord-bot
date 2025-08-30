@@ -28,16 +28,37 @@ COGS_DIR = "app/cogs"
 
 logger = logging.getLogger()
 
-formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(message)s"
+class CustomFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = LOG_FORMAT
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
 
 file_logger = TimedRotatingFileHandler(
     filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
 )
-file_logger.setFormatter(formatter)
+file_logger.setFormatter(LOG_FORMAT)
 logger.addHandler(file_logger)
 
 console_logger = logging.StreamHandler()
-console_logger.setFormatter(formatter)
+console_logger.setFormatter(CustomFormatter())
 logger.addHandler(console_logger)
 
 # supress discord logging
