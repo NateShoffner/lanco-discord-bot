@@ -28,6 +28,10 @@ COGS_DIR = "app/cogs"
 
 logger = logging.getLogger()
 
+# Remove all handlers associated with the root logger object to prevent duplicate logs
+if logger.hasHandlers():
+    logger.handlers.clear()
+
 LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(message)s"
 class CustomFormatter(logging.Formatter):
 
