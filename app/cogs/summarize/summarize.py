@@ -15,9 +15,20 @@ from utils.message_utils import get_user_messages
 from utils.tracked_message import track_message_ids
 
 
+class ChannelTopic(BaseModel):
+    subject: str = Field(
+        ...,
+        description="Topic subject being discussed (≤ 10 words) but not in an overly-analytical way",
+    )
+    msg_ref_ids: list[int] = Field(
+        default_factory=list, description="1-3 message IDs from the transcript"
+    )
+
+
 class ChannelDiscussion(BaseModel):
-    topics: list[str] = Field(
-        ..., description="List of topics being discussed in the channel"
+    topics: list[ChannelTopic] = Field(
+        default_factory=list,
+        description="List of topics being discussed in the channel",
     )
     vibe_check: str = Field(
         ...,
@@ -36,13 +47,21 @@ class ChannelDiscussion(BaseModel):
 class Summarize(
     LancoCog,
     name="Summarize",
-    description="Summarize Cog",
+    description="Provides summarization capabilities for Discord channels",
 ):
+    SYSTEM_PROMPT = """
+    Summarize the Discord transcripts provided into trending topics.
+    Requirements:
+    - Each subject MUST include 1-3 msg_ref_ids that appear in the transcript line tags.
+    - You must only use msg_ref_ids that appear in the transcript. Do not invent or repeat IDs. If you cannot find enough relevant IDs, use fewer.
+    - Do NOT include timestamps, quotes, or extra sections.
+    """
+
     def __init__(self, bot):
         super().__init__(bot)
         self.agent = Agent(
             model="openai:gpt-4o",
-            system_prompt="You are a helpful assistant that analyzes channel discussions and determines trending topics.",
+            system_prompt=self.SYSTEM_PROMPT,
             output_type=ChannelDiscussion,
         )
 
@@ -52,36 +71,91 @@ class Summarize(
     @command_channel_lock()
     @track_message_ids()
     async def topic(self, ctx: commands.Context):
+        chan = ctx.channel
+
         embed = discord.Embed(
             title="Analyzing Channel Topics",
-            description="Please wait while we analyze the channel for trending topics.",
+            description=f"Please wait while I analyze {chan.mention} for trending topics...",
         )
 
         await ctx.channel.typing()
         msg = await ctx.send(embed=embed)
 
-        messages = await get_user_messages(ctx.channel, limit=100)
+        messages = await get_user_messages(chan, limit=100)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
-            return None
+            embed.description = "No messages found to analyze."
+            return await msg.edit(embed=embed)
 
-        result = await self.agent.run([m.content for m in messages])
+        MAX_TOPICS = 3
+        MAX_USERS_TO_MENTION = 3
 
-        if not result or not result.output or len(result.output.topics) == 0:
-            self.logger.info("No topics found")
-            return await ctx.send("No topics found in the channel.")
+        # Build transcript with indexes because the LLM will likely hallucinate message ids
+        lines = []
+        msg_map = {}
+        for idx, m in enumerate(messages):
+            content = (m.content or "").strip()
+            if m.attachments:
+                content = f"{content} [attachments: {', '.join(a.filename for a in m.attachments)}]"
+            line = f"[msg{idx}] @{m.author.display_name}: {content}".strip()
+            lines.append(line)
+            msg_map[idx] = m
 
-        max_topics = 3
+        transcript = "\n".join(lines)
 
-        top_topics = result.output.topics[:max_topics]
-        markdown_list = "\n".join([f"* {topic}" for topic in top_topics])
-        embed = discord.Embed(
-            title="Trending Topics",
-            description=f"The current trending topics in this channel are:\n{markdown_list}",
+        prompt = (
+            "You will receive a transcript where each message line includes [msgN] @<User> <Message>.\n"
+            "When listing subjects, pick 1-3 msgN tags that best anchor each subject.\n\n"
+            "TRANSCRIPT BEGIN\n"
+            f"{transcript}\n"
+            "TRANSCRIPT END\n"
         )
 
-        await msg.edit(embed=embed)
+        try:
+            result = await self.agent.run(prompt)
+        except Exception as e:
+            self.logger.error(f"Agent run failed: {e}")
+            embed.description = "Failed to analyze topics."
+            return await msg.edit(embed=embed)
+
+        # Render: • <subject> - <@user1>, <@user2> - [jump](url), [jump](url)
+        lines_out = []
+        for t in result.output.topics[:MAX_TOPICS]:
+            # Only keep tags that are actually in the transcript
+            filtered_tags = [tag for tag in t.msg_ref_ids if tag in msg_map]
+            topic_messages = [msg_map[tag] for tag in filtered_tags]
+
+            topic_str = f"**{t.subject}**"
+
+            # authors (limit to one reference per user)
+            seen_users = set()
+            unique_topic_messages = []
+            for m in topic_messages:
+                if m.author.id not in seen_users:
+                    unique_topic_messages.append(m)
+                    seen_users.add(m.author.id)
+                if len(unique_topic_messages) >= MAX_USERS_TO_MENTION:
+                    break
+
+            if unique_topic_messages:
+                user_links = [
+                    f"{m.author.display_name} - [Jump]({m.jump_url})"
+                    for m in unique_topic_messages
+                ]
+                topic_str += "\n\t" + ", ".join(user_links)
+
+            lines_out.append(f"* {topic_str}")
+
+        content = f"The current trending topics in {chan.mention} are:"
+
+        if lines_out:
+            content += "\n" + "\n".join(lines_out)
+
+        embed.title = "Channel Topic Analysis"
+        embed.description = content
+        embed.color = discord.Color.blue()
+        await msg.edit(content=None, embed=embed)
         return msg
 
     @commands.command(
