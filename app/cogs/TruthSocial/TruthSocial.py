@@ -27,7 +27,6 @@ class TruthSocial(
     name="TruthSocial",
     description="TruthSocial embed support",
 ):
-
     truth_social_group = app_commands.Group(
         name="truthsocial", description="TruthSocial commands"
     )

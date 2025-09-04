@@ -33,7 +33,9 @@ class DatabaseBackupper(
         self.database_path = os.getenv("SQLITE_DB")
 
         if not self.backup_dir or not self.backup_dir.strip():
-            self.logger.info("Database backup is disabled. No backup directory specified.")
+            self.logger.info(
+                "Database backup is disabled. No backup directory specified."
+            )
             return
 
         if not os.path.exists(self.backup_dir):
