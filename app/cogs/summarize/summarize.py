@@ -138,13 +138,16 @@ class Summarize(
                 if len(unique_topic_messages) >= MAX_USERS_TO_MENTION:
                     break
 
-            if unique_topic_messages:
-                user_links = [
-                    f"{m.author.display_name} - [Jump]({m.jump_url})"
-                    for m in unique_topic_messages
-                ]
-                topic_str += "\n\t" + ", ".join(user_links)
+            citation_count = 1
 
+            if unique_topic_messages:
+                user_links = []
+                for m in unique_topic_messages:
+                    user_links.append(
+                        f"{m.author.display_name} [[{citation_count}]]({m.jump_url})"
+                    )
+                    citation_count += 1
+                topic_str += "\n\t" + ", ".join(user_links)
             lines_out.append(f"* {topic_str}")
 
         content = f"The current trending topics in {chan.mention} are:"
