@@ -108,7 +108,7 @@ class ChatBot(
                 history = last_response.new_messages()
 
             await message.channel.typing()
-            response = await agent.run(text, history=history)
+            response = await agent.run(text, message_history=history)
 
             # limit it for a discord message
             if len(response.output.response) > 2000:
