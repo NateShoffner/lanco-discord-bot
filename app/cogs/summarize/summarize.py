@@ -18,7 +18,7 @@ from utils.tracked_message import track_message_ids
 class ChannelTopic(BaseModel):
     subject: str = Field(
         ...,
-        description="Topic subject being discussed (≤ 10 words) but not in an overly-analytical way",
+        description="Topic subject being discussed (≤ 10 words) but not in an overly-analytical/robotic way. Keep it human-friendly.",
     )
     msg_ref_ids: list[int] = Field(
         default_factory=list, description="1-3 message IDs from the transcript"
@@ -50,7 +50,7 @@ class Summarize(
     description="Provides summarization capabilities for Discord channels",
 ):
     SYSTEM_PROMPT = """
-    Summarize the Discord transcripts provided into trending topics.
+    Summarize the Discord transcripts provided into trending topics. Skip over any off-topic or irrelevant messages.
     Requirements:
     - Each subject MUST include 1-3 msg_ref_ids that appear in the transcript line tags.
     - You must only use msg_ref_ids that appear in the transcript. Do not invent or repeat IDs. If you cannot find enough relevant IDs, use fewer.
@@ -96,8 +96,8 @@ class Summarize(
         msg_map = {}
         for idx, m in enumerate(messages):
             content = (m.content or "").strip()
-            if m.attachments:
-                content = f"{content} [attachments: {', '.join(a.filename for a in m.attachments)}]"
+            if not content:
+                continue
             line = f"[msg{idx}] @{m.author.display_name}: {content}".strip()
             lines.append(line)
             msg_map[idx] = m
