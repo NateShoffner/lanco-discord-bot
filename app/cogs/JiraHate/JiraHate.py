@@ -15,6 +15,7 @@ from discord.ext import commands, tasks
 from feedparser import parse
 from pydantic import BaseModel
 from utils.markdown_utils import html_to_markdown
+from utils.tracked_message import track_message_ids
 
 BASE_URL = "https://ifuckinghatejira.com/"
 
@@ -109,7 +110,8 @@ class JiraHate(
         return latest_id
 
     @commands.command()
-    async def jira(self, ctx):
+    @track_message_ids()
+    async def jira(self, ctx) -> discord.Message:
         """Responds with a random IFuckingHateJira quote."""
 
         if not self.latest_quote_id:
@@ -126,7 +128,8 @@ class JiraHate(
             url=quote.url,
         )
 
-        await ctx.send(embed=embed)
+        msg = await ctx.send(embed=embed)
+        return msg
 
 
 async def setup(bot):
