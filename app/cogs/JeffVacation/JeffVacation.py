@@ -90,12 +90,38 @@ class jeff(
     def __init__(self, bot):
         super().__init__(bot)
 
+    def format_timedelta(self, td: timedelta) -> str:
+        """Return a human-friendly timedelta string."""
+        days = td.days
+        hours = td.seconds // 3600
+        minutes = (td.seconds // 60) % 60
+        seconds = td.seconds % 60
+
+        def unit_label(name: str, value: int) -> str:
+            return name if value == 1 else name + "s"
+
+        parts = []
+        if days > 0:
+            parts.append(f"**{days} {unit_label('day', days)}**")
+        if hours > 0:
+            parts.append(f"**{hours} {unit_label('hour', hours)}**")
+        if minutes > 0:
+            parts.append(f"**{minutes} {unit_label('minute', minutes)}**")
+        # always include seconds (even if zero)
+        parts.append(f"**{seconds} {unit_label('second', seconds)}**")
+
+        return ", ".join(parts)
+
     def get_remaining_time(self) -> timedelta:
         """Calculates the remaining time until the vacation starts or ends."""
         start_time = self.get_start_time()
         return_time = self.get_return_time()
 
         now = datetime.now(tz=pytz.timezone("US/Eastern"))
+
+        self.logger.info(
+            f"Current time: {now}, Vacation start: {start_time}, Vacation end: {return_time}"
+        )
 
         if now < start_time:  # Vacation has not started yet
             return start_time - now
@@ -106,11 +132,11 @@ class jeff(
 
     def get_return_time(self) -> datetime:
         """Returns the time when the vacation ends."""
-        return pytz.timezone("US/Eastern").localize(datetime(2025, 6, 2, 8, 0, 0))
+        return pytz.timezone("US/Eastern").localize(datetime(2025, 12, 1, 8, 0, 0))
 
     def get_start_time(self) -> datetime:
         """Returns the time when the vacation starts."""
-        return pytz.timezone("US/Eastern").localize(datetime(2025, 5, 23, 17, 0, 0))
+        return pytz.timezone("US/Eastern").localize(datetime(2025, 11, 21, 17, 0, 0))
 
     @commands.command()
     async def vacation(self, ctx):
@@ -122,33 +148,23 @@ class jeff(
         start_time = self.get_start_time()
         return_time = self.get_return_time()
 
-        # first check if the vacation has not started yet
-        if remaining.total_seconds() > (return_time - start_time).total_seconds():
+        # explicit checks using current time to avoid ambiguity
+        now = datetime.now(tz=pytz.timezone("US/Eastern"))
+        if now < start_time:
+            time_until_start = start_time - now
+            time_str = self.format_timedelta(time_until_start)
             await ctx.send(
-                f"{user.mention}, keep working! You're not on vacation yet. Time until vacation: **{remaining.days} days, {remaining.seconds // 3600} hours, {(remaining.seconds // 60) % 60} minutes, {remaining.seconds % 60} seconds**."
+                f"{user.mention}, keep working! You're not on vacation yet. Time until vacation: {time_str}."
             )
             return
 
-        # then check if the vacation has already ended
-        if remaining.total_seconds() <= 0:
+        if now >= return_time:
             await ctx.send(f"Vacation is already over! Welcome back {user.mention} 😎")
             return
 
-        # build the time left string and exclude any zero values traversing the timedelta
-        if remaining.days > 0:
-            time_left = f"**{remaining.days} days**, "
-        else:
-            time_left = ""
-
-        if remaining.seconds // 3600 > 0:
-            time_left += f"**{remaining.seconds // 3600} hours**, "
-        if (remaining.seconds // 60) % 60 > 0:
-            time_left += f"**{(remaining.seconds // 60) % 60} minutes**, "
-        if remaining.seconds % 60 > 0:
-            time_left += f"**{remaining.seconds % 60} seconds**"
-
-        if time_left.endswith(", "):
-            time_left = time_left[:-2]
+        # vacation is ongoing; compute remaining until return
+        remaining = return_time - now
+        time_left = self.format_timedelta(remaining)
 
         dawn_screen = DawnScreen()
 
