@@ -65,6 +65,31 @@ class Summarize(
             output_type=ChannelDiscussion,
         )
 
+    class Transcript(BaseModel):
+        """Transcript of messages with indexed tags."""
+
+        lines: list[str]
+
+        """ Lines of the transcript with indexed tags, e.g. [msg0] @User Message """
+        msg_map: dict[int, discord.Message]
+
+        class Config:
+            arbitrary_types_allowed = True
+
+    async def build_transcript(self, messages: list[discord.Message]) -> Transcript:
+        """Build a transcript from messages with indexed tags."""
+        lines = []
+        # Build transcript with indexes because the LLM will likely hallucinate message ids
+        msg_map = {}
+        for idx, m in enumerate(messages):
+            content = (m.content or "").strip()
+            if not content:
+                continue
+            line = f"[msg{idx}] @{m.author.display_name}: {content}".strip()
+            lines.append(line)
+            msg_map[idx] = m
+        return self.Transcript(lines=lines, msg_map=msg_map)
+
     @commands.command(
         name="topic", description="Will say what the current channel is talking about"
     )
@@ -91,24 +116,14 @@ class Summarize(
         MAX_TOPICS = 3
         MAX_USERS_TO_MENTION = 3
 
-        # Build transcript with indexes because the LLM will likely hallucinate message ids
-        lines = []
-        msg_map = {}
-        for idx, m in enumerate(messages):
-            content = (m.content or "").strip()
-            if not content:
-                continue
-            line = f"[msg{idx}] @{m.author.display_name}: {content}".strip()
-            lines.append(line)
-            msg_map[idx] = m
-
-        transcript = "\n".join(lines)
+        transcript = await self.build_transcript(messages)
+        transcript_str = "\n".join(transcript.lines)
 
         prompt = (
             "You will receive a transcript where each message line includes [msgN] @<User> <Message>.\n"
             "When listing subjects, pick 1-3 msgN tags that best anchor each subject.\n\n"
             "TRANSCRIPT BEGIN\n"
-            f"{transcript}\n"
+            f"{transcript_str}\n"
             "TRANSCRIPT END\n"
         )
 
@@ -123,8 +138,8 @@ class Summarize(
         lines_out = []
         for t in result.output.topics[:MAX_TOPICS]:
             # Only keep tags that are actually in the transcript
-            filtered_tags = [tag for tag in t.msg_ref_ids if tag in msg_map]
-            topic_messages = [msg_map[tag] for tag in filtered_tags]
+            filtered_tags = [tag for tag in t.msg_ref_ids if tag in transcript.msg_map]
+            topic_messages = [transcript.msg_map[tag] for tag in filtered_tags]
 
             topic_str = f"**{t.subject}**"
 
