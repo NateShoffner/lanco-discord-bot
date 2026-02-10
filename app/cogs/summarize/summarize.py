@@ -64,6 +64,11 @@ class Summarize(
             system_prompt=self.SYSTEM_PROMPT,
             output_type=ChannelDiscussion,
         )
+        self.eli5_agent = Agent(
+            model="openai:gpt-4o",
+            system_prompt="Explain the current vibe of the channel in a way that a 5-year-old would understand.",
+            output_type=ChannelDiscussion,
+        )
 
     class Transcript(BaseModel):
         """Transcript of messages with indexed tags."""
@@ -214,7 +219,7 @@ class Summarize(
         if not prompt:
             return await ctx.send("Please provide a prompt for the ELI5 explanation.")
 
-        result = await self.agent.run(prompt)
+        result = await self.eli5_agent.run(prompt)
 
         if not result or not result.output or not result.output.eli5_explanation:
             self.logger.info("No ELI5 explanation found")
