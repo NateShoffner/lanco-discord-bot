@@ -12,7 +12,9 @@ from .models import InstaEmbedConfig
 class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fix"):
     g = app_commands.Group(name="instaembed", description="InstaEmbed commands")
 
-    insta_pattern = re.compile(r"https?://(?:www\.)?instagram\.com/p/[a-zA-Z0-9_-]+")
+    insta_pattern = re.compile(
+        r"https?://(?:www\.)?instagram\.com/(?:p|reel|reels)/[a-zA-Z0-9_-]+/?"
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(
@@ -22,14 +24,7 @@ class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fi
                 EmbedFixCog.PatternReplacement(
                     self.insta_pattern,
                     "instagram.com",
-                    "ddinstagram.com",
-                ),
-                EmbedFixCog.PatternReplacement(
-                    re.compile(
-                        r"https?://(?:www\.)?instagram\.com/reel/[a-zA-Z0-9_-]+"
-                    ),
-                    "instagram.com",
-                    "ddinstagram.com",
+                    "zzinstagram.com",
                 ),
             ],
             InstaEmbedConfig,
