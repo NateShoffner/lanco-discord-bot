@@ -21,13 +21,6 @@ class TipSuggestion:
         self.tip_percentage = tip_percentage
         self.tip_amount = self.bill_amount * (self.tip_percentage / 100)
         self.bill_total = self.bill_amount + self.tip_amount
-        self.tip_rounded_amount = self._calculate_rounded_tip()
-        self.bill_total_rounded = self.bill_amount + self.tip_rounded_amount
-
-    def _calculate_rounded_tip(self) -> float:
-        rounded_total_amount = math.ceil(self.bill_total)
-        rounded_tip_amount = rounded_total_amount - self.bill_amount
-        return rounded_tip_amount
 
 
 class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
@@ -126,10 +119,6 @@ class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
             response += "----------------\n"
             response += f"Tip amount: **${ts.tip_amount:.2f}**\n"
             response += f"Bill total: **${ts.bill_total:.2f}**\n"
-            if ts.bill_total != ts.bill_total_rounded:
-                response += "\nWant to round tip up to nearest dollar?\n"
-                response += f"Tip amount (rounded): **${ts.tip_rounded_amount:.2f}**\n"
-                response += f"Bill total (rounded): **${ts.bill_total_rounded:.2f}**\n"
             response += "\n"
 
         if not valid_tip_perc:
