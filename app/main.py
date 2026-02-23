@@ -57,10 +57,18 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-file_logger = TimedRotatingFileHandler(
+class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
+    def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        super().doRollover()
+
+
+file_logger = WinTimedRotatingFileHandler(
     filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
 )
-file_logger.setFormatter(LOG_FORMAT)
+file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
 logger.addHandler(file_logger)
 
 console_logger = logging.StreamHandler()
@@ -70,7 +78,7 @@ logger.addHandler(console_logger)
 # supress discord logging
 # logging.getLogger('discord').setLevel(logging.WARNING)
 
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.INFO)
 
 env_file = ".env"
 if len(sys.argv) > 1:
