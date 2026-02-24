@@ -7,9 +7,9 @@ from utils.tracked_message import track_message_ids
 class EmoteTools(LancoCog, name="EmoteTools", description="Emote and sticker tools"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.register_context_menu(
-            name="Emote Details", callback=self.ctx_menu, errback=self.ctx_menu_error
-        )
+        # self.register_context_menu(
+        #    name="Emote Details", callback=self.ctx_menu, #errback=self.ctx_menu_error
+        # )
 
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
