@@ -3943,14 +3943,14 @@ files = [
 
 [[package]]
 name = "spotipy"
-version = "2.25.1"
+version = "2.25.2"
 description = "A light weight Python library for the Spotify Web API"
 optional = false
 python-versions = ">3.8"
 groups = ["main"]
 files = [
-    {file = "spotipy-2.25.1-py3-none-any.whl", hash = "sha256:18f47d9a0594ced8001b3baa5a4160ea6dcf570abbdad371971f475a81892844"},
-    {file = "spotipy-2.25.1.tar.gz", hash = "sha256:607d3c43722b7e217a7e6c82f17258b798b92a512017d60c06323d62ae814cd7"},
+    {file = "spotipy-2.25.2-py3-none-any.whl", hash = "sha256:694bc9734d94171716257bf18eea9f1cb2ff8c581e59c74464137433830cf890"},
+    {file = "spotipy-2.25.2.tar.gz", hash = "sha256:5ed45c044156ca5518997e2502b1f2c1e7336407cb1fb8fe112d144b4d5282c8"},
 ]
 
 [package.dependencies]
@@ -4735,4 +4735,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "3f621648c6d3d5f2c1ed36be230ad2222d8218a3d6a929937b0a87d55ce56c77"
+content-hash = "e8307c781954cc7437f24107f920ff9e98dc5e5f1d7265654c4ec856a2a33c82"
