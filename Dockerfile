@@ -5,7 +5,7 @@
 # PYTHON-BASE
 # Sets up all our shared environment variables
 ################################
-FROM python:3.10-slim as python-base
+FROM python:3.10-slim-bookworm as python-base
 
 # Python
 ENV PYTHONUNBUFFERED=1 \
@@ -15,7 +15,7 @@ ENV PYTHONUNBUFFERED=1 \
     \
     # Poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=1.6.1 \
+    POETRY_VERSION=1.8.5 \
     # make poetry install to this location
     POETRY_HOME="/opt/poetry" \
     # do not ask any interactive question
@@ -42,12 +42,13 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 ################################
 FROM python-base as builder-base
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     apt-transport-https \
     gnupg \
     ca-certificates \
     build-essential \
-    curl
+    curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # install poetry - respects $POETRY_VERSION & $POETRY_HOME
 # The --mount will mount the buildx cache directory to where
