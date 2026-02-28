@@ -4,10 +4,10 @@ services:
   app:
     build:
       context: .
-      target: production
     container_name: lanco-bot
     restart: unless-stopped
     env_file: .env
     volumes:
+      - ./app:/app/app
       - ./data:/app/data
       - ./logs:/app/logs
