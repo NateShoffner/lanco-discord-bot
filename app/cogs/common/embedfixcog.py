@@ -31,6 +31,19 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
             self.original = original
             self.replacement = replacement
 
+    @staticmethod
+    def _is_within_angle_brackets(content: str, match: re.Match) -> bool:
+        """Return True when a URL match is wrapped as <url> to suppress embeds."""
+        start, end = match.span()
+        if start == 0 or content[start - 1] != "<":
+            return False
+
+        # Some regex patterns include the trailing '>' in the match (e.g. via \S+).
+        if end > start and content[end - 1] == ">":
+            return True
+
+        return end < len(content) and content[end] == ">"
+
     def __init__(
         self,
         bot: commands.Bot,
@@ -83,6 +96,10 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         for pr in self.patterns:
             match = pr.pattern.search(message.content)
             if match:
+                if self._is_within_angle_brackets(message.content, match):
+                    self.logger.info("URL is within angle brackets, ignoring")
+                    return
+
                 original_url = match.group(0)
                 fixed_url = original_url.replace(pr.original, pr.replacement)
 
