@@ -44,6 +44,27 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
 
         return end < len(content) and content[end] == ">"
 
+    @staticmethod
+    def _is_within_spoiler_tags(content: str, match: re.Match) -> bool:
+        """Return True when the matched URL is inside a ||spoiler|| segment."""
+        match_start, match_end = match.span()
+        search_index = 0
+
+        while True:
+            spoiler_start = content.find("||", search_index)
+            if spoiler_start == -1:
+                return False
+
+            spoiler_end = content.find("||", spoiler_start + 2)
+            if spoiler_end == -1:
+                return False
+
+            # Match can include the closing spoiler marker for broad patterns like \S+.
+            if match_start >= spoiler_start + 2 and match_end <= spoiler_end + 2:
+                return True
+
+            search_index = spoiler_end + 2
+
     def __init__(
         self,
         bot: commands.Bot,
@@ -96,8 +117,15 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         for pr in self.patterns:
             match = pr.pattern.search(message.content)
             if match:
+                self.logger.info(
+                    f"Found URL matching pattern for {self.name}: {match.group(0)}"
+                )
                 if self._is_within_angle_brackets(message.content, match):
                     self.logger.info("URL is within angle brackets, ignoring")
+                    return
+
+                if self._is_within_spoiler_tags(message.content, match):
+                    self.logger.info("URL is within spoiler tags, ignoring")
                     return
 
                 original_url = match.group(0)
@@ -106,12 +134,6 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
                 self.logger.info(
                     f"Found URL to be handled by {self.name}: {original_url} -> {fixed_url} - waiting {self.wait_time}s"
                 )
-
-                # ignore if the pattern is within spoiler tags
-                # TODO should perform a strict check of whether the link in question is the portion within the spoiler tags
-                if "||" in message.content:
-                    self.logger.info("URL is within spoiler tags, ignoring")
-                    return
 
                 # wait a bit to see if discord will embed the link
                 await asyncio.sleep(self.wait_time)
