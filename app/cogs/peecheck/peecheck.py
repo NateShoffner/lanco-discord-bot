@@ -5,8 +5,7 @@ from cogs.lancocog import LancoCog
 from discord import Emoji
 from discord.ext import commands
 from PIL import Image
-
-from app.utils.emoji_uploader import EmojiUploader, LocalEmoji
+from utils.emoji_uploader import EmojiUploader, LocalEmoji
 
 
 class PeeCheck(LancoCog, name="PeeCheck", description="PeeCheck cog"):
