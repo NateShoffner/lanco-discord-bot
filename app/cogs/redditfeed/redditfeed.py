@@ -196,7 +196,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     @is_bot_owner_or_admin()
     async def test(self, ctx: commands.Context):
         """Test the Reddit feed by posting a new post from /r/lancaster"""
-        url = "https://www.reddit.com/r/lancaster/comments/1lkcjqb/meet_bluey_the_dog_redditors_rescuers_came/"
+        url = "https://www.reddit.com/r/lancaster/comments/1rbp3hm/snow_emergency_today_move_your_cars/"
 
         try:
             submission = await self.reddit.submission(url=url)
@@ -222,11 +222,17 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         if len(submission.selftext) >= 4096:
             description = f"{description[:4093]}..."
 
+        # limit to 256 characters for field values
+        title = submission.title
+        if len(title) >= 256:
+            self.logger.info(f"Title too long, truncating: {title}")
+            title = f"{title[:253]}..."
+
         nsfw = submission.over_18 or submission.spoiler
         icon = await self.get_subreddit_icon(submission.subreddit.display_name)
 
         embed = discord.Embed(
-            title=submission.title,
+            title=title,
             url=permalink,
             description=description,
             color=discord.Color(0xFF0000),
