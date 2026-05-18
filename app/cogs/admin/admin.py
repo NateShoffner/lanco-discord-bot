@@ -23,8 +23,15 @@ class Admin(LancoCog, name="Admin", description="Administrative commands"):
 
     @g.command(name="delete", description="Delete a message by ID")
     @is_bot_owner_or_admin()
-    async def delete_by_id(self, interaction: discord.Interaction, message_id: int):
+    async def delete_by_id(self, interaction: discord.Interaction, message_id: str):
         """Delete a message by ID"""
+        try:
+            message_id = int(message_id)
+        except ValueError:
+            await interaction.response.send_message(
+                "Invalid message ID.", ephemeral=True
+            )
+            return
         channel = interaction.channel
         try:
             message = await channel.fetch_message(message_id)
