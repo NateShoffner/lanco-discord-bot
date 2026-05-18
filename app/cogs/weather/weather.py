@@ -43,14 +43,20 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
         """Get the weather for a location"""
         coords = await self.get_coords(location)
 
+        self.logger.info(f"Fetching weather for coords: {coords}")
+
         if coords in self.weather_statuses:
             return self.weather_statuses[coords]
 
-        result = self.owm.weather_manager().weather_at_coords(coords[0], coords[1])
-        if result:
-            self.weather_statuses[coords] = result.weather
-            return result.weather
-        return None
+        try:
+            result = self.owm.weather_manager().weather_at_coords(coords[0], coords[1])
+            if result:
+                self.weather_statuses[coords] = result.weather
+                return result.weather
+
+        except pyowm.commons.exceptions.NotFoundError as e:
+            self.logger.error(f"Weather not found for coords: {coords} - {e}")
+            return None
 
     async def get_air_status(self, location):
         """Get the Air Quality Index for a location"""
