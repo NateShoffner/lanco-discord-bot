@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
+import shutil
 import sys
 from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
@@ -64,6 +65,10 @@ class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
             self.stream = None
         super().doRollover()
 
+    def rotate(self, source, dest):
+        shutil.copy2(source, dest)
+        open(source, "w").close()  # truncate in place instead of renaming
+
 
 file_logger = WinTimedRotatingFileHandler(
     filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
@@ -85,12 +90,11 @@ if len(sys.argv) > 1:
     env = sys.argv[1]
     env_file = f".env.{env}"
 
-if not os.path.exists(env_file):
-    logger.error(f"Environment file {env_file} does not exist!")
-    exit(1)
-
-
-load_dotenv(env_file, override=True)
+if os.path.exists(env_file):
+    load_dotenv(env_file, override=True)
+    logger.info(f"Loaded environment: {env_file}")
+else:
+    logger.info("No .env file found, using environment variables")
 logger.info(f"Loaded environment: {env_file}")
 
 if os.getenv("LOGTAIL_TOKEN"):
