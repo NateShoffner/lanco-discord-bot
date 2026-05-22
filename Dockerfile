@@ -13,6 +13,7 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --only main
 
 COPY app/ app/
+COPY assets/ assets/
 COPY migrate.py .
 COPY migrations/ migrations/
 
