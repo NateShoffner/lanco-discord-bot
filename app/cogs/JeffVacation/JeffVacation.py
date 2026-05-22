@@ -132,11 +132,11 @@ class jeff(
 
     def get_return_time(self) -> datetime:
         """Returns the time when the vacation ends."""
-        return pytz.timezone("US/Eastern").localize(datetime(2025, 12, 1, 8, 0, 0))
+        return pytz.timezone("US/Eastern").localize(datetime(2026, 5, 1, 8, 0, 0))
 
     def get_start_time(self) -> datetime:
         """Returns the time when the vacation starts."""
-        return pytz.timezone("US/Eastern").localize(datetime(2025, 11, 21, 17, 0, 0))
+        return pytz.timezone("US/Eastern").localize(datetime(2026, 5, 22, 17, 0, 0))
 
     @commands.command()
     async def vacation(self, ctx):
