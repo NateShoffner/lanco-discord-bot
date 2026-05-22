@@ -132,7 +132,7 @@ class jeff(
 
     def get_return_time(self) -> datetime:
         """Returns the time when the vacation ends."""
-        return pytz.timezone("US/Eastern").localize(datetime(2026, 5, 1, 8, 0, 0))
+        return pytz.timezone("US/Eastern").localize(datetime(2026, 6, 1, 8, 0, 0))
 
     def get_start_time(self) -> datetime:
         """Returns the time when the vacation starts."""
