@@ -86,6 +86,7 @@ logger.addHandler(console_logger)
 logger.setLevel(logging.INFO)
 
 env_file = ".env"
+dev_arg = len(sys.argv) > 1 and sys.argv[1] == "dev"
 if len(sys.argv) > 1:
     env = sys.argv[1]
     env_file = f".env.{env}"
@@ -95,7 +96,10 @@ if os.path.exists(env_file):
     logger.info(f"Loaded environment: {env_file}")
 else:
     logger.info("No .env file found, using environment variables")
-logger.info(f"Loaded environment: {env_file}")
+
+# If launched with the "dev" arg, force DEV_MODE on regardless of what the env file says
+if dev_arg:
+    os.environ["DEV_MODE"] = "true"
 
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
@@ -152,7 +156,7 @@ class LancoBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.dev_mode = os.getenv("DEV_MODE", False)
+        self.dev_mode = os.getenv("DEV_MODE", "").lower() == "true"
         self.start_time = datetime.datetime.now()
 
         # TODO probably a better way to inject a database into a cog
