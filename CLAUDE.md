@@ -35,7 +35,9 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 ### Core Components
 
-**`app/main.py`** — Entry point. Creates the `LancoBot` instance, sets up logging, initializes the database, and auto-loads all cogs from `app/cogs/`.
+**`app/main.py`** — Entry point. Creates the `LancoBot` instance, sets up logging, initializes the database via `init_db()`, and auto-loads all cogs from `app/cogs/`.
+
+**`app/run.py`** — Poetry script entrypoints for `dev`, `prod`, and `test`. Handles `sys.path` setup so bare imports work correctly.
 
 **`app/cogs/lancocog.py`** — `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers. Every cog also defines a `CogDefinition` with name/description metadata.
 
@@ -45,7 +47,9 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 **`app/utils/command_utils.py`** — Permission decorators (`is_bot_owner_or_admin`, etc.) used across cogs.
 
-**`migrations/`** — Sequential numbered migration scripts run automatically at startup via `migrate.py`. Use Peewee's `SqliteMigrator` / `MySQLMigrator` depending on `DB_TYPE`.
+**`migrations/`** — Sequential numbered migration scripts run via `poetry run migrate`. Use Peewee's `SqliteMigrator` / `MySQLMigrator` depending on `DB_TYPE`.
+
+**`tests/`** — Core bot test suite using pytest + dpytest. Run with `poetry run test`.
 
 ### Cog Pattern
 
@@ -65,6 +69,9 @@ class MyCog(LancoCog, name="MyCog", description="My description"):
     def __init__(self, bot):
         super().__init__(bot)
 
+    async def cog_load(self):
+        self.bot.database.create_tables([MyModel])  # create tables here, not in __init__
+
 async def setup(bot):
     await bot.add_cog(MyCog(bot))
 ```
@@ -77,7 +84,7 @@ Several cogs (Spotify, Twitter/X, Instagram, TikTok fixes) register themselves a
 
 ### Development Mode
 
-Set `DEV_MODE=True` (or pass `dev` argument) to enable `watchfiles`-based hot-reload: any change to a file under `app/cogs/` automatically reloads the affected cog without restarting the process.
+Running `poetry run dev` loads `.env.dev` and sets `DEV_MODE=true` automatically, enabling `watchfiles`-based hot-reload: any change to a file under `app/cogs/` automatically reloads the affected cog without restarting the process.
 
 ### Environment
 
@@ -85,4 +92,12 @@ Copy `.env.default` to `.env` and fill in values. Key variables:
 - `DISCORD_TOKEN` — required
 - `DB_TYPE` — `sqlite` (default) or `mysql`
 - `SQLITE_DB` — path to SQLite file (default `data/lancobot.db`)
+- `DEV_MODE` — set to `true` to enable hot-reload (set automatically by `poetry run dev`)
 - All external API keys (OpenAI, Google Maps, Spotify, OWM, etc.) are optional; the cogs that depend on them fail gracefully or skip loading when the keys are absent.
+
+### Deployment
+
+The bot is deployed via GitHub Actions on push to `master`:
+1. Tests run via `poetry run test`
+2. Docker image is built and pushed to `ghcr.io`
+3. VPS pulls the new image and restarts via `docker-compose`
