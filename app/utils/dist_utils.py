@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import toml
@@ -15,14 +16,18 @@ def get_bot_version():
 
 
 def get_commit_hash():
+    # Check env var first (can be injected at build time via Docker ARG/ENV)
+    commit_hash = os.getenv("GIT_COMMIT_HASH")
+    if commit_hash:
+        return commit_hash
     try:
         commit_hash = (
             subprocess.check_output(["git", "rev-parse", "HEAD"])
             .decode("utf-8")
             .strip()
         )
-    except:
-        commit_hash = "Unknown"
+    except Exception:
+        commit_hash = "unknown"
     return commit_hash
 
 

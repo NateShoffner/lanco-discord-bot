@@ -17,6 +17,9 @@ RUN poetry install --no-root --only main && \
 
 FROM python:3.10-slim-bookworm AS runtime
 
+ARG GIT_COMMIT_HASH=unknown
+ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
+
 WORKDIR /app
 
 # Only the runtime system library — not the dev headers
@@ -34,5 +37,6 @@ COPY app/ app/
 COPY assets/ assets/
 COPY migrate.py .
 COPY migrations/ migrations/
+COPY pyproject.toml .
 
 CMD ["sh", "-c", "python migrate.py && python app/main.py"]
