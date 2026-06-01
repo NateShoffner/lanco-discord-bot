@@ -106,38 +106,43 @@ if os.getenv("LOGTAIL_TOKEN"):
 
 intents = discord.Intents.all()
 
-db_type = None
-db_type_str = os.getenv("DB_TYPE", "sqlite")
 
-try:
-    db_type = DatabaseType.from_str(db_type_str)
-    logger.info(f"Using {db_type.name} database")
-except ValueError as e:
-    logger.error(e)
-    exit(1)
+def init_db() -> SqliteDatabase:
+    """Initialize and connect the database, returning the database instance."""
+    db_type_str = os.getenv("DB_TYPE", "sqlite")
 
-if db_type == DatabaseType.SQLITE:
-    sqlite_path = os.getenv("SQLITE_DB")
-    db_dir = os.path.dirname(sqlite_path)
-    if not os.path.exists(db_dir):
-        os.makedirs(db_dir)
+    try:
+        db_type = DatabaseType.from_str(db_type_str)
+        logger.info(f"Using {db_type.name} database")
+    except ValueError as e:
+        logger.error(e)
+        exit(1)
 
-    database = SqliteDatabase(sqlite_path)
+    if db_type == DatabaseType.SQLITE:
+        sqlite_path = os.getenv("SQLITE_DB")
+        db_dir = os.path.dirname(sqlite_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+        db = SqliteDatabase(sqlite_path)
 
-elif db_type == DatabaseType.MYSQL:
-    database = MySQLDatabase(
-        os.getenv("MYSQL_DB"),
-        user=os.getenv("MYSQL_USER"),
-        password=os.getenv("MYSQL_PASSWORD"),
-        host=os.getenv("MYSQL_HOST"),
-        port=int(os.getenv("MYSQL_PORT", 3306)),
-    )
+    elif db_type == DatabaseType.MYSQL:
+        db = MySQLDatabase(
+            os.getenv("MYSQL_DB"),
+            user=os.getenv("MYSQL_USER"),
+            password=os.getenv("MYSQL_PASSWORD"),
+            host=os.getenv("MYSQL_HOST"),
+            port=int(os.getenv("MYSQL_PORT", 3306)),
+        )
 
-else:
-    raise ValueError(f"Unsupported database type: {db_type}")
+    else:
+        raise ValueError(f"Unsupported database type: {db_type_str}")
 
-database_proxy.initialize(database)
-database.connect()
+    database_proxy.initialize(db)
+    db.connect()
+    return db
+
+
+database = init_db()
 
 
 class BlacklistedUser(BaseModel):

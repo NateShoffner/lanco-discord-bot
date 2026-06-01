@@ -14,7 +14,6 @@ class RemindMe(
 ):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([Reminder])
         self.reminders = []
 
     def cog_unload(self):
@@ -22,6 +21,7 @@ class RemindMe(
         self.issue_reminders.cancel()
 
     async def cog_load(self):
+        self.bot.database.create_tables([Reminder])
         await self._load_reminders()
         self.load_daily_reminders.start()
         self.issue_reminders.start()
