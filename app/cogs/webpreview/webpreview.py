@@ -31,6 +31,8 @@ class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
             return
         if message.content.startswith(self.bot.command_prefix):
             return
+        if message.channel.flags.suppress_embeds:
+            return
 
         if len(message.attachments) > 0 or len(message.embeds) > 0:
             return
