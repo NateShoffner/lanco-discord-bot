@@ -114,6 +114,9 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         if message.author.bot:
             return
 
+        if message.channel.flags.suppress_embeds:
+            return
+
         for pr in self.patterns:
             match = pr.pattern.search(message.content)
             if match:

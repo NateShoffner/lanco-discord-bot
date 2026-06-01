@@ -22,7 +22,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
 
     UPDATE_INTERVAL = 10  # seconds
-    POST_LIMIT = 5  # TODO: make this configurable
+    POST_LIMIT = 25
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -75,18 +75,23 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 submissions.append(submission)
             submissions = sorted(submissions, key=lambda s: s.created_utc)
 
+            # Build a set of already-seen post IDs for this subreddit so we
+            # catch posts that were in a moderation queue and appeared late
+            seen_ids = set(
+                RedditPost.select(RedditPost.post_id)
+                .where(RedditPost.subreddit == sr)
+                .tuples()
+            )
+            seen_ids = {row[0] for row in seen_ids}
+
             for submission in submissions:
+                # skip posts we've already seen by ID (not by timestamp)
+                if submission.id in seen_ids:
+                    continue
+
+                permalink = f"https://reddit.com{submission.permalink}"
+
                 for config in configs:
-                    created = submission.created_utc
-
-                    # skip posts we've already seen
-                    if (
-                        config.last_known_post_creation
-                        and created <= config.last_known_post_creation
-                    ):
-                        continue
-
-                    permalink = f"https://reddit.com{submission.permalink}"
                     self.logger.info(
                         f"Found new post in {sr} for {config.channel_id}: {permalink}"
                     )
@@ -99,8 +104,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         continue
 
                     msg = await self.share_post(submission, channel)
-                    config.last_known_post_creation = created
-                    config.save()
 
                     RedditPost.create(
                         post_id=submission.id,
@@ -108,11 +111,18 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         title=submission.title,
                         permalink=submission.permalink,
                         created=submission.created_utc,
-                        author=submission.author.name,
+                        author=(
+                            submission.author.name if submission.author else "[deleted]"
+                        ),
                         is_nsfw=submission.over_18,
                         spoiler=submission.spoiler,
                         message_id=msg.id,
                     )
+
+                # Mark as seen after all configs have processed it
+                seen_ids.add(submission.id)
+                config.last_known_post_creation = submission.created_utc
+                config.save()
 
     @reddit_feed_group.command(
         name="subscribe",
