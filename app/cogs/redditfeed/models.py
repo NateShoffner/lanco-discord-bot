@@ -21,6 +21,7 @@ class RedditPost(BaseModel):
     author = CharField()
     is_nsfw = BooleanField()
     spoiler = BooleanField()
+    deleted = BooleanField(default=False)
     message_id = BigIntegerField()
 
     class Meta:
