@@ -22,6 +22,8 @@ class Counter(
 ):
     def __init__(self, bot):
         super().__init__(bot)
+
+    async def cog_load(self):
         self.bot.database.create_tables([CounterConfig])
 
     @app_commands.command(
@@ -87,7 +89,10 @@ class Counter(
             if number > config.high_score:
                 config.high_score = number
             config.save()
-            await message.add_reaction("✅")
+            try:
+                await message.add_reaction("✅")
+            except Exception:
+                pass
         else:
             # Wrong number — reset
             ruined_by = message.author.mention
@@ -98,7 +103,10 @@ class Counter(
             config.last_user_id = None
             config.save()
 
-            await message.add_reaction("❌")
+            try:
+                await message.add_reaction("❌")
+            except Exception:
+                pass
             await message.channel.send(
                 f"😱 {ruined_by} ruined it at **{reached}**! The next number was **{expected}**.\n"
                 f"🏆 High score: **{high_score}**\n"
