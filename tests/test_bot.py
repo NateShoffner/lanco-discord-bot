@@ -105,8 +105,9 @@ async def test_all_cogs_load_without_errors(bot):
         # Optional deps not installed outside Docker
         "pyttsx3",
         "whisper",
-        # griffe version conflict — tracked separately as a dependency bug
+        # griffe version conflict — pydantic-ai pulls griffelib 2.x which conflicts
         "cannot import name 'Docstring' from 'griffe'",
+        "cannot import name 'GoogleOptions' from 'griffe'",
     ]
 
     hard_failures = []
