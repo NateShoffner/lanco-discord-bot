@@ -21,4 +21,10 @@ def dev():
 
 
 def prod():
-    _run("prod")
+    _run()
+
+
+def test():
+    import pytest
+
+    raise SystemExit(pytest.main([]))

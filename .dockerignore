@@ -1,1 +1,30 @@
+# Environment files — never bake credentials into the image
 .env
+.env.*
+!.env.default
+
+# Data and logs — mounted as volumes at runtime
+data/
+logs/
+
+# Git
+.git/
+.gitignore
+
+# Dev tooling
+.github/
+tests/
+pytest.ini
+.pre-commit-config.yaml
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
