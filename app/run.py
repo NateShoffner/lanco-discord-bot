@@ -17,7 +17,8 @@ def _run(env=None):
 
 
 def dev():
-    _run("dev")
+    os.environ["DEV_MODE"] = "true"
+    _run()
 
 
 def prod():

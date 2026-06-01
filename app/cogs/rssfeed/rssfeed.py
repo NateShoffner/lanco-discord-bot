@@ -97,6 +97,11 @@ class RssFeed(LancoCog, name="RSSFeed", description="RssFeed polling"):
 
                 for item in new_items:
                     channel = self.bot.get_channel(config.channel_id)
+                    if not channel:
+                        self.logger.warning(
+                            f"Channel {config.channel_id} not found, skipping"
+                        )
+                        continue
                     await self.post_item(feed.feed.title, item, channel)
 
                 config.last_checked = datetime.datetime.now()

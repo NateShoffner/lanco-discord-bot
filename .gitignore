@@ -164,5 +164,6 @@ logs/
 *.db
 config/config.json
 /data*
-.env.dev
+.env.*
 *.sqlite
+/.claude

@@ -78,13 +78,30 @@ file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
 logger.addHandler(file_logger)
 
 console_logger = logging.StreamHandler()
+console_logger.stream.reconfigure(encoding="utf-8", errors="replace")
 console_logger.setFormatter(CustomFormatter())
 logger.addHandler(console_logger)
 
 # supress discord logging
 # logging.getLogger('discord').setLevel(logging.WARNING)
 
-logger.setLevel(logging.INFO)
+log_level = (
+    logging.DEBUG if os.getenv("DEV_MODE", "").lower() == "true" else logging.INFO
+)
+logger.setLevel(log_level)
+
+# Suppress noisy third-party loggers regardless of log level
+for noisy in [
+    "urllib3",
+    "asyncio",
+    "aiohttp",
+    "elastic_transport",
+    "peewee",
+    "asyncprawcore",
+    "discord",
+    "watchfiles",
+]:
+    logging.getLogger(noisy).setLevel(logging.WARNING)
 
 env_file = ".env"
 dev_arg = len(sys.argv) > 1 and sys.argv[1] == "dev"
