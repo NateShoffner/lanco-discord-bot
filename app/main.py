@@ -771,8 +771,14 @@ async def unblock(interaction: discord.Interaction, user: discord.User):
 
 
 async def main():
+    from utils.db_backup import DatabaseBackup
+
+    db_backup = DatabaseBackup()
     await load_cogs(bot)
-    await bot.start(os.getenv("DISCORD_TOKEN"))
+    async with bot:
+        db_backup.start()
+        await bot.start(os.getenv("DISCORD_TOKEN"))
+        db_backup.stop()
 
 
 if __name__ == "__main__":
