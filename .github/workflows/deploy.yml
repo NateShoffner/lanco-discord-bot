@@ -75,5 +75,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set +x
+            cd ~/lanco-discord-bot
             docker pull ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             docker-compose up -d
