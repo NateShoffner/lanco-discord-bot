@@ -29,6 +29,9 @@ class DatabaseBackupper(
         self.backup_interval = int(
             os.getenv("DATABASE_BACKUP_INTERVAL", 8640)
         )  # default to 24 hours
+        self.backup_retention = int(
+            os.getenv("DATABASE_BACKUP_RETENTION", 7)
+        )  # keep last N backups
 
         self.database_path = os.getenv("SQLITE_DB")
 
@@ -69,8 +72,23 @@ class DatabaseBackupper(
         try:
             shutil.copy2(self.database_path, backup_filename)
             self.logger.info(f"Database backed up to {backup_filename}")
+            self._prune_old_backups()
         except Exception as e:
-            self.logger.info(f"Failed to back up database: {e}")
+            self.logger.error(f"Failed to back up database: {e}")
+
+    def _prune_old_backups(self):
+        backups = sorted(
+            [
+                os.path.join(self.backup_dir, f)
+                for f in os.listdir(self.backup_dir)
+                if f.endswith(".sqlite")
+            ],
+            key=os.path.getmtime,
+        )
+        to_delete = backups[: max(0, len(backups) - self.backup_retention)]
+        for path in to_delete:
+            os.remove(path)
+            self.logger.info(f"Pruned old backup: {path}")
 
     @commands.command(name="backup_db", description="Manually back up the database")
     @is_bot_owner()

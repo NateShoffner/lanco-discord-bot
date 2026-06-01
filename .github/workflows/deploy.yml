@@ -82,3 +82,4 @@ jobs:
             docker pull ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             docker-compose down
             docker-compose up -d
+            docker image prune -f
