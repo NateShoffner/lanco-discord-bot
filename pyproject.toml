@@ -54,6 +54,7 @@ setuptools = "^80.9.0"
 croniter = "^6.2.2"
 dateparser = "^1.4.0"
 grpcio = "1.80.0"
+griffe = "<1.0.0"
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.0"
 black = "^26.3.1"

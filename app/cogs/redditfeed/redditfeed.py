@@ -23,8 +23,13 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
 
     UPDATE_INTERVAL = 10  # seconds
+    STATE_CHECK_INTERVAL = (
+        120  # seconds — how often to actively check recent posts for state changes
+    )
     POST_LIMIT = 25
-    HISTORY_WINDOW = 50  # number of recent posts per subreddit to check for updates
+    STATE_WINDOW_MINUTES = (
+        30  # only check posts made within this window for state changes
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -42,9 +47,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
     async def cog_load(self):
         self.poll.start()
+        self.check_post_states.start()
 
     def cog_unload(self):
         self.poll.cancel()
+        self.check_post_states.cancel()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
@@ -54,6 +61,14 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             await self.get_new_posts()
         except Exception as e:
             self.logger.error(f"Error polling: {e}")
+
+    @tasks.loop(seconds=STATE_CHECK_INTERVAL)
+    async def check_post_states(self):
+        """Actively fetch recent posts by ID to catch edits and removals."""
+        try:
+            await self.update_post_states()
+        except Exception as e:
+            self.logger.error(f"Error checking post states: {e}")
 
     async def get_new_posts(self):
         """Get new posts from watched subreddits and share them to the configured channels"""
@@ -69,86 +84,61 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             subreddit_channels[reddit_config.subreddit].append(reddit_config)
 
         for sr, configs in subreddit_channels.items():
-            self.logger.info(f"Checking for new posts in /r/{sr}")
+            self.logger.info(f"[{sr}] Polling {len(configs)} channel config(s)")
             subreddit = await self.reddit.subreddit(sr)
 
             submissions = []
             async for submission in subreddit.new(limit=self.POST_LIMIT):
                 submissions.append(submission)
             submissions = sorted(submissions, key=lambda s: s.created_utc)
-
-            # Load recent known posts for this subreddit to check for updates
-            recent_posts = list(
-                RedditPost.select()
-                .where(RedditPost.subreddit == sr)
-                .order_by(RedditPost.created.desc())
-                .limit(self.HISTORY_WINDOW)
+            self.logger.info(
+                f"[{sr}] Fetched {len(submissions)} submissions from Reddit"
             )
-            seen_ids = {p.post_id for p in recent_posts}
+
+            # Load all known post IDs for this subreddit for deduplication
+            seen_ids = set(
+                row[0]
+                for row in RedditPost.select(RedditPost.post_id)
+                .where(RedditPost.subreddit == sr)
+                .tuples()
+            )
+            self.logger.info(f"[{sr}] {len(seen_ids)} known post IDs in DB")
+
+            new_count = sum(1 for s in submissions if s.id not in seen_ids)
+            self.logger.info(f"[{sr}] {new_count} new post(s) to process")
 
             for submission in submissions:
+                # Skip already seen posts — state changes handled by check_post_states
+                if submission.id in seen_ids:
+                    continue
+
+                # New post — share to all configured channels
+                author = submission.author.name if submission.author else "[deleted]"
                 deleted = submission.selftext == "[deleted]"
                 removed = submission.selftext == "[removed]"
                 edited = bool(submission.edited)
-                author = submission.author.name if submission.author else "[deleted]"
+                permalink = f"https://reddit.com{submission.permalink}"
 
-                # Check if we've seen this post before (across all channels)
-                existing_posts = [p for p in recent_posts if p.post_id == submission.id]
+                self.logger.info(
+                    f'[{sr}] New post: {submission.id} — "{submission.title[:60]}" {permalink}'
+                )
 
                 for config in configs:
-                    existing = next(
-                        (
-                            p
-                            for p in existing_posts
-                            if p.channel_id == config.channel_id
-                        ),
-                        None,
-                    )
-
-                    if existing:
-                        # Check if anything changed worth updating
-                        if (
-                            existing.deleted == deleted
-                            and existing.removed == removed
-                            and existing.edited == edited
-                        ):
-                            continue
-
-                        # Update the existing Discord message
-                        existing.deleted = deleted
-                        existing.removed = removed
-                        existing.edited = edited
-                        existing.comment_count = submission.num_comments
-                        existing.score = submission.score
-                        existing.last_updated = datetime.datetime.now(
-                            datetime.timezone.utc
-                        )
-                        existing.save()
-
-                        channel = self.bot.get_channel(config.channel_id)
-                        if channel:
-                            await self.share_post(
-                                submission, channel, existing_post=existing
-                            )
-                        continue
-
-                    # New post — skip if already seen in any channel (ID-based dedup)
-                    if submission.id in seen_ids:
-                        continue
-
-                    permalink = f"https://reddit.com{submission.permalink}"
                     self.logger.info(
-                        f"Found new post in {sr} for {config.channel_id}: {permalink}"
+                        f"[{sr}] Sharing post {submission.id} to channel {config.channel_id}"
                     )
 
                     channel = self.bot.get_channel(config.channel_id)
                     if not channel:
                         self.logger.error(
-                            f"Channel {config.channel_id} not found, skipping"
+                            f"[{sr}] Channel {config.channel_id} not found, skipping"
                         )
                         continue
 
                     msg = await self.share_post(submission, channel)
+                    self.logger.info(
+                        f"[{sr}] Posted {submission.id} to channel {config.channel_id} as message {msg.id}"
+                    )
 
                     now = datetime.datetime.now(datetime.timezone.utc)
                     RedditPost.create(
@@ -163,18 +153,97 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         spoiler=submission.spoiler,
                         deleted=deleted,
                         removed=removed,
-                        edited=edited,
+                        edited=False,  # always False on first insert; set True on update
                         comment_count=submission.num_comments,
                         score=submission.score,
                         last_updated=now,
                         message_id=msg.id,
                     )
 
-                # Mark as seen after processing all configs for this submission
+                # Mark as seen and update last known post creation
                 seen_ids.add(submission.id)
                 for config in configs:
                     config.last_known_post_creation = submission.created_utc
                     config.save()
+                self.logger.info(f"[{sr}] Marked {submission.id} as seen")
+
+    async def update_post_states(self):
+        """Actively fetch recent posts by ID to detect edits and removals."""
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            minutes=self.STATE_WINDOW_MINUTES
+        )
+        cutoff_ts = cutoff.timestamp()
+
+        # Only check posts for subreddits that still have active configs
+        active_subreddits = set(
+            row[0]
+            for row in RedditFeedConfig.select(RedditFeedConfig.subreddit).tuples()
+        )
+
+        recent_posts = list(
+            RedditPost.select().where(
+                RedditPost.created >= cutoff_ts,
+                RedditPost.subreddit << active_subreddits,
+                RedditPost.deleted == False,
+                RedditPost.removed == False,
+            )
+        )
+
+        if not recent_posts:
+            return
+
+        # Group by subreddit for batched fetching
+        by_subreddit = {}
+        for post in recent_posts:
+            by_subreddit.setdefault(post.subreddit, []).append(post)
+
+        for sr, posts in by_subreddit.items():
+            self.logger.info(
+                f"[{sr}] Checking state of {len(posts)} recent post(s) via ID fetch"
+            )
+
+            # Fetch all posts in a single API call using fullnames (t3_ prefix)
+            fullnames = [f"t3_{p.post_id}" for p in posts]
+            submissions = {}
+            async for submission in self.reddit.info(fullnames=fullnames):
+                submissions[submission.id] = submission
+
+            for post in posts:
+                submission = submissions.get(post.post_id)
+                if not submission:
+                    continue
+
+                deleted = submission.selftext == "[deleted]"
+                removed = submission.selftext == "[removed]"
+                edited = bool(submission.edited)
+
+                if (
+                    post.deleted == deleted
+                    and post.removed == removed
+                    and post.edited == edited
+                ):
+                    continue
+
+                self.logger.info(
+                    f"[{sr}] Post {post.post_id} state changed — "
+                    f"deleted={deleted} removed={removed} edited={edited}"
+                )
+
+                post.deleted = deleted
+                post.removed = removed
+                post.edited = edited
+                post.comment_count = submission.num_comments
+                post.score = submission.score
+                post.last_updated = datetime.datetime.now(datetime.timezone.utc)
+                post.save()
+
+                channel = self.bot.get_channel(post.channel_id)
+                if channel:
+                    await self.share_post(submission, channel, existing_post=post)
+                else:
+                    self.logger.warning(
+                        f"[{sr}] Channel {post.channel_id} not found for post {post.post_id}, cannot update message"
+                    )
 
     @reddit_feed_group.command(
         name="subscribe",
@@ -305,9 +374,12 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             color=color,
         )
 
-        author_name = submission.author.name if submission.author else "[deleted]"
-        author_url = f"https://reddit.com/u/{author_name}"
-        embed.add_field(name="Post Author", value=f"[/u/{author_name}]({author_url})")
+        author_name = submission.author.name if submission.author else None
+        if author_name and author_name != "[deleted]":
+            author_value = f"[/u/{author_name}](https://reddit.com/u/{author_name})"
+        else:
+            author_value = "[deleted]"
+        embed.add_field(name="Post Author", value=author_value)
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
         embed.add_field(
             name="Flair",
@@ -317,15 +389,19 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 else "None"
             ),
         )
-        embed.add_field(name="Comments", value=submission.num_comments)
-        embed.add_field(name="Score", value=submission.score)
+        embed.add_field(name="Score", value=str(submission.score))
+        embed.add_field(name="Comments", value=str(submission.num_comments))
 
+        # Status field — only shown when something has changed
         if deleted:
-            embed.add_field(name="Status", value="🗑️ Deleted")
+            embed.add_field(name="Status", value="Deleted")
         elif removed:
-            embed.add_field(name="Status", value="🚫 Removed")
+            embed.add_field(name="Status", value="Removed")
         elif submission.edited:
-            embed.add_field(name="Status", value="✏️ Edited")
+            edited_at = datetime.datetime.fromtimestamp(submission.edited).strftime(
+                "%b %d at %I:%M %p"
+            )
+            embed.add_field(name="Status", value=f"Edited {edited_at}")
 
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
         embed.set_footer(text=f"/r/{submission.subreddit.display_name}")
