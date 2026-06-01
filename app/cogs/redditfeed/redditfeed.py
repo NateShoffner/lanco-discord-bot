@@ -28,7 +28,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
     POST_LIMIT = 25
     STATE_WINDOW_MINUTES = (
-        30  # only check posts made within this window for state changes
+        120  # only check posts made within this window for state changes
     )
 
     def __init__(self, bot: commands.Bot):
@@ -62,7 +62,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         except Exception as e:
             self.logger.error(f"Error polling: {e}")
 
-    @tasks.loop(seconds=STATE_CHECK_INTERVAL)
+    @tasks.loop(seconds=10)
     async def check_post_states(self):
         """Actively fetch recent posts by ID to catch edits and removals."""
         try:
@@ -389,8 +389,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 else "None"
             ),
         )
-        embed.add_field(name="Score", value=str(submission.score))
-        embed.add_field(name="Comments", value=str(submission.num_comments))
 
         # Status field — only shown when something has changed
         if deleted:
@@ -398,13 +396,28 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         elif removed:
             embed.add_field(name="Status", value="Removed")
         elif submission.edited:
+            embed.add_field(name="Status", value="Edited")
+
+        embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
+
+        footer_parts = [f"/r/{submission.subreddit.display_name}"]
+        points = (
+            f"{submission.score} point"
+            if submission.score == 1
+            else f"{submission.score} points"
+        )
+        comments = (
+            f"{submission.num_comments} comment"
+            if submission.num_comments == 1
+            else f"{submission.num_comments} comments"
+        )
+        footer_parts.append(f"{points} · {comments}")
+        if submission.edited:
             edited_at = datetime.datetime.fromtimestamp(submission.edited).strftime(
                 "%b %d at %I:%M %p"
             )
-            embed.add_field(name="Status", value=f"Edited {edited_at}")
-
-        embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
-        embed.set_footer(text=f"/r/{submission.subreddit.display_name}")
+            footer_parts.append(f"Edited {edited_at}")
+        embed.set_footer(text=" · ".join(footer_parts))
         embed.set_thumbnail(url=icon)
 
         temp_files = []
