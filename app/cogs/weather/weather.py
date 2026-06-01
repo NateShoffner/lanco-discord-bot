@@ -12,15 +12,24 @@ from opencage.geocoder import OpenCageGeocode
 class Weather(LancoCog, name="Weather", description="Fetches the weather"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.geocoder = OpenCageGeocode(os.getenv("OPENCAGE_API_KEY"))
-        self.owm = pyowm.OWM(os.getenv("OPENWEATHERMAP_API_KEY"))
+        self.geocoder = None
+        self.owm = None
         self.location_cache = {}
-        self.weather_statuses = cachetools.TTLCache(
-            maxsize=100, ttl=120
-        )  # cache for 2 minutes
-        self.air_statuses = cachetools.TTLCache(
-            maxsize=100, ttl=120
-        )  # cache for 2 minutes
+        self.weather_statuses = cachetools.TTLCache(maxsize=100, ttl=120)
+        self.air_statuses = cachetools.TTLCache(maxsize=100, ttl=120)
+
+    async def cog_load(self):
+        opencage_key = os.getenv("OPENCAGE_API_KEY")
+        owm_key = os.getenv("OPENWEATHERMAP_API_KEY")
+
+        if not opencage_key or not owm_key:
+            self.logger.warning(
+                "Weather cog is missing OPENCAGE_API_KEY or OPENWEATHERMAP_API_KEY — commands will be disabled"
+            )
+            return
+
+        self.geocoder = OpenCageGeocode(opencage_key)
+        self.owm = pyowm.OWM(owm_key)
 
     async def get_coords(self, location):
         """Get the coordinates for a location"""
@@ -76,6 +85,10 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
     @commands.hybrid_command()
     async def weather(self, ctx: commands.Context, location: str = "Lancaster, PA"):
         """Get the weather for a location"""
+        if not self.geocoder or not self.owm:
+            await ctx.send("Weather is not configured on this bot.")
+            return
+
         air_status = await self.get_air_status(location)
         weather = await self.get_weather(location)
 
