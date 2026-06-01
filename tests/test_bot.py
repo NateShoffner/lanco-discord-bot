@@ -104,6 +104,7 @@ async def test_all_cogs_load_without_errors(bot):
         "libcairo",
         # Optional deps not installed outside Docker
         "pyttsx3",
+        "whisper",
         # griffe version conflict — tracked separately as a dependency bug
         "cannot import name 'Docstring' from 'griffe'",
     ]
