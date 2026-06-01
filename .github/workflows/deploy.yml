@@ -71,5 +71,6 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set +x
             docker pull ghcr.io/${{ github.repository }}:latest
             docker-compose up -d
