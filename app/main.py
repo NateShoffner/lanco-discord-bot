@@ -70,6 +70,7 @@ class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
         open(source, "w").close()  # truncate in place instead of renaming
 
 
+os.makedirs(LOGS_DIR, exist_ok=True)
 file_logger = WinTimedRotatingFileHandler(
     filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
 )
