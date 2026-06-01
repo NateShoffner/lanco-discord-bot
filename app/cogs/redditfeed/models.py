@@ -15,6 +15,7 @@ class RedditFeedConfig(BaseModel):
 class RedditPost(BaseModel):
     post_id = CharField()
     subreddit = CharField()
+    channel_id = BigIntegerField(null=True)
     title = CharField()
     permalink = CharField()
     created = IntegerField()
@@ -22,6 +23,11 @@ class RedditPost(BaseModel):
     is_nsfw = BooleanField()
     spoiler = BooleanField()
     deleted = BooleanField(default=False)
+    removed = BooleanField(default=False)
+    edited = BooleanField(default=False)
+    comment_count = IntegerField(null=True)
+    score = IntegerField(null=True)
+    last_updated = DateTimeField(null=True)
     message_id = BigIntegerField()
 
     class Meta:

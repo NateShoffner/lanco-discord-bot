@@ -12,6 +12,7 @@ from discord.ext import commands, tasks
 from utils.command_utils import is_bot_owner_or_admin
 from utils.file_downloader import FileDownloader
 from utils.image_utils import blur_image
+from utils.markdown_utils import reddit_to_discord
 
 from .models import RedditFeedConfig, RedditPost
 
@@ -23,6 +24,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
     UPDATE_INTERVAL = 10  # seconds
     POST_LIMIT = 25
+    HISTORY_WINDOW = 50  # number of recent posts per subreddit to check for updates
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -59,10 +61,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         if not reddit_configs:
             return
 
-        # build up a map of subreddits and configs to post to for efficiency
+        # build up a map of subreddits to configs for efficiency
         subreddit_channels = {}
         for reddit_config in reddit_configs:
-            if not reddit_config.subreddit in subreddit_channels:
+            if reddit_config.subreddit not in subreddit_channels:
                 subreddit_channels[reddit_config.subreddit] = []
             subreddit_channels[reddit_config.subreddit].append(reddit_config)
 
@@ -75,23 +77,66 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 submissions.append(submission)
             submissions = sorted(submissions, key=lambda s: s.created_utc)
 
-            # Build a set of already-seen post IDs for this subreddit so we
-            # catch posts that were in a moderation queue and appeared late
-            seen_ids = set(
-                RedditPost.select(RedditPost.post_id)
+            # Load recent known posts for this subreddit to check for updates
+            recent_posts = list(
+                RedditPost.select()
                 .where(RedditPost.subreddit == sr)
-                .tuples()
+                .order_by(RedditPost.created.desc())
+                .limit(self.HISTORY_WINDOW)
             )
-            seen_ids = {row[0] for row in seen_ids}
+            seen_ids = {p.post_id for p in recent_posts}
 
             for submission in submissions:
-                # skip posts we've already seen by ID (not by timestamp)
-                if submission.id in seen_ids:
-                    continue
+                deleted = submission.selftext == "[deleted]"
+                removed = submission.selftext == "[removed]"
+                edited = bool(submission.edited)
+                author = submission.author.name if submission.author else "[deleted]"
 
-                permalink = f"https://reddit.com{submission.permalink}"
+                # Check if we've seen this post before (across all channels)
+                existing_posts = [p for p in recent_posts if p.post_id == submission.id]
 
                 for config in configs:
+                    existing = next(
+                        (
+                            p
+                            for p in existing_posts
+                            if p.channel_id == config.channel_id
+                        ),
+                        None,
+                    )
+
+                    if existing:
+                        # Check if anything changed worth updating
+                        if (
+                            existing.deleted == deleted
+                            and existing.removed == removed
+                            and existing.edited == edited
+                        ):
+                            continue
+
+                        # Update the existing Discord message
+                        existing.deleted = deleted
+                        existing.removed = removed
+                        existing.edited = edited
+                        existing.comment_count = submission.num_comments
+                        existing.score = submission.score
+                        existing.last_updated = datetime.datetime.now(
+                            datetime.timezone.utc
+                        )
+                        existing.save()
+
+                        channel = self.bot.get_channel(config.channel_id)
+                        if channel:
+                            await self.share_post(
+                                submission, channel, existing_post=existing
+                            )
+                        continue
+
+                    # New post — skip if already seen in any channel (ID-based dedup)
+                    if submission.id in seen_ids:
+                        continue
+
+                    permalink = f"https://reddit.com{submission.permalink}"
                     self.logger.info(
                         f"Found new post in {sr} for {config.channel_id}: {permalink}"
                     )
@@ -105,24 +150,31 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
                     msg = await self.share_post(submission, channel)
 
+                    now = datetime.datetime.now(datetime.timezone.utc)
                     RedditPost.create(
                         post_id=submission.id,
                         subreddit=submission.subreddit.display_name,
+                        channel_id=config.channel_id,
                         title=submission.title,
                         permalink=submission.permalink,
                         created=submission.created_utc,
-                        author=(
-                            submission.author.name if submission.author else "[deleted]"
-                        ),
+                        author=author,
                         is_nsfw=submission.over_18,
                         spoiler=submission.spoiler,
+                        deleted=deleted,
+                        removed=removed,
+                        edited=edited,
+                        comment_count=submission.num_comments,
+                        score=submission.score,
+                        last_updated=now,
                         message_id=msg.id,
                     )
 
-                # Mark as seen after all configs have processed it
+                # Mark as seen after processing all configs for this submission
                 seen_ids.add(submission.id)
-                config.last_known_post_creation = submission.created_utc
-                config.save()
+                for config in configs:
+                    config.last_known_post_creation = submission.created_utc
+                    config.save()
 
     @reddit_feed_group.command(
         name="subscribe",
@@ -204,57 +256,59 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         name="reddittest2", description="Test the Reddit feed with a specific URL"
     )
     @is_bot_owner_or_admin()
-    async def test(self, ctx: commands.Context):
-        """Test the Reddit feed by posting a new post from /r/lancaster"""
+    async def test2(self, ctx: commands.Context):
         url = "https://www.reddit.com/r/lancaster/comments/1rbp3hm/snow_emergency_today_move_your_cars/"
-
         try:
             submission = await self.reddit.submission(url=url)
             channel = self.bot.get_channel(ctx.channel.id)
             await self.share_post(submission, channel)
         except Exception as e:
             await ctx.send(f"Error: {e}")
-            self.logger.error(f"Error in redditposttest: {e}")
+            self.logger.error(f"Error in reddittest2: {e}")
 
     async def share_post(
-        self, submission: Submission, channel: TextChannel
+        self,
+        submission: Submission,
+        channel: TextChannel,
+        existing_post: RedditPost = None,
     ) -> discord.Message:
-        """Share a Reddit post to a channel
-
-        Args:
-            submission (Submission): The Reddit post to share
-            channel (TextChannel): The channel to share the post to
-        """
+        """Share or update a Reddit post in a channel."""
         permalink = f"https://reddit.com{submission.permalink}"
 
+        deleted = submission.selftext == "[deleted]"
+        removed = submission.selftext == "[removed]"
+
+        # Convert Reddit markdown to Discord-compatible markdown
+        selftext = reddit_to_discord(submission.selftext)
+
         # limit to 4096 characters to avoid Discord embed size limit
-        description = submission.selftext[:4096]
-        if len(submission.selftext) >= 4096:
+        description = selftext[:4096]
+        if len(selftext) >= 4096:
             description = f"{description[:4093]}..."
 
-        # limit to 256 characters for field values
+        # limit title to 256 characters
         title = submission.title
         if len(title) >= 256:
-            self.logger.info(f"Title too long, truncating: {title}")
             title = f"{title[:253]}..."
 
         nsfw = submission.over_18 or submission.spoiler
         icon = await self.get_subreddit_icon(submission.subreddit.display_name)
 
+        color = discord.Color(0xFF0000)
+        if deleted or removed:
+            color = discord.Color(0x808080)
+
         embed = discord.Embed(
             title=title,
             url=permalink,
             description=description,
-            color=discord.Color(0xFF0000),
+            color=color,
         )
 
-        author_url = f"https://reddit.com/u/{submission.author}"
-        embed.add_field(
-            name="Post Author", value=f"[/u/{submission.author}]({author_url})"
-        )
+        author_name = submission.author.name if submission.author else "[deleted]"
+        author_url = f"https://reddit.com/u/{author_name}"
+        embed.add_field(name="Post Author", value=f"[/u/{author_name}]({author_url})")
         embed.add_field(name="Content Warning", value="NSFW" if nsfw else "None")
-        embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
-
         embed.add_field(
             name="Flair",
             value=(
@@ -263,21 +317,28 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 else "None"
             ),
         )
+        embed.add_field(name="Comments", value=submission.num_comments)
+        embed.add_field(name="Score", value=submission.score)
 
+        if deleted:
+            embed.add_field(name="Status", value="🗑️ Deleted")
+        elif removed:
+            embed.add_field(name="Status", value="🚫 Removed")
+        elif submission.edited:
+            embed.add_field(name="Status", value="✏️ Edited")
+
+        embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
         embed.set_footer(text=f"/r/{submission.subreddit.display_name}")
         embed.set_thumbnail(url=icon)
 
         temp_files = []
-
         manual_blur = False
-        msg = None
+        file = None
 
         image_url = None
         if hasattr(submission, "preview"):
             image_url = submission.preview["images"][0]["source"]["url"]
         if hasattr(submission, "media_metadata"):
-            # handle media metadata for gallery posts
-            # Get the first image in the order shown in the post
             if (
                 hasattr(submission, "gallery_data")
                 and "items" in submission.gallery_data
@@ -289,22 +350,17 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         image_url = item["s"]["u"]
                         break
             else:
-                # fallback: just get the first valid image
                 for item in submission.media_metadata.values():
                     if item["status"] == "valid" and item["e"] == "Image":
                         image_url = item["s"]["u"]
                         break
 
-        if image_url:
+        if image_url and not deleted and not removed:
             if nsfw:
-                # blur the image, save, and re-upload
-                self.logger.info(f"Downloading image: {image_url}")
                 image_path = await self.file_downloader.download_file(
                     image_url, self.cache_dir
                 )
                 temp_files.append(image_path)
-
-                self.logger.info(f"Blurring image: {image_path}")
                 blurred_path = self.file_downloader.get_random_filename(
                     image_url, self.cache_dir
                 )
@@ -317,12 +373,21 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             else:
                 embed.set_image(url=image_url)
 
-        if manual_blur:
+        # Edit existing message or send new one
+        if existing_post:
+            try:
+                msg = await channel.fetch_message(existing_post.message_id)
+                await msg.edit(embed=embed)
+            except discord.NotFound:
+                self.logger.warning(
+                    f"Original message {existing_post.message_id} not found, skipping update"
+                )
+                msg = None
+        elif manual_blur:
             msg = await channel.send(embed=embed, file=file)
         else:
             msg = await channel.send(embed=embed)
 
-        # cleanup
         for f in temp_files:
             os.remove(f)
 
