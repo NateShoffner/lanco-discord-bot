@@ -1,0 +1,31 @@
+{% if metrics %}
+
+{% set cards = [
+  ("Latency",      (metrics.latency_ms | round(1) | string) + " ms",  "text-green-400"),
+  ("Uptime",       uptime,                                              "text-blue-400"),
+  ("Servers",      metrics.guild_count,                                 "text-purple-400"),
+  ("Users",        metrics.user_count,                                  "text-yellow-400"),
+  ("Cogs",         metrics.cog_count,                                   "text-pink-400"),
+  ("Memory",       ((metrics.memory_mb | round(1) | string) + " MB") if metrics.memory_mb else "N/A", "text-orange-400"),
+  ("CPU",          ((metrics.cpu_percent | round(1) | string) + "%")  if metrics.cpu_percent else "N/A", "text-red-400"),
+] %}
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+  {% for label, value, color in cards %}
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{{ label }}</p>
+    <p class="text-2xl font-bold {{ color }}">{{ value }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="mt-3 text-xs text-gray-600">
+  Last updated {{ metrics.recorded_at.strftime("%Y-%m-%d %H:%M:%S") }} UTC
+  &nbsp;·&nbsp; refreshes every 30s
+</p>
+
+{% else %}
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500">
+  No metrics yet — the bot hasn't written any data. Make sure the Metrics cog is loaded.
+</div>
+{% endif %}

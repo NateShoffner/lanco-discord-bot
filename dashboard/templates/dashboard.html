@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} — LancoBot{% endblock %}
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-sm text-gray-500 mb-6">
+  <a href="{{ url_for('index') }}" class="hover:text-gray-300 transition-colors">Servers</a>
+  <span>/</span>
+  <span class="text-gray-300">{{ guild.name }}</span>
+</nav>
+
+<!-- Guild header -->
+<div class="flex items-center gap-4 mb-8">
+  {% if guild.icon %}
+  <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png?size=64"
+       class="w-14 h-14 rounded-full" alt="{{ guild.name }}" />
+  {% else %}
+  <div class="w-14 h-14 rounded-full bg-discord flex items-center justify-center text-white text-xl font-bold">
+    {{ guild.name[0] }}
+  </div>
+  {% endif %}
+  <h1 class="text-2xl font-bold text-white">{{ guild.name }}</h1>
+</div>
+
+{% if saved %}
+<div class="mb-6 flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-sm px-4 py-3 rounded-lg">
+  <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+  Settings saved successfully.
+</div>
+{% endif %}
+
+<!-- Settings card -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+  <h2 class="text-base font-semibold text-white mb-5">General Settings</h2>
+
+  <form method="POST" class="space-y-5">
+
+    <div class="space-y-1.5">
+      <label for="prefix" class="block text-sm font-medium text-gray-200">Command Prefix</label>
+      <input id="prefix" name="prefix" type="text" maxlength="10"
+             value="{{ config.prefix }}" placeholder="."
+             class="w-full max-w-xs bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-discord focus:border-transparent transition" />
+      <p class="text-xs text-gray-500">The prefix used to invoke bot commands (max 10 characters).</p>
+    </div>
+
+    <div class="space-y-1.5">
+      <label for="timezone" class="block text-sm font-medium text-gray-200">Timezone</label>
+      <input id="timezone" name="timezone" type="text"
+             value="{{ config.timezone }}" placeholder="UTC"
+             class="w-full max-w-xs bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-discord focus:border-transparent transition" />
+      <p class="text-xs text-gray-500">
+        IANA timezone name, e.g. <code class="bg-gray-800 px-1 py-0.5 rounded text-xs">America/New_York</code>,
+        <code class="bg-gray-800 px-1 py-0.5 rounded text-xs">Europe/London</code>.
+      </p>
+    </div>
+
+    <div class="pt-1">
+      <button type="submit"
+              class="bg-discord hover:bg-discord-hover text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+        Save Changes
+      </button>
+    </div>
+
+  </form>
+</div>
+
+{% endblock %}

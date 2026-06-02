@@ -1,0 +1,36 @@
+{% set level_classes = {
+    "DEBUG":    "text-gray-500",
+    "INFO":     "text-blue-400",
+    "WARNING":  "text-yellow-400",
+    "ERROR":    "text-red-400",
+    "CRITICAL": "text-red-300 font-bold",
+} %}
+
+{% if entries %}
+<table class="w-full text-xs font-mono border-collapse">
+  <thead>
+    <tr class="text-gray-500 border-b border-gray-800">
+      <th class="text-left py-2 pr-4 whitespace-nowrap font-medium">Time</th>
+      <th class="text-left py-2 pr-4 whitespace-nowrap font-medium">Level</th>
+      <th class="text-left py-2 pr-4 whitespace-nowrap font-medium">Logger</th>
+      <th class="text-left py-2 font-medium">Message</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-800/50">
+    {% for entry in entries %}
+    <tr class="hover:bg-gray-800/40 transition-colors">
+      <td class="py-1.5 pr-4 text-gray-500 whitespace-nowrap align-top">{{ entry.ts }}</td>
+      <td class="py-1.5 pr-4 whitespace-nowrap align-top {{ level_classes.get(entry.level, 'text-gray-400') }}">
+        {{ entry.level }}
+      </td>
+      <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap align-top max-w-[160px] truncate">{{ entry.logger }}</td>
+      <td class="py-1.5 text-gray-300 break-all align-top">{{ entry.message }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="text-center text-gray-600 py-12">
+  No log entries found{% if level != "ALL" %} for level <span class="text-gray-400">{{ level }}</span>{% endif %}.
+</div>
+{% endif %}

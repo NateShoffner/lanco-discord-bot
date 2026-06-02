@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Logs — LancoBot{% endblock %}
+{% block content %}
+
+<div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold text-white">Logs</h1>
+    <p class="text-gray-400 mt-1 text-sm">Last 200 lines from logfile.log — newest first, refreshes every 15s.</p>
+  </div>
+
+  <!-- Level filter buttons -->
+  <div class="flex items-center gap-1.5 flex-wrap" id="level-filters">
+    {% set levels = [("ALL", "text-gray-300 border-gray-600"), ("DEBUG", "text-gray-400 border-gray-700"), ("INFO", "text-blue-400 border-blue-800"), ("WARNING", "text-yellow-400 border-yellow-800"), ("ERROR", "text-red-400 border-red-800"), ("CRITICAL", "text-red-300 border-red-700")] %}
+    {% for lv, cls in levels %}
+    <button
+      class="px-3 py-1 text-xs font-semibold rounded-md border transition-colors
+             {% if level == lv %}bg-gray-700 border-gray-500 text-white{% else %}bg-transparent {{ cls }} hover:bg-gray-800{% endif %}"
+      hx-get="{{ url_for('logs_partial') }}?level={{ lv }}"
+      hx-target="#log-container"
+      hx-swap="innerHTML"
+      hx-push-url="{{ url_for('logs') }}?level={{ lv }}"
+      onclick="setActiveFilter(this)"
+    >{{ lv }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Log table — HTMX auto-refresh -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
+  <div id="log-container"
+       hx-get="{{ url_for('logs_partial') }}?level={{ level }}"
+       hx-trigger="every 15s"
+       hx-swap="innerHTML"
+       class="p-4">
+    {% include "partials/log_rows.html" %}
+  </div>
+</div>
+
+<script>
+  function setActiveFilter(btn) {
+    document.querySelectorAll('#level-filters button').forEach(b => {
+      b.classList.remove('bg-gray-700', 'border-gray-500', 'text-white');
+    });
+    btn.classList.add('bg-gray-700', 'border-gray-500', 'text-white');
+  }
+</script>
+
+{% endblock %}
