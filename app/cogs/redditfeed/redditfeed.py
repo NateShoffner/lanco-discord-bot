@@ -26,7 +26,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     STATE_CHECK_INTERVAL = (
         120  # seconds — how often to actively check recent posts for state changes
     )
-    POST_LIMIT = 25
+    POST_LIMIT = 100
     STATE_WINDOW_MINUTES = (
         120  # only check posts made within this window for state changes
     )
@@ -110,6 +110,19 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             for submission in submissions:
                 # Skip already seen posts — state changes handled by check_post_states
                 if submission.id in seen_ids:
+                    continue
+
+                # Skip posts older than the last known post creation for any config
+                # This prevents backfilling old content on restarts
+                min_timestamp = min(
+                    (
+                        c.last_known_post_creation
+                        for c in configs
+                        if c.last_known_post_creation
+                    ),
+                    default=None,
+                )
+                if min_timestamp and submission.created_utc <= min_timestamp:
                     continue
 
                 # New post — share to all configured channels
