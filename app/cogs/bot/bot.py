@@ -2,6 +2,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from utils.command_utils import is_bot_owner, is_bot_owner_or_admin
+from utils.config import GuildConfig
 
 
 class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
@@ -60,6 +61,47 @@ class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
     async def setname(self, interaction: discord.Interaction, name: str):
         await interaction.guild.me.edit(nick=name)
         await interaction.response.send_message(f"Name set to {name}", ephemeral=True)
+
+    @app_commands.command(
+        name="setprefix",
+        description="Set the command prefix for this guild",
+    )
+    @is_bot_owner_or_admin()
+    async def setprefix(self, interaction: discord.Interaction, prefix: str):
+        import main
+
+        if len(prefix) > 2:
+            await interaction.response.send_message(
+                "Prefix must be 2 characters or fewer.", ephemeral=True
+            )
+            return
+
+        guild_id = interaction.guild.id
+        config, _ = GuildConfig.get_or_create(guild_id=guild_id)
+        config.prefix = prefix
+        config.save()
+        main._prefix_cache[guild_id] = prefix
+        await interaction.response.send_message(
+            f"Prefix set to `{prefix}`", ephemeral=True
+        )
+
+    @app_commands.command(
+        name="prefix",
+        description="Show the current command prefix for this guild",
+    )
+    async def prefix(self, interaction: discord.Interaction):
+        import main
+
+        guild_id = interaction.guild.id
+        if guild_id in main._prefix_cache:
+            current = main._prefix_cache[guild_id]
+        else:
+            config = GuildConfig.get_or_none(guild_id=guild_id)
+            current = config.prefix if config and config.prefix else main.DEFAULT_PREFIX
+            main._prefix_cache[guild_id] = current
+        await interaction.response.send_message(
+            f"Current prefix: `{current}`", ephemeral=True
+        )
 
 
 async def setup(bot):

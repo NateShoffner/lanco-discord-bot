@@ -29,7 +29,7 @@ class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        if message.content.startswith(self.bot.command_prefix):
+        if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
             return
         if not message.channel.permissions_for(message.guild.me).embed_links:
             return
