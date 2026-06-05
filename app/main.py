@@ -265,6 +265,10 @@ class LancoBot(commands.Bot):
         return self.get_url_handler(url) is not None
 
     @commands.Cog.listener()
+    async def on_guild_remove(self, guild: discord.Guild):
+        _prefix_cache.pop(guild.id, None)
+
+    @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"Bot ready: {self.user.name} - {self.user.id}")
 

@@ -43,6 +43,12 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         self.logger = logging.getLogger(self.get_cog_name())
         self.cog_def = None
         self.context_menus = []
+        self._tracked_tasks = []
+
+    def track_task(self, task):
+        """Register a background task to be cancelled on cog unload."""
+        self._tracked_tasks.append(task)
+        return task
 
     def set_cog_def(self, cog_def: CogDefinition):
         """Set the cog definition"""
@@ -100,9 +106,16 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         """Unloading the cog"""
         self.logger.info(f"{self.get_cog_name()} cog unloaded")
 
+        for task in self._tracked_tasks:
+            task.cancel()
+        self._tracked_tasks.clear()
+
         # clean up context menus
         for ctx_menu in self.context_menus:
             self.bot.tree.remove_command(ctx_menu.name, type=ctx_menu.type)
+
+        # unregister url handlers belonging to this cog
+        self.bot.url_handlers = [h for h in self.bot.url_handlers if h.cog is not self]
 
 
 class UrlHandler(BaseModel):

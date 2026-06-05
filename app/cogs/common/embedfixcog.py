@@ -2,6 +2,7 @@ import asyncio
 import re
 
 import discord
+from cachetools import LRUCache
 from cogs.lancocog import LancoCog
 from db import BaseModel
 from discord.ext import commands
@@ -92,7 +93,7 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         self.skip_if_handled_by_discord = skip_if_handled_by_discord
         self.wait_time = wait_time
         self.bot.database.create_tables([self.config_model])
-        self.fixed_messages = {}  # message_id -> fixed_message_id
+        self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
 
     async def toggle(self, interaction: discord.Interaction):
         config, created = self.config_model.get_or_create(guild_id=interaction.guild.id)
@@ -161,7 +162,7 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
-        fixed_message_id = self.fixed_messages.get(message.id)
+        fixed_message_id = self.fixed_messages.pop(message.id, None)
         if fixed_message_id:
             fixed_message = await message.channel.fetch_message(fixed_message_id)
             await fixed_message.delete()
