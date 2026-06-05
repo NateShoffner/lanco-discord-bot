@@ -115,9 +115,13 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
                     )
 
                     embed, map_attachment = await self.build_incident_embed(incident)
-                    message = await self.bot.get_channel(feed_config.channel_id).send(
-                        file=map_attachment, embed=embed
-                    )
+                    channel = self.bot.get_channel(feed_config.channel_id)
+                    if channel is None:
+                        self.logger.warning(
+                            f"Channel {feed_config.channel_id} not found, skipping incident {incident.number}"
+                        )
+                        continue
+                    message = await channel.send(file=map_attachment, embed=embed)
 
                     if self.is_using_arcgis():
                         feed_config.last_known_incident = incident.number
