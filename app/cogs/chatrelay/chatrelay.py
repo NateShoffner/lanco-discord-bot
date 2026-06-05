@@ -33,7 +33,7 @@ class ChatRelay(
         if not self.recepient_channel_id:
             return
 
-        if message.content.startswith(self.bot.command_prefix):
+        if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
             return
 
         self.logger.info(

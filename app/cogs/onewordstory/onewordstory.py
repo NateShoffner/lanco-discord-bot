@@ -49,7 +49,7 @@ class OneWordStory(LancoCog, name="OneWordStory", description="One Word Story ga
 
         # ignore native commands
         if (
-            message.content.startswith(self.bot.command_prefix)
+            message.content.startswith(self.bot.get_guild_prefix(message.guild))
             and len(message.content) > 1
         ):
             return

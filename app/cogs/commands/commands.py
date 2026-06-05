@@ -251,7 +251,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         commands = list(commands)
         commands.sort(key=lambda x: x.command_name)
 
-        prefix = self.bot.command_prefix
+        prefix = self.bot.get_guild_prefix(interaction.guild)
 
         for i in range(0, len(commands), COMMANDS_PER_PAGE):
             page_commands = commands[i : i + COMMANDS_PER_PAGE]
@@ -298,8 +298,9 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         if isinstance(message.channel, discord.DMChannel):
             return None
 
-        if message.content.startswith(self.bot.command_prefix):
-            command_name = message.content[len(self.bot.command_prefix) :]
+        prefix = self.bot.get_guild_prefix(message.guild)
+        if message.content.startswith(prefix):
+            command_name = message.content[len(prefix) :]
             command = CustomCommands.get_or_none(
                 guild_id=message.guild.id, command_name=command_name.lower()
             )

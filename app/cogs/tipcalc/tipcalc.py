@@ -122,9 +122,7 @@ class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
             response += "\n"
 
         if not valid_tip_perc:
-            example = (
-                f"Example: ```{self.bot.command_prefix}tip {bill_amount:.2f} 22```"
-            )
+            example = f"Example: ```{self.bot.get_guild_prefix(interaction.guild)}tip {bill_amount:.2f} 22```"
             if is_slash_command:
                 example = f"Example: ```/{ctx.command} {bill_amount:.2f} 22```"
             response += f"Tip: You can provide a custom tip percentage as the 2nd argument. {example}"

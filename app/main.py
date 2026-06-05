@@ -124,6 +124,17 @@ if os.getenv("LOGTAIL_TOKEN"):
 
 intents = discord.Intents.all()
 
+DEFAULT_PREFIX = "."
+_prefix_cache: dict[int, str] = {}
+
+
+def get_prefix(bot, message):
+    if message.guild:
+        guild_prefix = _prefix_cache.get(message.guild.id, DEFAULT_PREFIX)
+        # Always include the default prefix so core bot commands remain accessible
+        return list({DEFAULT_PREFIX, guild_prefix})
+    return DEFAULT_PREFIX
+
 
 def init_db() -> SqliteDatabase:
     """Initialize and connect the database, returning the database instance."""
@@ -188,6 +199,18 @@ class LancoBot(commands.Bot):
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
+
+    def get_guild_prefix(self, guild: Optional[discord.Guild] = None) -> str:
+        if guild:
+            if guild.id in _prefix_cache:
+                return _prefix_cache[guild.id]
+            from utils.config import GuildConfig
+
+            config = GuildConfig.get_or_none(guild_id=guild.id)
+            prefix = config.prefix if config and config.prefix else DEFAULT_PREFIX
+            _prefix_cache[guild.id] = prefix
+            return prefix
+        return DEFAULT_PREFIX
 
     def get_lanco_cog(self, cog_name: str) -> LancoCog:
         """Returns a LancoCog instance by name."""
@@ -283,7 +306,7 @@ class LancoBot(commands.Bot):
 owner_id = int(os.getenv("OWNER_ID", 0))
 message_cache_size = int(os.getenv("MESSAGE_CACHE_SIZE", 1000))
 bot = LancoBot(
-    command_prefix=".",
+    command_prefix=get_prefix,
     intents=intents,
     owner_id=owner_id,
     max_messages=message_cache_size,
@@ -788,7 +811,13 @@ async def unblock(interaction: discord.Interaction, user: discord.User):
 
 
 async def main():
+    from utils.config import GuildConfig
     from utils.db_backup import DatabaseBackup
+
+    database.create_tables([GuildConfig])
+    for config in GuildConfig.select():
+        if config.prefix:
+            _prefix_cache[config.guild_id] = config.prefix
 
     db_backup = DatabaseBackup()
     await load_cogs(bot)
