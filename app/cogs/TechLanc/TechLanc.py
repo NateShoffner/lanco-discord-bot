@@ -18,6 +18,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from pydantic import BaseModel, Field
 from utils.command_utils import is_bot_owner_or_admin
+from utils.date_utils import next_nth_weekday, relative_date_str
 
 from .models import TechLancAllowedPoster, TechLancConfig, TechLancGuildConfig
 
@@ -30,6 +31,14 @@ DEFAULT_LOCATION_NAME = "West Art"
 DEFAULT_LOCATION_URL = (
     "https://www.google.com/maps/search/?api=1&query=West+Art+Lancaster+PA"
 )
+
+PS_TIME = "6PM"
+PS_DESCRIPTION = "Pub Standards Lancaster is a meetup of developers, designers, founders and people-who-like-to-build-stuff in central Pennsylvania. Pub Standards is open to everyone. It's loosely aimed at web design & development geeks, but that doesn't mean chitchat need necessarily be work-related. Don't expect structure, don't expect presentations, just relax with likeminded people and a few beers."
+PS_DEFAULT_LOCATION_NAME = "Tellus"
+PS_DEFAULT_LOCATION_URL = (
+    "https://www.google.com/maps/search/?api=1&query=Tellus360+Lancaster+PA"
+)
+PS_DEFAULT_LOCATION_NOTES = "rooftop bar (if open), otherwise second floor"
 
 DAY_CHOICES = [
     app_commands.Choice(name="Monday", value=0),
@@ -78,6 +87,8 @@ class TechLanc(
         )
         self._cache: list[Meetup] = []
         self._cache_time: dt.datetime | None = None
+        self._rss_cache = None
+        self._rss_cache_time: dt.datetime | None = None
 
     async def cog_load(self):
         self.bot.database.create_tables(
@@ -337,6 +348,34 @@ class TechLanc(
             ephemeral=True,
         )
 
+    # --- Pub Standards ---
+
+    # TODO: replace with a custom command once the CustomCommands cog supports dynamic date formatting
+    @commands.command(name="ps")
+    async def ps_command(self, ctx):
+        """Post the Pub Standards meetup announcement."""
+        if not self._can_post_tlm(ctx):
+            await ctx.send(
+                "You don't have permission to use this command.", delete_after=10
+            )
+            return
+
+        guild_config = (
+            TechLancGuildConfig.get_or_none(
+                TechLancGuildConfig.guild_id == ctx.guild.id
+            )
+            if ctx.guild
+            else None
+        )
+        ping_role_id = guild_config.ping_role_id if guild_config else None
+
+        event_date = next_nth_weekday(dt.date.today(), weekday=3, n=2)
+        when = relative_date_str(event_date)
+        role_ping = f"<@&{ping_role_id}> " if ping_role_id else ""
+        location_part = f"[{PS_DEFAULT_LOCATION_NAME}](<{PS_DEFAULT_LOCATION_URL}>), {PS_DEFAULT_LOCATION_NOTES}"
+        intro = f"{role_ping}Pub Standards meetup **{when}** at {location_part} @ {PS_TIME}."
+        await ctx.send(f"{intro}\n\n{PS_DESCRIPTION}")
+
     @commands.command(name="tl", aliases=["techlanc", "techlancaster"])
     async def tl_command(self, ctx):
         """Post this week's Tech Lancaster meetups."""
@@ -569,15 +608,30 @@ class TechLanc(
 
     async def get_next_tlm_entry(self):
         """Fetch the RSS feed and return the most recent Tech Lancaster Meetup entry."""
+        now = dt.datetime.utcnow()
+        if (
+            self._rss_cache
+            and self._rss_cache_time
+            and now - self._rss_cache_time < CACHE_TTL
+        ):
+            return self._rss_cache
+
         async with aiohttp.ClientSession() as session:
             async with session.get(TLM_RSS_URL) as resp:
                 text = await resp.text()
 
         feed = feedparser.parse(text)
-        for entry in feed.entries:
-            if TLM_EVENT_TITLE.lower() in entry.get("title", "").lower():
-                return entry
-        return None
+        entry = next(
+            (
+                e
+                for e in feed.entries
+                if TLM_EVENT_TITLE.lower() in e.get("title", "").lower()
+            ),
+            None,
+        )
+        self._rss_cache = entry
+        self._rss_cache_time = now
+        return entry
 
     def build_tlm_embeds(self, entry, event_url: str = None) -> list[discord.Embed]:
         """Build Discord embed(s) from a TLM RSS entry."""
@@ -609,42 +663,10 @@ class TechLanc(
         self, ping_role_id: int | None, location_name: str, location_url: str
     ) -> str:
         """Build the plain-text intro line for a TLM post."""
-        today = dt.date.today()
-        # 4th Thursday = weekday 3
-        # Find the next 4th Thursday from today
-        event_date = self._next_fourth_thursday(today)
-
-        delta = (event_date - today).days
-        if delta == 0:
-            when = "tonight"
-        elif delta == 1:
-            when = "tomorrow"
-        else:
-            suffix = {1: "st", 2: "nd", 3: "rd"}.get(
-                event_date.day % 10 if event_date.day % 100 not in (11, 12, 13) else 0,
-                "th",
-            )
-            when = event_date.strftime(f"%A, %B {event_date.day}{suffix}")
-
+        event_date = next_nth_weekday(dt.date.today(), weekday=3, n=4)
+        when = relative_date_str(event_date)
         role_ping = f"<@&{ping_role_id}> " if ping_role_id else ""
         return f"{role_ping}It's Tech Lancaster **{when}** at {TLM_TIME} at [{location_name}](<{location_url}>)!"
-
-    def _next_fourth_thursday(self, from_date: dt.date) -> dt.date:
-        """Return the next (or current) 4th Thursday of the month on or after from_date."""
-        import calendar
-
-        for delta_months in range(3):
-            month = (from_date.month - 1 + delta_months) % 12 + 1
-            year = from_date.year + (from_date.month - 1 + delta_months) // 12
-            # calendar.monthcalendar returns weeks; Thursday is index 3
-            thursdays = [
-                dt.date(year, month, week[3])
-                for week in calendar.monthcalendar(year, month)
-                if week[3] != 0
-            ]
-            if len(thursdays) >= 4 and thursdays[3] >= from_date:
-                return thursdays[3]
-        return from_date  # fallback
 
     def _format_tlm_description(self, raw: str) -> str:
         """Clean up the RSS description for Discord markdown."""

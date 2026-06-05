@@ -1,6 +1,6 @@
 # TechLanc Cog
 
-Posts upcoming Tech Lancaster meetups and monthly meetup details sourced from the Tech Lancaster Google Calendar and Meetup.com RSS feed.
+Posts upcoming Tech Lancaster meetups, monthly meetup details, and Pub Standards announcements. Sourced from the Tech Lancaster Google Calendar and Meetup.com RSS feed.
 
 ## Commands
 
@@ -10,8 +10,9 @@ Posts upcoming Tech Lancaster meetups and monthly meetup details sourced from th
 |---|---|
 | `!tl` | Post this week's upcoming meetups in the current channel |
 | `!tlm` | Post the next Tech Lancaster Meetup details including speakers |
+| `!ps` | Post the next Pub Standards meetup announcement |
 
-`!tlm` is restricted to admins, bot owners, and any users/roles added via `/techlanc addposter`.
+`!tlm` and `!ps` are restricted to admins, bot owners, and any users/roles added via `/techlanc addposter`.
 
 ### Slash commands
 
@@ -23,21 +24,21 @@ Posts upcoming Tech Lancaster meetups and monthly meetup details sourced from th
 | `/techlanc list` | List all configured channels and their schedules |
 | `/techlanc post` | Manually post this week's meetups in the current channel |
 
-#### Monthly meetup (TLM) settings
+#### Tech Lancaster Meetup (TLM) settings
 | Command | Description |
 |---|---|
 | `/techlanc seteventurl <url>` | Set the Discord event URL to append to `!tlm` posts |
 | `/techlanc cleareventurl` | Clear the Discord event URL |
 | `/techlanc eventurl` | Show the currently configured Discord event URL |
-| `/techlanc setpingrole @role` | Set the role to ping at the start of `!tlm` posts |
+| `/techlanc setpingrole @role` | Set the role to ping in `!tlm` and `!ps` posts |
 | `/techlanc clearpingrole` | Clear the ping role |
-| `/techlanc setlocation <name> <url>` | Set the location name and URL for `!tlm` posts |
-| `/techlanc resetlocation` | Reset location back to the default (West Art) |
+| `/techlanc setlocation <name> <url>` | Set the TLM location name and URL |
+| `/techlanc resetlocation` | Reset TLM location back to the default (West Art) |
 
 #### Allowed posters
 | Command | Description |
 |---|---|
-| `/techlanc addposter` | Allow a user and/or role to use `!tlm` |
+| `/techlanc addposter` | Allow a user and/or role to use `!tlm` and `!ps` |
 | `/techlanc removeposter` | Remove a user and/or role from the allowed list |
 | `/techlanc listposters` | List all allowed posters |
 
@@ -51,11 +52,10 @@ Set `GOOGLE_CAL_API_KEY` in your `.env` file. Without it the cog will load but c
 
 - **No announcements are made by default** — channels must be explicitly configured via `/techlanc setchannel`.
 - Multiple channels per guild are supported for weekly schedule posts.
-- Calendar results are cached for 1 hour to avoid redundant API calls.
-- `!tlm` fetches the Meetup.com RSS feed for `tech-lancaster-meetups` and finds the next Tech Lancaster Meetup entry.
-- The `!tlm` intro line uses relative language: **tonight**, **tomorrow**, or the full date (e.g. *Thursday, June 26th*) depending on when the command is run.
-- The default location is [West Art](https://www.westartlanc.com/) with a Google Maps link. This can be changed per guild via `/techlanc setlocation`.
-
-## Migrations
-
-- `012_tech_lanc_config_schedule.py` — adds `day_of_week`, `post_hour`, and `post_minute` columns to the existing `tech_lanc_config` table.
+- Google Calendar results and the Meetup.com RSS feed are each cached for 1 hour.
+- `!tlm` fetches the Meetup.com RSS feed and finds the next Tech Lancaster Meetup entry (4th Thursday of the month).
+- `!ps` posts a static Pub Standards announcement for the next 2nd Thursday of the month.
+- Both `!tlm` and `!ps` use relative date language: **tonight**, **tomorrow**, or the full date (e.g. *Thursday, June 26th*).
+- The ping role configured via `/techlanc setpingrole` is shared between `!tlm` and `!ps`.
+- Default TLM location is [West Art](https://www.westartlanc.com/), configurable per guild.
+- Pub Standards location is hardcoded to Tellus and is not currently configurable.
