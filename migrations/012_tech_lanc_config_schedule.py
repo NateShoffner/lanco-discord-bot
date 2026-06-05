@@ -19,6 +19,9 @@ new_columns = {
 
 
 def run():
+    if table_name not in db.get_tables():
+        print(f"Table '{table_name}' does not exist. No changes made.")
+        return
     existing_columns = db.get_columns(table_name)
     for column_name, field in new_columns.items():
         if column_name not in [col.name for col in existing_columns]:
