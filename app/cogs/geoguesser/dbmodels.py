@@ -4,6 +4,13 @@ from uuid import uuid4
 from db import BaseModel
 from peewee import *
 
+SCORING_VERSION = 4
+# Version history:
+# 1 - haversine distance, 0 pts at 1km (too aggressive)
+# 2 - haversine distance, 0 pts at mode radius (city=10km, county=30km)
+# 3 - distance score (0-100) + time bonus (0-20) based on time remaining
+# 4 - separate score_radius from generation radius (city=2km, county=20km)
+
 
 class GeoguesserLocation(BaseModel):
     id = UUIDField(primary_key=True, default=uuid4)
@@ -16,14 +23,6 @@ class GeoguesserLocation(BaseModel):
 
     class Meta:
         table_name = "geoguesser_locations"
-
-
-SCORING_VERSION = 4
-# Version history:
-# 1 - haversine distance, 0 pts at 1km (too aggressive)
-# 2 - haversine distance, 0 pts at mode radius (city=10km, county=30km)
-# 3 - distance score (0-100) + time bonus (0-20) based on time remaining
-# 4 - separate score_radius from generation radius (city=2km, county=20km)
 
 
 class GeoguesserGameResult(BaseModel):

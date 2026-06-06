@@ -104,7 +104,6 @@ class Round:
             self.guesses.items(), key=lambda x: x[1].score, reverse=True
         )
 
-        # see if there is are any ties
         top_score = sorted_guesses[0][1].score
 
         for guess in sorted_guesses:

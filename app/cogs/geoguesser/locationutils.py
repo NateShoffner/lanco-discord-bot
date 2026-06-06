@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import random
+import re
 from cmath import cos, sin
 from urllib.parse import urlencode
 
@@ -28,12 +29,46 @@ class LocationUtils:
                 if "intersection" in result.get("types", []):
                     return result["formatted_address"].split(",")[0]
 
-            # require a route (street name) — city-only results are not useful
-            components = results[0].get("address_components", [])
-            route = next(
-                (c["short_name"] for c in components if "route" in c.get("types", [])),
-                None,
+            # prefer named POIs — parks, landmarks, squares (not businesses/addresses)
+            for result in results:
+                types = result.get("types", [])
+                if any(
+                    t in types
+                    for t in (
+                        "park",
+                        "neighborhood",
+                        "sublocality",
+                        "natural_feature",
+                        "premise",
+                    )
+                ):
+                    components = result.get("address_components", [])
+                    name = components[0]["long_name"] if components else None
+                    # skip if it's just a number
+                    if name and not re.match(r"^\d", name):
+                        locality = next(
+                            (
+                                c["short_name"]
+                                for c in components
+                                if "locality" in c.get("types", [])
+                            ),
+                            None,
+                        )
+                        return f"{name}, {locality}" if locality else name
+
+            # require a named route — skip highway codes and generic highway names
+            _highway_pattern = re.compile(
+                r"^([A-Z]{0,3}-?\d+|.*\bHwy\b.*|.*\bHighway\b.*|.*\bFreeway\b.*|.*\bExpressway\b.*)$",
+                re.IGNORECASE,
             )
+            components = results[0].get("address_components", [])
+            route = None
+            for c in components:
+                if "route" in c.get("types", []):
+                    name = c["short_name"]
+                    if not _highway_pattern.match(name):
+                        route = name
+                        break
             if not route:
                 return f"{coords.lat:.5f}, {coords.lng:.5f}"
 
@@ -73,8 +108,8 @@ class LocationUtils:
             "location": f"{coords.lat},{coords.lng}",
             "size": "800x450",
             "fov": "90",
-            "heading": "random",  # Set the heading to 'random' for a random direction
-            "pitch": "0",  # Set the pitch to '0' for a horizontal view
+            "heading": "random",
+            "pitch": "0",
             "key": os.getenv("GMAPS_API_KEY"),
         }
 
@@ -107,13 +142,9 @@ class LocationUtils:
         random_coordinates = []
 
         for _ in range(num_points):
-            # Generate a random angle in radians
             angle = random.uniform(0, 2 * 3.141592653589793)
-
-            # Generate a random distance within the radius
             random_distance = random.uniform(0, radius_in_meters)
 
-            # Calculate the new coordinates
             dx = random_distance * (radius_in_meters / 111320.0) * cos(angle)
             dy = random_distance * (radius_in_meters / 111320.0) * sin(angle)
 
@@ -179,10 +210,14 @@ class LocationUtils:
         )
         meta_resp = requests.get(metadata_url)
         if meta_resp.status_code != 200 or meta_resp.json().get("status") != "OK":
-            self.logger.error(
-                f"No street view imagery for {road_coords}, trying again..."
-            )
+            self.logger.debug(f"No street view imagery for {road_coords}, retrying...")
             return self.get_geoguesser_location_sync(mode)
 
         label = self.get_location_label(road_coords)
+
+        # reject coordinate-only labels — retry to get a properly named location
+        if re.match(r"^-?\d+\.\d+,", label):
+            self.logger.debug(f"No named label for {road_coords}, retrying...")
+            return self.get_geoguesser_location_sync(mode)
+
         return GeoGuesserLocation(initial_location, road_coords, label=label)
