@@ -10,6 +10,7 @@ from cogs.lancocog import LancoCog
 from discord.ext import commands
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
+from utils.ai_utils import run_agent
 from utils.channel_lock import command_channel_lock
 from utils.message_utils import get_user_messages
 from utils.tracked_message import track_message_ids
@@ -132,12 +133,13 @@ class Summarize(
             "TRANSCRIPT END\n"
         )
 
-        try:
-            result = await self.agent.run(prompt)
-        except Exception as e:
-            self.logger.error(f"Agent run failed: {e}")
-            embed.description = "Failed to analyze topics."
-            return await msg.edit(embed=embed)
+        async def on_topic_error(err_msg: str):
+            embed.description = err_msg
+            await msg.edit(embed=embed)
+
+        result = await run_agent(lambda: self.agent.run(prompt), on_topic_error)
+        if result is None:
+            return msg
 
         # Render: • <subject> - <@user1>, <@user2> - [jump](url), [jump](url)
         lines_out = []
@@ -194,7 +196,12 @@ class Summarize(
             self.logger.info("No messages found")
             return None
 
-        result = await self.agent.run([m.content for m in messages])
+        result = await run_agent(
+            lambda: self.agent.run([m.content for m in messages]),
+            ctx.send,
+        )
+        if result is None:
+            return
 
         if not result or not result.output or not result.output.vibe_check:
             self.logger.info("No vibe check found")
@@ -219,7 +226,9 @@ class Summarize(
         if not prompt:
             return await ctx.send("Please provide a prompt for the ELI5 explanation.")
 
-        result = await self.eli5_agent.run(prompt)
+        result = await run_agent(lambda: self.eli5_agent.run(prompt), ctx.send)
+        if result is None:
+            return
 
         if not result or not result.output or not result.output.eli5_explanation:
             self.logger.info("No ELI5 explanation found")
@@ -243,7 +252,12 @@ class Summarize(
             self.logger.info("No messages found")
             return None
 
-        result = await self.agent.run([m.content for m in messages])
+        result = await run_agent(
+            lambda: self.agent.run([m.content for m in messages]),
+            ctx.send,
+        )
+        if result is None:
+            return
 
         if not result or not result.output or not result.output.opinion:
             self.logger.info("No opinion found")

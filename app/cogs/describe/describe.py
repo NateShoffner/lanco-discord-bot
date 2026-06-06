@@ -6,6 +6,7 @@ from cogs.lancocog import LancoCog
 from discord.ext import commands
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
+from pydantic_ai.exceptions import ModelHTTPError
 from utils.file_downloader import FileDownloader
 from utils.tracked_message import track_message_ids
 
@@ -74,12 +75,19 @@ class Describe(
         # TODO might want to use python-magic so it's content-based
         mime_type, _ = mimetypes.guess_type(filename)
 
-        result = await self.agent.run(
-            [
-                "Describe this image and provide any insight that might be useful.",
-                BinaryContent(data=image_bytes, media_type=mime_type),
-            ]
-        )
+        try:
+            result = await self.agent.run(
+                [
+                    "Describe this image and provide any insight that might be useful.",
+                    BinaryContent(data=image_bytes, media_type=mime_type),
+                ]
+            )
+        except ModelHTTPError as e:
+            self.logger.error("ModelHTTPError during agent run: %s", e)
+            raise
+        except Exception as e:
+            self.logger.error("Unexpected error during agent run: %s", e)
+            raise
 
         # cleanup
         for r in results:

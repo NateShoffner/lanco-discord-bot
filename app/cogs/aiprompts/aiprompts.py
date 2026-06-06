@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from reactionmenu import ReactionButton, ReactionMenu
+from utils.ai_utils import run_agent
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
@@ -191,7 +192,12 @@ class OpenAIPrompts(
             self.logger.info(f"Formatted message: {formatted_message}")
 
             # TODO pass in message history
-            response = await agent.run(formatted_message)
+            response = await run_agent(
+                lambda: agent.run(formatted_message),
+                message.channel.send,
+            )
+            if response is None:
+                return
 
             await message.channel.send(response.output.response)
 

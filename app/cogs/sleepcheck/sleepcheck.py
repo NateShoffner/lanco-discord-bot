@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent
+from utils.ai_utils import run_agent
 from utils.file_downloader import FileDownloader
 
 
@@ -169,12 +170,16 @@ class SleepCheck(
             self.logger.error(f"File {filename} is not an image.")
             return None
 
-        result = await self.agent.run(
-            [
-                "Determine if this photo is a screenshot of a sleep tracker and if so, parse out the details.",
-                BinaryContent(data=image_bytes, media_type=mime_type),
-            ]
+        result = await run_agent(
+            lambda: self.agent.run(
+                [
+                    "Determine if this photo is a screenshot of a sleep tracker and if so, parse out the details.",
+                    BinaryContent(data=image_bytes, media_type=mime_type),
+                ]
+            ),
         )
+        if result is None:
+            return None
 
         # cleanup
         for r in results:

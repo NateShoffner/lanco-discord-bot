@@ -5,6 +5,7 @@ from discord.ext import commands
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
 from reactionmenu import ReactionButton, ReactionMenu
+from utils.ai_utils import run_agent
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
@@ -323,7 +324,12 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
                 if command.command_type == CommandTypes.AI:
                     await message.channel.typing()
-                    response = await self.agent.run(command.command_response)
+                    response = await run_agent(
+                        lambda: self.agent.run(command.command_response),
+                        message.channel.send,
+                    )
+                    if response is None:
+                        return
 
                     # limit it for a discord message
                     if len(response.output.response) > 2000:

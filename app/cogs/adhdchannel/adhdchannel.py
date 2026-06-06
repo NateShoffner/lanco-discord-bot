@@ -4,6 +4,7 @@ from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
+from utils.ai_utils import run_agent
 from utils.command_utils import is_bot_owner_or_admin
 from utils.message_utils import get_user_messages
 
@@ -80,15 +81,16 @@ class ADHDChannel(
             self.logger.info("No messages found")
             return None
 
-        result = await self.agent.run(
-            [
-                "Analyze the following messages and extract the primary topics being discussed. "
-                "Return a list of topics ordered by relevance.",
-            ]
-            + [m.content for m in messages]
+        result = await run_agent(
+            lambda: self.agent.run(
+                [
+                    "Analyze the following messages and extract the primary topics being discussed. "
+                    "Return a list of topics ordered by relevance.",
+                ]
+                + [m.content for m in messages]
+            ),
         )
-
-        return result.output
+        return result.output if result else None
 
 
 async def setup(bot):

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.messages import ModelMessage
+from utils.ai_utils import run_agent
 
 
 class ChannelDiscussion(BaseModel):
@@ -108,7 +109,12 @@ class ChatBot(
                 history = last_response.new_messages()
 
             await message.channel.typing()
-            response = await agent.run(text, message_history=history)
+            response = await run_agent(
+                lambda: agent.run(text, message_history=history),
+                message.reply,
+            )
+            if response is None:
+                return
 
             # limit it for a discord message
             if len(response.output.response) > 2000:

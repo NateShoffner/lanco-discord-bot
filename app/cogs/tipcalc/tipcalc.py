@@ -7,6 +7,7 @@ from discord import Embed, Message
 from discord.ext import commands
 from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent
+from utils.ai_utils import run_agent
 from utils.file_downloader import FileDownloader
 
 
@@ -157,12 +158,16 @@ class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
             self.logger.error(f"File {filename} is not an image.")
             return None
 
-        result = await self.agent.run(
-            [
-                "Determine if this photo is a receipt and if so, parse out the bill details.",
-                BinaryContent(data=image_bytes, media_type=mime_type),
-            ]
+        result = await run_agent(
+            lambda: self.agent.run(
+                [
+                    "Determine if this photo is a receipt and if so, parse out the bill details.",
+                    BinaryContent(data=image_bytes, media_type=mime_type),
+                ]
+            ),
         )
+        if result is None:
+            return None
 
         # cleanup
         for r in results:

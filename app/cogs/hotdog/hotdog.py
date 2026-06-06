@@ -6,6 +6,7 @@ from cogs.lancocog import LancoCog
 from discord.ext import commands
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
+from pydantic_ai.exceptions import ModelHTTPError
 from utils.file_downloader import FileDownloader
 from utils.tracked_message import track_message_ids
 
@@ -114,11 +115,18 @@ class HotDog(LancoCog, name="HotDog", description="Profile Glizzies"):
         if mime_type is None or not mime_type.startswith("image/"):
             raise ValueError("The provided file is not a valid image.")
 
-        result = await self.agent.run(
-            [
-                BinaryContent(data=image_bytes, media_type=mime_type),
-            ]
-        )
+        try:
+            result = await self.agent.run(
+                [
+                    BinaryContent(data=image_bytes, media_type=mime_type),
+                ]
+            )
+        except ModelHTTPError as e:
+            self.logger.error("ModelHTTPError during agent run: %s", e)
+            raise
+        except Exception as e:
+            self.logger.error("Unexpected error during agent run: %s", e)
+            raise
 
         # cleanup
         for r in results:
