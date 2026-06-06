@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import random
@@ -5,6 +6,7 @@ from cmath import cos, sin
 from urllib.parse import urlencode
 
 import aiohttp
+import requests
 
 from .models import Coordinates, GeoGuesserLocation, Mode
 
@@ -14,10 +16,48 @@ class LocationUtils:
         self.gmaps = gmaps
         self.logger = logging.getLogger(__name__)
 
+    def get_location_label(self, coords: Coordinates) -> str:
+        """Returns the best human-readable label for the given coordinates via reverse geocode."""
+        try:
+            results = self.gmaps.reverse_geocode((coords.lat, coords.lng))
+            if not results:
+                raise ValueError("No results")
+
+            # prefer intersection type
+            for result in results:
+                if "intersection" in result.get("types", []):
+                    return result["formatted_address"].split(",")[0]
+
+            # require a route (street name) — city-only results are not useful
+            components = results[0].get("address_components", [])
+            route = next(
+                (c["short_name"] for c in components if "route" in c.get("types", [])),
+                None,
+            )
+            if not route:
+                return f"{coords.lat:.5f}, {coords.lng:.5f}"
+
+            locality = next(
+                (
+                    c["short_name"]
+                    for c in components
+                    if "locality" in c.get("types", [])
+                ),
+                None,
+            )
+            return f"{route}, {locality}" if locality else route
+        except Exception as e:
+            self.logger.warning(
+                f"Reverse geocode failed for {coords.lat},{coords.lng}: {e}"
+            )
+            return f"{coords.lat:.5f}, {coords.lng:.5f}"
+
     def get_coordinates_from_location(self, location_name: str) -> Coordinates:
         """Returns the coordinates of the location"""
         # TODO cache location names to avoid unnecessary API calls
-        geocode_result = self.gmaps.geocode(location_name)
+        geocode_result = self.gmaps.geocode(
+            location_name
+        )  # called from a thread via session.handle_guess
         if len(geocode_result) > 0:
             lat = geocode_result[0]["geometry"]["location"]["lat"]
             lng = geocode_result[0]["geometry"]["location"]["lng"]
@@ -31,8 +71,8 @@ class LocationUtils:
         base_url = "https://maps.googleapis.com/maps/api/streetview?"
         params = {
             "location": f"{coords.lat},{coords.lng}",
-            "size": "800x600",
-            "fov": "120",
+            "size": "800x450",
+            "fov": "90",
             "heading": "random",  # Set the heading to 'random' for a random direction
             "pitch": "0",  # Set the pitch to '0' for a horizontal view
             "key": os.getenv("GMAPS_API_KEY"),
@@ -84,16 +124,30 @@ class LocationUtils:
 
         return random_coordinates
 
+    def get_geoguesser_locations_sync(
+        self, mode: Mode, num_locations: int
+    ) -> list[GeoGuesserLocation]:
+        """Synchronous version — call via asyncio.to_thread from async contexts."""
+        locations = []
+        for i in range(num_locations):
+            location = self.get_geoguesser_location_sync(mode)
+            locations.append(location)
+            self.logger.info(
+                f"Generated location {i + 1}/{num_locations} for '{mode.name}': {location.label or location.road_coords}"
+            )
+        return locations
+
     async def get_geoguesser_locations(
         self, mode: Mode, num_locations: int
     ) -> list[GeoGuesserLocation]:
-        """Returns a list of geoguesser locations"""
-        locations = []
-        for _ in range(num_locations):
-            locations.append(await self.get_geoguesser_location(mode))
-        return locations
+        return await asyncio.to_thread(
+            self.get_geoguesser_locations_sync, mode, num_locations
+        )
 
     async def get_geoguesser_location(self, mode: Mode) -> GeoGuesserLocation:
+        return await asyncio.to_thread(self.get_geoguesser_location_sync, mode)
+
+    def get_geoguesser_location_sync(self, mode: Mode) -> GeoGuesserLocation:
         """Returns a geoguesser location within the bounding box"""
         road = None
         while not road:
@@ -117,12 +171,18 @@ class LocationUtils:
             road["location"]["latitude"], road["location"]["longitude"]
         )
 
-        street_view = None
-        street_view = await self.get_random_streetview_image(road_coords)
-        if not street_view:
+        # use metadata API to check coverage without downloading the image
+        metadata_url = (
+            f"https://maps.googleapis.com/maps/api/streetview/metadata"
+            f"?location={road_coords.lat},{road_coords.lng}"
+            f"&key={os.getenv('GMAPS_API_KEY')}"
+        )
+        meta_resp = requests.get(metadata_url)
+        if meta_resp.status_code != 200 or meta_resp.json().get("status") != "OK":
             self.logger.error(
-                f"Error: Street view not found for {road_coords}, trying again..."
+                f"No street view imagery for {road_coords}, trying again..."
             )
-            return await self.get_geoguesser_location()
+            return self.get_geoguesser_location_sync(mode)
 
-        return GeoGuesserLocation(initial_location, road_coords, street_view)
+        label = self.get_location_label(road_coords)
+        return GeoGuesserLocation(initial_location, road_coords, label=label)

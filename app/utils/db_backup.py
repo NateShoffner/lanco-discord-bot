@@ -48,9 +48,9 @@ class DatabaseBackup:
 
         logger.info(f"Backing up database to {dest}")
         try:
-            shutil.copy2(self.database_path, dest)
+            await asyncio.to_thread(shutil.copy2, self.database_path, dest)
             logger.info(f"Database backed up to {dest}")
-            self._prune_old_backups()
+            await asyncio.to_thread(self._prune_old_backups)
         except Exception as e:
             logger.error(f"Database backup failed: {e}")
 

@@ -72,7 +72,10 @@ class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 file_logger = WinTimedRotatingFileHandler(
-    filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
+    filename=os.path.join(LOGS_DIR, "logfile.log"),
+    when="midnight",
+    interval=1,
+    encoding="utf-8",
 )
 file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
 logger.addHandler(file_logger)
@@ -81,9 +84,6 @@ console_logger = logging.StreamHandler()
 console_logger.stream.reconfigure(encoding="utf-8", errors="replace")
 console_logger.setFormatter(CustomFormatter())
 logger.addHandler(console_logger)
-
-# supress discord logging
-# logging.getLogger('discord').setLevel(logging.WARNING)
 
 log_level = (
     logging.DEBUG if os.getenv("DEV_MODE", "").lower() == "true" else logging.INFO
@@ -114,6 +114,33 @@ if os.path.exists(env_file):
     logger.info(f"Loaded environment: {env_file}")
 else:
     logger.info("No .env file found, using environment variables")
+
+# In dev mode, LOG_COGS=geoguesser,incidents filters console output to only those cogs
+_log_cogs_env = os.getenv("LOG_COGS", "")
+if _log_cogs_env and os.getenv("DEV_MODE", "").lower() == "true":
+    _allowed_cogs = {c.strip().lower() for c in _log_cogs_env.split(",")}
+
+    # build set of known non-cog logger name prefixes to always allow through
+    _always_allow_prefixes = ("root", "utils.", "discord.", "db", "__main__")
+
+    class CogFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            name = record.name.lower()
+            # always allow root and utility loggers
+            if name == "root" or any(
+                name.startswith(p) for p in _always_allow_prefixes
+            ):
+                return True
+            # cogs use their qualified_name as logger (e.g. "GeoGuesser", "RedditFeed")
+            # submodules use dotted paths like "cogs.geoguesser.session"
+            if name.startswith("cogs."):
+                parts = name.split(".")
+                return len(parts) > 1 and parts[1] in _allowed_cogs
+            # top-level cog logger name — match directly
+            return name in _allowed_cogs
+
+    console_logger.addFilter(CogFilter())
+    logger.info(f"LOG_COGS filter active: {_allowed_cogs}")
 
 # If launched with the "dev" arg, force DEV_MODE on regardless of what the env file says
 if dev_arg:
@@ -659,9 +686,20 @@ async def load_cog(bot: LancoBot, cog_def: CogDefinition) -> CogLoadResult:
 
 async def load_cogs(bot: LancoBot) -> list[CogLoadResult]:
     """Load all cogs in the cogs directory."""
+    cog_whitelist_env = os.getenv("COG_WHITELIST", "")
+    cog_whitelist = (
+        {c.strip().lower() for c in cog_whitelist_env.split(",") if c.strip()}
+        if cog_whitelist_env
+        else None
+    )
+    if cog_whitelist:
+        logger.info(f"COG_WHITELIST active: {cog_whitelist}")
+
     results = []
     for entry in os.scandir(COGS_DIR):
         cog_def = get_cog_def(entry.name, COGS_DIR)
+        if cog_whitelist and entry.name.lower() not in cog_whitelist:
+            continue
         if os.path.isfile(cog_def.entry_point):
             result = await load_cog(bot, cog_def)
             results.append(result)

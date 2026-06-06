@@ -93,6 +93,8 @@ Copy `.env.default` to `.env` and fill in values. Key variables:
 - `DB_TYPE` — `sqlite` (default) or `mysql`
 - `SQLITE_DB` — path to SQLite file (default `data/lancobot.db`)
 - `DEV_MODE` — set to `true` to enable hot-reload (set automatically by `poetry run dev`)
+- `COG_WHITELIST` — comma-separated list of cog directory names to load exclusively (e.g. `geoguesser,incidents`). When set, all other cogs are skipped. Useful for faster dev startup.
+- `LOG_COGS` — comma-separated list of cog names whose logs appear on the console in dev mode (e.g. `geoguesser`). All other cog loggers are suppressed on console only; the log file still receives everything.
 - All external API keys (OpenAI, Google Maps, Spotify, OWM, etc.) are optional; the cogs that depend on them fail gracefully or skip loading when the keys are absent.
 
 ### Deployment

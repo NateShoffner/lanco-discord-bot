@@ -119,7 +119,10 @@ class Verification(
         if reaction.emoji not in [self.APPROVAL_EMOJI, self.DENIAL_EMOJI]:
             return
 
-        config, request = await self.save_votes(reaction)
+        result = await self.save_votes(reaction)
+        if result is None:
+            return
+        config, request = result
 
         finalized = False
         status = VerificationStatus.PENDING

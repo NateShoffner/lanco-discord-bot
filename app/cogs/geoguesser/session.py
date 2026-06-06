@@ -1,5 +1,9 @@
+import asyncio
 import datetime
 import logging
+import math
+import threading
+import uuid
 
 import discord
 import googlemaps
@@ -30,6 +34,13 @@ class GameSession:
         self.logger = logging.getLogger(__name__)
         self.idle = False
         self.cancelled = False
+        self.round_deadline: float = 0.0
+        self.game_id = uuid.uuid4()
+        self._guess_lock = threading.Lock()
+        self.current_round_message: discord.Message | None = None
+        self.round_warning_message: discord.Message | None = None
+        self.round_results_message: discord.Message | None = None
+        self.round_task: asyncio.Task | None = None
 
     def init(self, locations: list[GeoGuesserLocation]):
         """Loads the locations for the game session"""
@@ -69,6 +80,18 @@ class GameSession:
             return None
         return self.rounds[self.current_round]
 
+    @staticmethod
+    def _haversine_meters(a: Coordinates, b: Coordinates) -> float:
+        R = 6_371_000
+        lat1, lat2 = math.radians(a.lat), math.radians(b.lat)
+        dlat = math.radians(b.lat - a.lat)
+        dlng = math.radians(b.lng - a.lng)
+        h = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+        )
+        return R * 2 * math.asin(math.sqrt(h))
+
     def handle_guess(self, member: discord.Member, guess: str) -> GuessResult:
         """Handles a guess from a member and returns the result"""
         if not self.members.get(member.id):
@@ -76,52 +99,43 @@ class GameSession:
 
         r = self.get_current_round()
         if not r:
-            self.logger.info("No current round")
+            self.logger.warning("handle_guess called with no current round")
             return None
 
         guess = self.mode.get_qualified_guess(guess)
-        self.logger.info(f"Guess: {guess}")
+        self.logger.info(f"Qualified guess: '{guess}'")
         guess_location = self.location_utils.get_coordinates_from_location(guess)
-        self.logger.info(f"Guess location: {guess_location}")
+        self.logger.info(
+            f"Guess resolved to: {guess_location} (actual: {r.location.road_coords})"
+        )
         if not guess_location:
-            self.logger.info("Guess location not found")
+            self.logger.debug(f"Could not resolve guess to coordinates: {guess}")
             return None
 
         # TODO this is what the city mode returns as a false positive because it centers the coords thanks to the qualifier
         false_pos_coords = Coordinates(40.0378755, -76.3055144)
         if guess_location == false_pos_coords:
-            self.logger.info("False positive, returning")
+            self.logger.debug(f"False positive coordinates for guess: {guess}")
             return None
 
-        # calculate the distance between the actual location and the guessed location (for simplicity, using Euclidean distance)
-        distance = (
-            (guess_location.lat - r.location.road_coords.lat) ** 2
-            + (guess_location.lng - r.location.road_coords.lng) ** 2
-        ) ** 0.5
-        score = (
-            max(0, 1 - distance / 0.02) * 100
-        )  # max score is 100, reduce score based on distance
+        meters = self._haversine_meters(r.location.road_coords, guess_location)
+        # scale scoring to the mode's radius so county guesses aren't immediately zeroed
+        score_radius = self.mode.score_radius  # city=2000m, county=20000m
+        distance_score = max(0, 1 - meters / score_radius) * 100
 
-        matrix = self.gmaps.distance_matrix(
-            r.location.road_coords.to_tuple(), guess_location.to_tuple()
-        )
-        matrix_elements = matrix["rows"][0]["elements"][0]
+        # time bonus: up to 20 extra points for guessing early
+        import time as _time
 
-        if matrix_elements["status"] == "ZERO_RESULTS":
-            self.logger.info("Error: Distance matrix returned no results")
-            return None
+        time_remaining = max(0.0, self.round_deadline - _time.time())
+        time_bonus = min(time_remaining, 20.0)  # 1pt per second remaining, max 20
 
-        meters = matrix_elements["distance"]["value"]
-        """
-        self.logger.debug(f"Difference in meters: {meters}")
-        self.logger.debug(f"Your guess: {guess_location}")
-        self.logger.debug(f"Actual location: {r.location.road_coords}")
-        self.logger.debug(f"Distance: {distance:.5f} degrees")
-        self.logger.debug(f"Score: {score:.2f}")
-        """
+        score = round(distance_score + time_bonus, 1)
 
-        result = GuessResult(meters, score)
-        r.add_guess(member.id, result)
-        self.members[member.id] += score
+        result = GuessResult(meters, score, guess_coords=guess_location)
+        with self._guess_lock:
+            if r.has_guessed(member.id):
+                return None  # another thread beat us to it
+            r.add_guess(member.id, result)
+            self.members[member.id] += score
 
         return result
