@@ -2,6 +2,7 @@ import hashlib
 import logging
 
 import googlemaps
+from cachetools import LRUCache
 from lcwc.incident import Incident
 
 
@@ -11,7 +12,7 @@ class IncidentGeocoder:
     def __init__(self, gmaps: googlemaps.Client) -> None:
         self.logger = logging.getLogger(__name__)
         self.client = gmaps
-        self.cache = {}
+        self.cache = LRUCache(maxsize=512)
 
     def get_absolute_address(self, incident: Incident) -> str:
         """Creates an absolute address from the given incident

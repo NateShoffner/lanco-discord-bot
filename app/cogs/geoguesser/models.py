@@ -27,6 +27,9 @@ class GuessResult:
     score: float
     """ The score of the guess """
 
+    guess_coords: Optional["Coordinates"] = None
+    """ The coordinates of the guess """
+
 
 @dataclass
 class GeoGuesserLocation:
@@ -39,6 +42,8 @@ class GeoGuesserLocation:
 
     id: Optional[uuid.UUID] = None
     """ The ID of the location """
+    label: Optional[str] = None
+    """ Human-readable label (intersection, neighborhood, or coords fallback) """
 
 
 class Mode:

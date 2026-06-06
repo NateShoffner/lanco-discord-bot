@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import os
 from dataclasses import dataclass
@@ -196,7 +197,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         if isinstance(incident, ArcGISIncident):
             maps_url = f"https://www.google.com/maps/search/?api=1&query={incident.coordinates.latitude},{incident.coordinates.longitude}"
         else:
-            coords = self.geocoder.get_coordinates(incident)
+            coords = await asyncio.to_thread(self.geocoder.get_coordinates, incident)
             if not coords:
                 return None
             lat, lng = coords
@@ -250,7 +251,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
             lat = incident.coordinates.latitude
             lng = incident.coordinates.longitude
         else:
-            coords = self.geocoder.get_coordinates(incident)
+            coords = await asyncio.to_thread(self.geocoder.get_coordinates, incident)
             if not coords:
                 return None
             lat, lng = coords

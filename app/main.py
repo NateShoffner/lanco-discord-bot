@@ -72,7 +72,10 @@ class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 file_logger = WinTimedRotatingFileHandler(
-    filename=os.path.join(LOGS_DIR, "logfile.log"), when="midnight", interval=1
+    filename=os.path.join(LOGS_DIR, "logfile.log"),
+    when="midnight",
+    interval=1,
+    encoding="utf-8",
 )
 file_logger.setFormatter(logging.Formatter(LOG_FORMAT))
 logger.addHandler(file_logger)

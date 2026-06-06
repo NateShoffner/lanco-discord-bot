@@ -1,7 +1,9 @@
+import importlib
 import inspect
 import logging
 import os
 import re
+import sys
 from dataclasses import dataclass
 
 from discord import app_commands
@@ -44,6 +46,21 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         self.cog_def = None
         self.context_menus = []
         self._tracked_tasks = []
+        self._reload_submodules()
+
+    def _reload_submodules(self):
+        """Reload submodules in this cog's package — only runs when already registered as a cog."""
+        if not self._bot.get_cog(self.qualified_name):
+            return  # initial load, skip
+        package = self.__module__.rsplit(".", 1)[0]
+        for mod_name in list(sys.modules):
+            if mod_name.startswith(package + ".") and mod_name != self.__module__:
+                try:
+                    importlib.reload(sys.modules[mod_name])
+                except Exception as e:
+                    logging.getLogger(self.get_cog_name()).warning(
+                        f"Failed to reload submodule {mod_name}: {e}"
+                    )
 
     def track_task(self, task):
         """Register a background task to be cancelled on cog unload."""
