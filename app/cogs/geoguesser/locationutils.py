@@ -171,11 +171,16 @@ class LocationUtils:
             road["location"]["latitude"], road["location"]["longitude"]
         )
 
-        street_view_url = self.get_street_view_url(road_coords)
-        resp = requests.get(street_view_url)
-        if resp.status_code != 200:
+        # use metadata API to check coverage without downloading the image
+        metadata_url = (
+            f"https://maps.googleapis.com/maps/api/streetview/metadata"
+            f"?location={road_coords.lat},{road_coords.lng}"
+            f"&key={os.getenv('GMAPS_API_KEY')}"
+        )
+        meta_resp = requests.get(metadata_url)
+        if meta_resp.status_code != 200 or meta_resp.json().get("status") != "OK":
             self.logger.error(
-                f"Error: Street view not found for {road_coords}, trying again..."
+                f"No street view imagery for {road_coords}, trying again..."
             )
             return self.get_geoguesser_location_sync(mode)
 

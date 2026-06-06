@@ -52,3 +52,20 @@ def run():
         print("Created table 'geoguesser_game_results' with indexes.")
     else:
         print("Table 'geoguesser_game_results' already exists. No changes made.")
+
+    # add scoring_version column if missing
+    if "geoguesser_game_results" in db.get_tables():
+        existing_columns = [
+            col.name for col in db.get_columns("geoguesser_game_results")
+        ]
+        if "scoring_version" not in existing_columns:
+            migrate(
+                migrator.add_column(
+                    "geoguesser_game_results",
+                    "scoring_version",
+                    IntegerField(default=1),
+                )
+            )
+            print("Added 'scoring_version' column to geoguesser_game_results.")
+        else:
+            print("Column 'scoring_version' already exists. No changes made.")

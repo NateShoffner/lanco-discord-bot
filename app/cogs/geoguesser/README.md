@@ -6,7 +6,7 @@ A Lancaster-themed GeoGuesser game playable in Discord. Each round shows a Googl
 
 | Command | Description |
 |---|---|
-| `/geoguesser start` | Start a new session. Prompts for mode selection. |
+| `/geoguesser start` | Start a new session. Prompts for mode then rounds (capped by available locations). |
 | `/geoguesser stop` | Stop the current session (host only). |
 | `/geoguesser skip` | Skip the current round (host only). |
 | `/geoguesser leaderboard [period]` | Show the guild leaderboard. Period: `all` (default), `today`, `week`. |
@@ -42,6 +42,7 @@ flowchart TD
     I -->|Skip| J[geoguesser skip]
     J --> K["Cancel round task
     Cancel warning task
+    Delete warning message
     Freeze round embed"]
     K --> L{More rounds?}
 
@@ -55,7 +56,9 @@ flowchart TD
     L -->|Yes| N["Wait TIME_BETWEEN_ROUNDS
     Post next round embed"]
     N --> D
-    L -->|No| O["post_final_results
+    L -->|No| O["post_round_results (no wait)
+    Post answer map
+    post_final_results
     Post final standings
     Record scores to DB"]
     O --> P([Game over])
@@ -68,13 +71,21 @@ flowchart TD
 
 ## Scoring
 
-Score per round: `max(0, 1 - distance_meters / 1000) * 100`
+Score per round = **distance score** + **time bonus**
 
-- 100 points at 0m
-- 0 points at 1km or more
+| Component | Formula | Max |
+|---|---|---|
+| Distance score | `max(0, 1 - meters / mode_radius) * 100` | 100 pts |
+| Time bonus | `seconds remaining when guess is submitted` | 20 pts |
+| **Total** | | **120 pts** |
+
 - Distance is straight-line (haversine), not driving distance
+- Score radius: Lancaster City = 2,000m (0 pts at 2km+), Lancaster County = 20,000m (0 pts at 20km+)
+- Generation radius (used for picking random locations): City = 10km, County = 30km
+- Time bonus rewards faster guesses — copy-cats who submit the same location later get fewer points
+- Scores accumulate across all rounds
 
-Per-player scores accumulate across all rounds. At game end, if 2+ players participated, scores are recorded to the `geoguesser_game_results` table for persistent leaderboards.
+At game end, if 2+ players participated, scores are recorded to the `geoguesser_game_results` table for persistent leaderboards. Results are versioned (`scoring_version`) so leaderboards remain comparable if the formula changes.
 
 ## Configuration
 
@@ -83,7 +94,7 @@ Per-player scores accumulate across all rounds. At game end, if 2+ players parti
 | `GUESS_TIME` | 20s | Time allowed per round |
 | `WARNING_TIME` | 10s | When the half-time warning fires |
 | `TIME_BETWEEN_ROUNDS` | 10s | Delay between rounds |
-| Default rounds | 10 | Locations loaded per session |
+| Default rounds | 10 | Selected interactively after mode pick, capped by available locations |
 
 ## Database
 

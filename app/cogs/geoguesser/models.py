@@ -57,10 +57,12 @@ class Mode:
         center: tuple[float, float],
         qualifier_pattern: re.Pattern,
         qualifier_replacement: str,
+        score_radius: int = None,
     ):
         self.name = name
         self.icon = icon
-        self.radius = radius
+        self.radius = radius  # generation radius in meters
+        self.score_radius = score_radius or radius  # scoring radius in meters
         self.center = center
         self.qualifier_pattern = qualifier_pattern
         self.qualifier_replacement = qualifier_replacement

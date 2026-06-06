@@ -18,6 +18,14 @@ class GeoguesserLocation(BaseModel):
         table_name = "geoguesser_locations"
 
 
+SCORING_VERSION = 4
+# Version history:
+# 1 - haversine distance, 0 pts at 1km (too aggressive)
+# 2 - haversine distance, 0 pts at mode radius (city=10km, county=30km)
+# 3 - distance score (0-100) + time bonus (0-20) based on time remaining
+# 4 - separate score_radius from generation radius (city=2km, county=20km)
+
+
 class GeoguesserGameResult(BaseModel):
     id = AutoField()
     game_id = UUIDField()
@@ -26,6 +34,7 @@ class GeoguesserGameResult(BaseModel):
     mode = CharField()
     score = FloatField()
     rounds_played = IntegerField()
+    scoring_version = IntegerField(default=SCORING_VERSION)
     played_at = DateTimeField(default=datetime.datetime.utcnow)
 
     class Meta:

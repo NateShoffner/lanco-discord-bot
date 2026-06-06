@@ -119,7 +119,17 @@ class GameSession:
             return None
 
         meters = self._haversine_meters(r.location.road_coords, guess_location)
-        score = max(0, 1 - meters / 1000) * 100  # 100pts at 0m, 0pts at 1km+
+        # scale scoring to the mode's radius so county guesses aren't immediately zeroed
+        score_radius = self.mode.score_radius  # city=2000m, county=20000m
+        distance_score = max(0, 1 - meters / score_radius) * 100
+
+        # time bonus: up to 20 extra points for guessing early
+        import time as _time
+
+        time_remaining = max(0.0, self.round_deadline - _time.time())
+        time_bonus = min(time_remaining, 20.0)  # 1pt per second remaining, max 20
+
+        score = round(distance_score + time_bonus, 1)
 
         result = GuessResult(meters, score, guess_coords=guess_location)
         with self._guess_lock:
