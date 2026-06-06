@@ -4,6 +4,7 @@ import re
 import time
 from math import floor
 
+import aiofiles
 import aiohttp
 import discord
 import googlemaps
@@ -18,6 +19,11 @@ from .dbmodels import GeoguesserLocation as LocationModel
 from .locationutils import LocationUtils
 from .models import Coordinates, GeoGuesserLocation, Mode
 from .session import GameSession
+
+# module-level state — survives cog hot-reloads since the module itself is not reloaded
+_active_sessions: dict = {}
+_sessions_starting: list = []
+_guess_semaphore = asyncio.Semaphore(4)
 
 
 class GeoGuesser(
@@ -53,29 +59,68 @@ class GeoGuesser(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        if not hasattr(self.__class__, "_active_sessions"):
-            self.__class__._active_sessions = {}
-        if not hasattr(self.__class__, "_sessions_starting"):
-            self.__class__._sessions_starting = []
-        if not hasattr(self.__class__, "_guess_semaphore"):
-            self.__class__._guess_semaphore = asyncio.Semaphore(4)
-        self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
-        self.location_utils = LocationUtils(self.gmaps)
+        self.gmaps = None
+        self.location_utils = None
+        self._ready_at: float = 0.0
         self.bot.database.create_tables([LocationModel, GeoguesserGameResult])
+        _sessions_starting.clear()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        self.__class__._active_sessions.clear()
-        self.__class__._sessions_starting.clear()
-        self.logger.info("GeoGuesser session state cleared on ready")
+    async def cog_load(self):
+        self._ready_at = time.time()
+        self.gmaps = await asyncio.to_thread(
+            googlemaps.Client, key=os.getenv("GMAPS_API_KEY")
+        )
+        self.location_utils = LocationUtils(self.gmaps)
 
     @property
     def active_sessions(self):
-        return self.__class__._active_sessions
+        return _active_sessions
 
     @property
     def sessions_starting(self):
-        return self.__class__._sessions_starting
+        return _sessions_starting
+
+    async def _cleanup_stopped_session(self, session: GameSession):
+        """Cleans up Discord messages after a session is stopped."""
+        if session.current_round_message:
+            try:
+                old = session.current_round_message.embeds[0]
+                stopped_embed = discord.Embed(
+                    title=old.title,
+                    description="Session stopped.",
+                    color=old.color.value,
+                )
+                await session.current_round_message.edit(
+                    embed=stopped_embed, attachments=[]
+                )
+            except discord.HTTPException as e:
+                self.logger.warning(f"Failed to edit round embed on stop: {e}")
+
+        if session.round_warning_message:
+            try:
+                await session.round_warning_message.delete()
+            except discord.HTTPException:
+                pass
+            session.round_warning_message = None
+
+    def _is_stale_interaction(self, interaction: discord.Interaction) -> bool:
+        """Returns True if this interaction was created before the cog was ready (replay from previous session)."""
+        return interaction.created_at.timestamp() < self._ready_at
+
+    async def cog_app_command_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
+        if isinstance(error, app_commands.CommandInvokeError) and isinstance(
+            error.original, discord.NotFound
+        ):
+            self.logger.debug(
+                f"Interaction expired for command in #{interaction.channel_id}"
+            )
+            # clean up any stale sessions_starting entry left by the failed command
+            if interaction.channel_id in self.sessions_starting:
+                self.sessions_starting.remove(interaction.channel_id)
+            return
+        raise error
 
     def get_street_view_cache_path(self, location: GeoGuesserLocation) -> str:
         """Returns the path to the cached street view image"""
@@ -112,15 +157,16 @@ class GeoGuesser(
 
         async def cache_image(location: GeoGuesserLocation):
             cached_image_path = self.get_street_view_cache_path(location)
-            if not os.path.exists(cached_image_path):
+            if not await asyncio.to_thread(os.path.exists, cached_image_path):
                 street_view_url = self.location_utils.get_street_view_url(
                     location.road_coords
                 )
                 async with aiohttp.ClientSession() as s:
                     async with s.get(street_view_url) as resp:
                         if resp.status == 200:
-                            with open(cached_image_path, "wb") as f:
-                                f.write(await resp.read())
+                            data = await resp.read()
+                            async with aiofiles.open(cached_image_path, "wb") as f:
+                                await f.write(data)
 
         await asyncio.gather(*[cache_image(loc) for loc in locations])
 
@@ -135,8 +181,12 @@ class GeoGuesser(
         """Callback for the mode select"""
         mode_value = interaction.data["values"][0]
         mode = next((mode for mode in self.modes if mode.name == mode_value), None)
-        channel = interaction.channel or self.bot.get_channel(interaction.channel_id)
-        await interaction.response.defer()
+        channel = interaction.channel or await self.bot.fetch_channel(
+            interaction.channel_id
+        )
+        await interaction.response.edit_message(
+            content=f"Starting **{mode.name}** game...", view=None
+        )
         await self.initialize_session(mode, channel, interaction.user)
 
     def build_modes_select(self) -> Select:
@@ -155,7 +205,10 @@ class GeoGuesser(
     )
     async def start(self, interaction: discord.Interaction):
         """Starts a new GeoGuesser session"""
-        self.logger.info(
+        if self._is_stale_interaction(interaction):
+            self.logger.debug(f"Discarding stale start interaction {interaction.id}")
+            return
+        self.logger.debug(
             f"Start called — active_sessions: {list(self.active_sessions.keys())}, sessions_starting: {self.sessions_starting}, channel: {interaction.channel_id}"
         )
         if interaction.channel_id in self.active_sessions:
@@ -163,18 +216,47 @@ class GeoGuesser(
             return
 
         if interaction.channel_id in self.sessions_starting:
-            await interaction.response.send_message("A session is already starting")
-            return
+            if interaction.channel_id not in self.active_sessions:
+                # stale entry — clear it and allow restart
+                self.sessions_starting.remove(interaction.channel_id)
+            else:
+                await interaction.response.send_message("A session is already starting")
+                return
 
         self.sessions_starting.append(interaction.channel_id)
 
-        select = self.build_modes_select()
-        select.callback = self.callback
+        try:
+            select = self.build_modes_select()
+            select.callback = self.callback
 
-        view = View()
-        view.add_item(select)
+            view = View(timeout=60)
+            view.add_item(select)
 
-        await interaction.response.send_message(view=view)
+            async def on_timeout():
+                if interaction.channel_id in self.sessions_starting:
+                    self.sessions_starting.remove(interaction.channel_id)
+                try:
+                    await interaction.edit_original_response(
+                        content="Mode selection timed out. Use `/geoguesser start` to try again.",
+                        view=None,
+                    )
+                except discord.HTTPException:
+                    pass
+
+            view.on_timeout = on_timeout
+
+            await interaction.response.send_message(view=view)
+        except discord.NotFound:
+            # stale or replayed interaction — clean up silently
+            self.logger.debug(
+                f"Start interaction expired before response (channel: {interaction.channel_id})"
+            )
+            if interaction.channel_id in self.sessions_starting:
+                self.sessions_starting.remove(interaction.channel_id)
+        except Exception:
+            if interaction.channel_id in self.sessions_starting:
+                self.sessions_starting.remove(interaction.channel_id)
+            raise
 
     async def population_callback(self, interaction: discord.Interaction):
         """Callback for the population select"""
@@ -263,6 +345,26 @@ class GeoGuesser(
         view = View()
         view.add_item(select)
         await interaction.response.send_message(view=view, ephemeral=True)
+
+    @geoguesser_group.command(
+        name="clearsessions", description="Clear all active and starting sessions"
+    )
+    @is_bot_owner()
+    async def clearsessions(self, interaction: discord.Interaction):
+        """Clears all active and starting sessions without restarting the bot."""
+        active = len(self.active_sessions)
+        starting = len(self.sessions_starting)
+        for session in self.active_sessions.values():
+            session.cancel()
+        self.active_sessions.clear()
+        self.sessions_starting.clear()
+        self.logger.info(
+            f"Sessions cleared by {interaction.user} — {active} active, {starting} starting"
+        )
+        await interaction.response.send_message(
+            f"Cleared {active} active and {starting} starting session(s).",
+            ephemeral=True,
+        )
 
     @geoguesser_group.command(
         name="stats", description="Show GeoGuesser database stats"
@@ -369,50 +471,60 @@ class GeoGuesser(
     )
     async def stop(self, interaction: discord.Interaction):
         """Stops the current GeoGuesser session"""
+        if self._is_stale_interaction(interaction):
+            self.logger.debug(f"Discarding stale stop interaction {interaction.id}")
+            return
+        self.logger.debug(
+            f"Stop called — channel: {interaction.channel_id}, active: {list(self.active_sessions.keys())}, starting: {self.sessions_starting}"
+        )
         session = self.get_session(interaction.channel_id)
         if not session:
-            await interaction.response.send_message("No session is in progress")
+            await interaction.response.send_message(
+                "No session is in progress", ephemeral=True
+            )
             return
 
+        # cancel and remove session immediately
         self.logger.info(
             f"Session stopped by {interaction.user} in #{interaction.channel} (guild: {interaction.guild}), round {session.current_round + 1}/{len(session.rounds)}"
         )
         session.cancel()
-        self.active_sessions.pop(interaction.channel.id, None)
-        if interaction.channel.id in self.sessions_starting:
-            self.sessions_starting.remove(interaction.channel.id)
+        self.active_sessions.pop(interaction.channel_id, None)
+        if interaction.channel_id in self.sessions_starting:
+            self.sessions_starting.remove(interaction.channel_id)
 
-        if session.current_round_message:
-            try:
-                old = session.current_round_message.embeds[0]
-                stopped_embed = discord.Embed(
-                    title=old.title,
-                    description="Session stopped.",
-                    color=old.color.value,
-                )
-                await session.current_round_message.edit(
-                    embed=stopped_embed, attachments=[]
-                )
-            except discord.HTTPException as e:
-                self.logger.warning(f"Failed to edit round embed on stop: {e}")
+        self.logger.debug(
+            f"Stop done — channel: {interaction.channel_id}, active: {list(self.active_sessions.keys())}, starting: {self.sessions_starting}"
+        )
 
-        if session.round_warning_message:
-            try:
-                await session.round_warning_message.delete()
-            except discord.HTTPException:
-                pass
-            session.round_warning_message = None
+        # respond immediately before any slow Discord API calls
+        try:
+            await interaction.response.send_message("Session stopped", ephemeral=True)
+        except discord.HTTPException:
+            pass
 
-        await interaction.response.send_message("Session stopped")
+        # clean up embeds in the background
+        asyncio.create_task(self._cleanup_stopped_session(session))
 
     @geoguesser_group.command(
         name="skip", description="Skips the current GeoGuesser round"
     )
     async def skip(self, interaction: discord.Interaction):
         """Skips the current GeoGuesser round"""
+        if self._is_stale_interaction(interaction):
+            self.logger.debug(f"Discarding stale skip interaction {interaction.id}")
+            return
+        self.logger.debug(
+            f"Skip called — channel: {interaction.channel_id}, active: {list(self.active_sessions.keys())}, starting: {self.sessions_starting}, user: {interaction.user}, id: {interaction.id}"
+        )
         session = self.get_session(interaction.channel_id)
         if not session:
-            await interaction.response.send_message("No session is in progress")
+            self.logger.warning(
+                f"Skip: no session found — channel: {interaction.channel_id}, interaction_id: {interaction.id}"
+            )
+            await interaction.response.send_message(
+                "No session is in progress", ephemeral=True
+            )
             return
 
         if interaction.user != session.host:
@@ -436,25 +548,16 @@ class GeoGuesser(
         if session.round_task and not session.round_task.done():
             session.round_task.cancel()
 
-        # freeze the embed and kill the warning
-        session.round_deadline = 0.0
-        if session.current_round_message:
-            try:
-                old = session.current_round_message.embeds[0]
-                frozen = discord.Embed(
-                    title=old.title, description=old.description, color=old.color.value
-                )
-                frozen.add_field(
-                    name="Round",
-                    value=f"{session.current_round + 1} / {len(session.rounds)}",
-                    inline=True,
-                )
-                frozen.add_field(name="Guessing closed", value="Skipped", inline=True)
-                frozen.set_image(url="attachment://streetview.jpg")
-                await session.current_round_message.edit(embed=frozen)
-            except discord.HTTPException as e:
-                self.logger.warning(f"Failed to freeze round embed on skip: {e}")
+        if (
+            hasattr(session, "warning_task")
+            and session.warning_task
+            and not session.warning_task.done()
+        ):
+            session.warning_task.cancel()
 
+        session.round_deadline = 0.0
+
+        # delete warning message if it already posted
         if session.round_warning_message:
             try:
                 await session.round_warning_message.delete()
@@ -464,18 +567,55 @@ class GeoGuesser(
 
         if session.has_next_round():
             session.next()
+            next_round_time = int(time.time()) + self.TIME_BETWEEN_ROUNDS
             embed = discord.Embed(
                 title=f"Round {skipped_round} skipped", color=0x316CA3
             )
-            await interaction.response.send_message(embed=embed)
-            asyncio.create_task(self.post_current_round(session, immediate=True))
-        else:
-            await interaction.response.send_message(
-                embed=discord.Embed(
-                    title=f"Round {skipped_round} skipped", color=0x316CA3
-                )
+            embed.add_field(
+                name="Next round", value=f"<t:{next_round_time}:R>", inline=False
             )
+            try:
+                await interaction.response.send_message(embed=embed)
+                session.skip_message = await interaction.original_response()
+            except discord.HTTPException:
+                session.skip_message = await session.channel.send(embed=embed)
+            asyncio.create_task(self.post_current_round(session, immediate=False))
+        else:
+            try:
+                await interaction.response.send_message(
+                    embed=discord.Embed(
+                        title=f"Round {skipped_round} skipped", color=0x316CA3
+                    )
+                )
+            except discord.HTTPException:
+                await session.channel.send(
+                    embed=discord.Embed(
+                        title=f"Round {skipped_round} skipped", color=0x316CA3
+                    )
+                )
             asyncio.create_task(self.post_final_results(session, immediate=True))
+
+        # do slow cleanup after responding
+        if session.current_round_message:
+            try:
+                old = session.current_round_message.embeds[0]
+                frozen = discord.Embed(
+                    title=old.title, description=old.description, color=old.color.value
+                )
+                frozen.add_field(
+                    name="Round",
+                    value=f"{session.current_round} / {len(session.rounds)}",
+                    inline=True,
+                )
+                frozen.add_field(name="Guessing closed", value="Skipped", inline=True)
+                frozen.set_image(url="attachment://streetview.jpg")
+                await session.current_round_message.edit(embed=frozen)
+            except discord.HTTPException as e:
+                self.logger.warning(f"Failed to freeze round embed on skip: {e}")
+
+        self.logger.debug(
+            f"Skip done — channel: {interaction.channel_id}, active: {list(self.active_sessions.keys())}, starting: {self.sessions_starting}"
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -508,7 +648,7 @@ class GeoGuesser(
         self.logger.info(
             f"{message.author} submitting guess '{guess}' (deadline in {session.round_deadline - now:.1f}s)"
         )
-        async with self.__class__._guess_semaphore:
+        async with _guess_semaphore:
             result = await asyncio.to_thread(
                 session.handle_guess, message.author, guess
             )
@@ -553,8 +693,9 @@ class GeoGuesser(
             await channel.send("Failed to start the session, please try again.")
             return
         finally:
-            if channel.id in self.sessions_starting:
-                self.sessions_starting.remove(channel.id)
+            channel_id = channel.id if channel else None
+            if channel_id and channel_id in self.sessions_starting:
+                self.sessions_starting.remove(channel_id)
 
         asyncio.create_task(self.post_current_round(session, True, intro=True))
 
@@ -756,17 +897,19 @@ class GeoGuesser(
         if session.cancelled:
             return
 
-        # remove the "Next round" countdown from the previous results embed
-        if session.round_results_message:
-            try:
-                prev_embed = session.round_results_message.embeds[0]
-                prev_embed._fields = [
-                    f for f in prev_embed._fields if f["name"] != "Next round"
-                ]
-                await session.round_results_message.edit(embed=prev_embed)
-            except discord.HTTPException:
-                pass
-            session.round_results_message = None
+        # remove "Next round" countdown from previous results or skip embeds
+        for attr in ("round_results_message", "skip_message"):
+            msg = getattr(session, attr, None)
+            if msg:
+                try:
+                    prev_embed = msg.embeds[0]
+                    prev_embed._fields = [
+                        f for f in prev_embed._fields if f["name"] != "Next round"
+                    ]
+                    await msg.edit(embed=prev_embed)
+                except discord.HTTPException:
+                    pass
+                setattr(session, attr, None)
 
         current_round = session.get_current_round()
 
@@ -817,7 +960,7 @@ class GeoGuesser(
         embed.add_field(name="Guessing closes", value=f"<t:{deadline}:R>", inline=True)
         await session.current_round_message.edit(embed=embed)
 
-        asyncio.create_task(self.post_round_warning(session))
+        session.warning_task = asyncio.create_task(self.post_round_warning(session))
 
         if session.has_next_round():
             session.round_task = asyncio.create_task(self._advance_round(session))
