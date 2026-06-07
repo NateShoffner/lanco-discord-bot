@@ -1,0 +1,1 @@
+from .aiprompts import setup

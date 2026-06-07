@@ -1,0 +1,1 @@
+from .rssfeed import setup

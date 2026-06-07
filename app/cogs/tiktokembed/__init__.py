@@ -1,0 +1,1 @@
+from .tiktokembed import setup

@@ -1,0 +1,1 @@
+from .dadjoke import setup

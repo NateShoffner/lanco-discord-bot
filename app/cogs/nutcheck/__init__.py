@@ -1,0 +1,1 @@
+from .nutcheck import setup

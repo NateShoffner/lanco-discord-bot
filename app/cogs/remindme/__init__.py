@@ -1,0 +1,1 @@
+from .remindme import setup

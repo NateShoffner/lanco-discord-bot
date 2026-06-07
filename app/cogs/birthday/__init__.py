@@ -1,0 +1,1 @@
+from .birthday import setup

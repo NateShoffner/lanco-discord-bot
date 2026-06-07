@@ -1,0 +1,1 @@
+from .CoinFlip import setup

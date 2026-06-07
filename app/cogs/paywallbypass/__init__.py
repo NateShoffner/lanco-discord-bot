@@ -1,0 +1,1 @@
+from .paywallbypass import setup

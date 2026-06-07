@@ -1,0 +1,1 @@
+from .tipcalc import setup

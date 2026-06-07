@@ -1,0 +1,1 @@
+from .fishbowl import setup

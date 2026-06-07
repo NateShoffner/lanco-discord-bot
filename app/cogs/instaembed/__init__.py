@@ -1,0 +1,1 @@
+from .instaembed import setup

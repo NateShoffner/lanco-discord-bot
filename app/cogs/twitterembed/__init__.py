@@ -1,0 +1,1 @@
+from .twitterembed import setup

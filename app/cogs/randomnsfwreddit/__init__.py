@@ -1,0 +1,1 @@
+from .randomnsfwreddit import setup

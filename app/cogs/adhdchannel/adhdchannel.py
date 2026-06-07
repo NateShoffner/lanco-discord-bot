@@ -36,9 +36,8 @@ class ADHDChannel(
             output_type=ChannelDiscussion,
         )
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await super().on_ready()
+    async def cog_load(self):
+        await super().cog_load()
         self.update_channel_name.change_interval(seconds=30)
         self.update_channel_name.start()
 

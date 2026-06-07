@@ -1,0 +1,1 @@
+from .wolframalpha import setup

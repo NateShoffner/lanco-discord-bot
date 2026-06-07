@@ -1,0 +1,1 @@
+from .peecheck import setup
