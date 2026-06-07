@@ -106,7 +106,15 @@ poetry run cog create --name MyCog --description "My description"
 
 ```bash
 mkdir app/cogs/yourcog
+touch app/cogs/yourcog/__init__.py
 touch app/cogs/yourcog/yourcog.py
+```
+
+Each cog directory must have an `__init__.py` that re-exports `setup`:
+
+```python
+# app/cogs/yourcog/__init__.py
+from .yourcog import setup
 ```
 
 All cogs inherit from `LancoCog`:
@@ -118,6 +126,10 @@ from discord.ext import commands
 class YourCog(LancoCog, name="YourCog", description="Your cog description."):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
+
+    async def cog_load(self):
+        await super().cog_load()
+        # initialize tables, start tasks, etc.
 
 async def setup(bot):
     await bot.add_cog(YourCog(bot))

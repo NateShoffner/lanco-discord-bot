@@ -39,7 +39,7 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 **`app/run.py`** — Poetry script entrypoints for `dev`, `prod`, and `test`. Handles `sys.path` setup so bare imports work correctly.
 
-**`app/cogs/lancocog.py`** — `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers. Every cog also defines a `CogDefinition` with name/description metadata.
+**`app/cogs/lancocog.py`** — `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers.
 
 **`app/db.py`** — Peewee `DatabaseProxy` that abstracts SQLite (default) vs MySQL. All Peewee models should inherit `BaseModel` defined here; it binds to this proxy so the same model code works with either backend.
 
@@ -53,11 +53,19 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 ### Cog Pattern
 
+Each cog is a Python package. The directory must contain an `__init__.py` that re-exports `setup()` — this is what `load_extension("cogs.<name>")` resolves.
+
 ```
 app/cogs/mycog/
+├── __init__.py   # re-exports setup() — required
 ├── mycog.py      # main cog — inherits LancoCog
 ├── models.py     # optional Peewee models (if DB state is needed)
-└── README.md     # optional per-cog docs
+└── README.md     # per-cog docs
+```
+
+`__init__.py`:
+```python
+from .mycog import setup
 ```
 
 Minimal cog:
@@ -70,6 +78,7 @@ class MyCog(LancoCog, name="MyCog", description="My description"):
         super().__init__(bot)
 
     async def cog_load(self):
+        await super().cog_load()
         self.bot.database.create_tables([MyModel])  # create tables here, not in __init__
 
 async def setup(bot):
@@ -84,7 +93,7 @@ Several cogs (Spotify, Twitter/X, Instagram, TikTok fixes) register themselves a
 
 ### Development Mode
 
-Running `poetry run dev` loads `.env.dev` and sets `DEV_MODE=true` automatically, enabling `watchfiles`-based hot-reload: any change to a file under `app/cogs/` automatically reloads the affected cog without restarting the process.
+Running `poetry run dev` loads `.env.dev` and sets `DEV_MODE=true` automatically, enabling `watchfiles`-based hot-reload. A background task started in `setup_hook` watches `app/cogs/` — any file change triggers a reload of the affected cog package, including all submodules (`models.py`, etc.).
 
 ### Environment
 
