@@ -1,0 +1,1 @@
+from .hotdog import setup

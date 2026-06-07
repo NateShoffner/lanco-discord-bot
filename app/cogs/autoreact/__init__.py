@@ -1,0 +1,1 @@
+from .autoreact import setup

@@ -1,0 +1,1 @@
+from .JiraHate import setup

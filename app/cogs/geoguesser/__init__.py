@@ -1,0 +1,1 @@
+from .geoguesser import setup

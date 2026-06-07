@@ -1,0 +1,1 @@
+from .TechLanc import setup

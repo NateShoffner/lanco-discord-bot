@@ -1,0 +1,1 @@
+from .ScheduledPost import setup

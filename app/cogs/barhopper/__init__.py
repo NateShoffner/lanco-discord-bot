@@ -1,0 +1,1 @@
+from .barhopper import setup

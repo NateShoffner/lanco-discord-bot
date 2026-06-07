@@ -1,0 +1,1 @@
+from .everbridge import setup

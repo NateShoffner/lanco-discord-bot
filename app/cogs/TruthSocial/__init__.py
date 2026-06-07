@@ -1,0 +1,1 @@
+from .TruthSocial import setup

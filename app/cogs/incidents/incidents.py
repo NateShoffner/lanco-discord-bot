@@ -70,9 +70,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         self.last_sync_attempt = None
         self.last_successful_sync = None
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await super().on_ready()
+    async def cog_load(self):
+        await super().cog_load()
         self.get_incidents_loop.change_interval(seconds=5)
         self.get_incidents_loop.start()
 

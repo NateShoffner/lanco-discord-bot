@@ -81,8 +81,7 @@ async def test_all_cogs_load_without_errors(bot):
     environment and are treated as warnings, not failures. Any other error
     (import errors, syntax errors, etc.) is a hard failure.
     """
-    from cogs.lancocog import get_cog_def
-    from main import load_cog
+    from main import CogStatus
 
     # Errors that are acceptable in a test environment (missing keys, missing
     # system libraries that are present in Docker, optional uninstalled deps)
@@ -114,21 +113,20 @@ async def test_all_cogs_load_without_errors(bot):
     skipped = []
 
     for entry in os.scandir(COGS_DIR):
-        if entry.name.startswith("__") or entry.name.endswith(".py"):
+        if not entry.is_dir():
             continue
-        cog_def = get_cog_def(entry.name, "app/cogs")
-        if not os.path.isfile(cog_def.entry_point):
+        if not os.path.isfile(os.path.join(entry.path, "__init__.py")):
             continue
-        result = await load_cog(bot, cog_def)
-        if result.error:
+        result = await bot.load_cog(entry.name)
+        if result.status == CogStatus.ERROR:
             if any(
                 phrase in result.error for phrase in expected_missing_config_phrases
             ):
                 skipped.append(
-                    f"{cog_def.name}: missing API config (expected in test env)"
+                    f"{entry.name}: missing API config (expected in test env)"
                 )
             else:
-                hard_failures.append(f"{cog_def.name}: {result.error}")
+                hard_failures.append(f"{entry.name}: {result.error}")
 
     if skipped:
         print(f"\nSkipped {len(skipped)} cogs due to missing API config:")
@@ -142,35 +140,26 @@ async def test_all_cogs_load_without_errors(bot):
 
 async def test_loaded_cogs_are_discoverable(bot):
     """After loading a cog, it should appear in get_lanco_cogs()."""
-    from cogs.lancocog import get_cog_def
-    from main import load_cog
+    from main import CogStatus
 
-    cog_def = get_cog_def("bot", "app/cogs")
-    result = await load_cog(bot, cog_def)
+    result = await bot.load_cog("bot")
 
-    assert result.loaded
+    assert result.status == CogStatus.LOADED
     assert result.error is None
     assert any(c.get_cog_name().lower() == "bot" for c in bot.get_lanco_cogs())
 
 
 async def test_is_cog_loaded_reflects_state(bot):
     """is_cog_loaded() should return False before loading and True after."""
-    from cogs.lancocog import get_cog_def
-    from main import load_cog
+    assert not bot.is_cog_loaded("bot")
 
-    cog_def = get_cog_def("bot", "app/cogs")
-    assert not bot.is_cog_loaded(cog_def.qualified_name)
-
-    await load_cog(bot, cog_def)
-    assert bot.is_cog_loaded(cog_def.qualified_name)
+    await bot.load_cog("bot")
+    assert bot.is_cog_loaded("bot")
 
 
 def test_missing_cog_entry_point_is_skipped():
-    """A stub cog directory with no entry point file should have no loadable file."""
-    from cogs.lancocog import get_cog_def
-
-    cog_def = get_cog_def("csvtable", "app/cogs")
-    assert not os.path.isfile(cog_def.entry_point)
+    """A cog directory without __init__.py should not be loadable."""
+    assert not os.path.isfile(os.path.join(COGS_DIR, "csvtable", "__init__.py"))
 
 
 # ---------------------------------------------------------------------------
@@ -180,15 +169,10 @@ def test_missing_cog_entry_point_is_skipped():
 
 async def test_register_url_handler(bot):
     """Registering a URL handler should make it retrievable."""
-    from cogs.lancocog import get_cog_def
-    from main import load_cog
-
-    # Load a real cog to use as the handler's cog reference
-    cog_def = get_cog_def("bot", "app/cogs")
-    result = await load_cog(bot, cog_def)
-    cog = result.cog
-
     from cogs.lancocog import UrlHandler
+
+    await bot.load_cog("bot")
+    cog = bot.get_lanco_cog("Bot")
 
     handler = UrlHandler(
         url_pattern=re.compile(r"https://example\.com/.*"),
@@ -203,12 +187,10 @@ async def test_register_url_handler(bot):
 
 async def test_get_url_handler_returns_correct_handler(bot):
     """get_url_handler() should return the matching handler."""
-    from cogs.lancocog import UrlHandler, get_cog_def
-    from main import load_cog
+    from cogs.lancocog import UrlHandler
 
-    cog_def = get_cog_def("bot", "app/cogs")
-    result = await load_cog(bot, cog_def)
-    cog = result.cog
+    await bot.load_cog("bot")
+    cog = bot.get_lanco_cog("Bot")
 
     handler = UrlHandler(
         url_pattern=re.compile(r"https://spotify\.com/.*"),

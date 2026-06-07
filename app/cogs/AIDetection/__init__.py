@@ -1,0 +1,1 @@
+from .AIDetection import setup

@@ -1,0 +1,1 @@
+from .chatrelay import setup

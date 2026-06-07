@@ -1,0 +1,1 @@
+from .redditfeed import setup

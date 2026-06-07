@@ -1,0 +1,1 @@
+from .filefixer import setup

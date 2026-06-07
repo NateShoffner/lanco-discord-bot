@@ -1,0 +1,1 @@
+from .newsheadlines import setup
