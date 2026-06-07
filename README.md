@@ -4,34 +4,84 @@ General-purpose Discord bot with some tailored features for Lancaster County, PA
 
 ## 🎉 Features
 
-The bot is built around a modular cog system. Each cog is self-contained and can be enabled or disabled independently. The following cogs are available:
+The bot is built around a modular cog system. Each cog is self-contained and can be enabled or disabled independently.
 
-|  |  |  |
-|---|---|---|
-| [TipCalc](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tipcalc)<br>Tip calculator | [Magic8Ball](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/magic8ball)<br>Magic 8 Ball | [Twitter/X Embed Fix](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/twitterembed)<br>Fix Twitter/X embeds |
-| [TruthSocial](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/TruthSocial)<br>TruthSocial embed support | [RedditEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditembed)<br>Reddit embed fix | [BarHopper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/barhopper)<br>Bar hopper commands |
-| [OneWordStory](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/onewordstory)<br>One word story game | [RoleStats](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/rolestats)<br>Server role statistics | [PeeCheck](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/peecheck)<br>PeeCheck cog |
-| [AIDetection](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/AIDetection)<br>Detect AI-generated content | [Fishbowl](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/fishbowl)<br>Fishbowl cog | [Conversions](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/conversions)<br>Unit conversions |
-| [AutoResponse](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/autoresponse)<br>Keyword auto-responses | [ChatBot](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/chatbot)<br>User-specific chatbot with agent memory | [RedditFeed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/redditfeed)<br>Reddit feed polling |
-| [NewsHeadlines](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/newsheadlines)<br>News headlines | [Everbridge](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/everbridge)<br>Everbridge alerts | [RandomNsfwReddit](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/randomnsfwreddit)<br>Random NSFW Reddit posts |
-| [Google](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/google)<br>Google search | [SleepCheck](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/sleepcheck)<br>Sleep check commands | [ReactTrack](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/reacttrack)<br>Track reactions |
-| [WolframAlpha](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/wolframalpha)<br>Wolfram Alpha queries | [GameStats](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/gamestats)<br>Server game stats | [Admin](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/admin)<br>Admin commands |
-| [Summarize](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/summarize)<br>Summarize messages | [Fun](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/fun)<br>Fun commands | [AnimeToday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/animetoday)<br>Daily anime announcements |
-| [Pinboard](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/pinboard)<br>Pin messages | [Birthday](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/birthday)<br>Birthday announcements | [Youtube](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/youtube)<br>YouTube feed polling |
-| [GeoGuesser](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/geoguesser)<br>Lancaster-themed GeoGuesser | [InstaEmbed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/instaembed)<br>Instagram embed fix | [Describe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/describe)<br>Describe images via context menu |
-| [Database Backupper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/databasebackupper)<br>Scheduled DB backups | [NutCheck](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/nutcheck)<br>NutCheck cog | [SpyDotKick](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spydotpet)<br>Detect loser bots |
-| [HotDog](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/hotdog)<br>Profile glizzies | [MarkSafe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/marksafe)<br>Mark yourself safe | [EmoteTools](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/emotetools)<br>Emote and sticker tools |
-| [Verification](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/verification)<br>Member verification | [WebPreview](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/webpreview)<br>Web link previews | [TraceMoe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tracemoe)<br>Identify anime from screenshots |
-| [FixIt](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/fixit)<br>FixIt issue tracking | [UserProfiles](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/profile)<br>Custom user profiles | [PDFPreview](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/pdfpreview)<br>PDF preview generation |
-| [FortuneCookie](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/fortunecookie)<br>Fortune cookies | [Spotify Embed Fix](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/spotifyembed)<br>Fix Spotify embeds | [AutoReact](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/autoreact)<br>Keyword auto-reactions |
-| [TextGen](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/textgen)<br>Text generator | [Bot](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/bot)<br>Bot configuration | [FileFixer](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/filefixer)<br>Attempt to fix files |
-| [Weather](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/weather)<br>Weather lookup | [Commands](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/commands)<br>Custom guild commands | [Paywall Bypass](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/paywallbypass)<br>Bypass paywalls |
-| [Genshin](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/genshin)<br>Genshin Impact commands | [Anime](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/anime)<br>Anime commands | [CoinFlip](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/CoinFlip)<br>Flip a coin |
-| [Facts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/facts)<br>Random facts | [dadjoke](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/dadjoke)<br>Dad jokes | [Transcribe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/transcribe)<br>Transcribe audio files |
-| [ADHDChannel](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/adhdchannel)<br>Dynamic channel topic updates | [Incidents](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/incidents)<br>LCWC incident feed | [TikTok Embed Fix](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/tiktokembed)<br>Fix TikTok embeds |
-| [OpenAIPrompts](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/aiprompts)<br>AI-powered prompts | [Astrology](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/astrology)<br>Astrology commands | [Whisper](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/whisper)<br>Whisper transcription |
-| [RSSFeed](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/rssfeed)<br>RSS feed polling | [RemindMe](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/remindme)<br>Set reminders | [Counter](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/counter)<br>Counting channel |
-| [ScheduledPost](https://github.com/NateShoffner/lanco-discord-bot/tree/master/app/cogs/ScheduledPost)<br>Schedule recurring posts | | |
+- [ADHDChannel](app/cogs/adhdchannel) — Dynamic channel topic updates
+- [AIDetection](app/cogs/AIDetection) — Detect AI-generated content
+- [Admin](app/cogs/admin) — Admin commands
+- [Anime](app/cogs/anime) — Anime info lookup
+- [AnimeToday](app/cogs/animetoday) — Daily anime announcements
+- [Astrology](app/cogs/astrology) — Horoscope readings
+- [AutoReact](app/cogs/autoreact) — Keyword auto-reactions
+- [AutoResponse](app/cogs/autoresponse) — Keyword auto-responses
+- [BarHopper](app/cogs/barhopper) — Bar hopper commands
+- [Birthday](app/cogs/birthday) — Birthday announcements
+- [Bot](app/cogs/bot) — Bot configuration
+- [ChatBot](app/cogs/chatbot) — AI chatbot with per-user memory
+- [ChatRelay](app/cogs/chatrelay) — Cross-server message relay
+- [CoinFlip](app/cogs/CoinFlip) — Flip a coin
+- [Commands](app/cogs/commands) — Custom guild commands
+- [Conversions](app/cogs/conversions) — Unit conversions
+- [Counter](app/cogs/counter) — Counting channel game
+- [DadJoke](app/cogs/dadjoke) — Dad jokes
+- [DatabaseBackupper](app/cogs/databasebackupper) — Scheduled DB backups
+- [Describe](app/cogs/describe) — Describe images via context menu
+- [EmoteTools](app/cogs/emotetools) — Emote and sticker tools
+- [Everbridge](app/cogs/everbridge) — Everbridge alerts
+- [Facts](app/cogs/facts) — Random facts
+- [FileFixer](app/cogs/filefixer) — Convert unsupported file types
+- [Fishbowl](app/cogs/fishbowl) — Auto-expiring message channels
+- [FixIt](app/cogs/fixit) — SeeClickFix issue feed
+- [FortuneCookie](app/cogs/fortunecookie) — Fortune cookies
+- [Fun](app/cogs/fun) — Fun commands
+- [GameStats](app/cogs/gamestats) — Server game statistics
+- [GeoGuesser](app/cogs/geoguesser) — Lancaster-themed GeoGuesser
+- [Genshin](app/cogs/genshin) — Genshin Impact commands
+- [Google](app/cogs/google) — Google search links
+- [HotDog](app/cogs/hotdog) — Profile glizzies
+- [Incidents](app/cogs/incidents) — LCWC incident feed
+- [InstaEmbed](app/cogs/instaembed) — Instagram embed fix
+- [Magic8Ball](app/cogs/magic8ball) — Magic 8 Ball
+- [MarkSafe](app/cogs/marksafe) — Mark yourself safe/unsafe
+- [NewsHeadlines](app/cogs/newsheadlines) — News headlines
+- [NutCheck](app/cogs/nutcheck) — No Nut November tracker
+- [OneWordStory](app/cogs/onewordstory) — Collaborative one-word story
+- [OpenAIPrompts](app/cogs/aiprompts) — AI-powered prompts
+- [PaywallBypass](app/cogs/paywallbypass) — Bypass Lancaster Online paywall
+- [PDFPreview](app/cogs/pdfpreview) — PDF preview generation
+- [PeeCheck](app/cogs/peecheck) — Hydration tracker
+- [PetTax](app/cogs/pettax) — Pet tax enforcement
+- [Pinboard](app/cogs/pinboard) — Personal message pinboard
+- [Profile](app/cogs/profile) — Custom user profiles
+- [RandomNSFWReddit](app/cogs/randomnsfwreddit) — Random NSFW subreddits
+- [ReactTrack](app/cogs/reacttrack) — Reaction analytics
+- [RedditEmbed](app/cogs/redditembed) — Reddit embed fix
+- [RedditFeed](app/cogs/redditfeed) — Subreddit feed polling
+- [RemindMe](app/cogs/remindme) — Set reminders
+- [RoleStats](app/cogs/rolestats) — Server role statistics
+- [RSSFeed](app/cogs/rssfeed) — RSS feed polling
+- [ScheduledPost](app/cogs/ScheduledPost) — Schedule recurring posts
+- [SleepCheck](app/cogs/sleepcheck) — Sleep hour leaderboard
+- [SpotifyDaylist](app/cogs/spotifydaylist) — Spotify daylist tracking
+- [SpotifyEmbed](app/cogs/spotifyembed) — Spotify embed fix
+- [SpyDotPet](app/cogs/spydotpet) — Detect suspicious bots
+- [Summarize](app/cogs/summarize) — Channel topic and vibe summaries
+- [System](app/cogs/system) — Bot status and admin info
+- [TextGen](app/cogs/textgen) — Text effects (zalgo, etc.)
+- [TikTokEmbed](app/cogs/tiktokembed) — TikTok embed fix
+- [TipCalc](app/cogs/tipcalc) — Tip calculator
+- [TraceMoe](app/cogs/tracemoe) — Identify anime from screenshots
+- [Transcribe](app/cogs/transcribe) — Transcribe audio files
+- [TruthSocial](app/cogs/TruthSocial) — TruthSocial embed support
+- [Twitter/X Embed](app/cogs/twitterembed) — Twitter/X embed fix
+- [User](app/cogs/user) — User opt-in/opt-out
+- [Verification](app/cogs/verification) — Vote-based member verification
+- [Weather](app/cogs/weather) — Weather lookup
+- [WebPreview](app/cogs/webpreview) — Web link previews
+- [WebServer](app/cogs/webserver) — Embedded status web server
+- [Whisper](app/cogs/whisper) — Send private messages
+- [WolframAlpha](app/cogs/wolframalpha) — Wolfram Alpha queries
+- [YouTube](app/cogs/youtube) — YouTube channel feed polling
 
 ## 🚀 Installation
 
