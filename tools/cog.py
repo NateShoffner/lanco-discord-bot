@@ -49,6 +49,12 @@ def cmd_create(args: argparse.Namespace) -> int:
 
     print(f"✅ Cog '{name}' created at {file_path}")
 
+    init_file_path = os.path.join(dir_path, "__init__.py")
+    with open(init_file_path, "w", encoding="utf-8") as f:
+        f.write(f"from .{name.lower()} import setup\n")
+
+    print(f"✅ __init__.py created at {init_file_path}")
+
     with open(readme_path, "r", encoding="utf-8") as f:
         readme_template = f.read()
 
