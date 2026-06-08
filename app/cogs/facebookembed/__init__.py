@@ -1,0 +1,1 @@
+from .facebookembed import setup
