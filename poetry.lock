@@ -1357,6 +1357,48 @@ doc = ["sphinx"]
 test = ["pytest", "pytest-asyncio"]
 
 [[package]]
+name = "ecs-logging"
+version = "2.3.0"
+description = "Logging formatters for ECS (Elastic Common Schema) in Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "ecs_logging-2.3.0-py3-none-any.whl", hash = "sha256:42da72191a98bd724d105e126ca8d7c81fc82b0d7bbbe4bb1584c34e61042cfc"},
+    {file = "ecs_logging-2.3.0.tar.gz", hash = "sha256:be7f618e71e10c33a61165aea58813ebd702f6c0044538155871cb9a1609ab4e"},
+]
+
+[package.extras]
+develop = ["elastic-apm", "mock", "pytest", "pytest-cov", "structlog"]
+
+[[package]]
+name = "elastic-apm"
+version = "6.26.1"
+description = "The official Python module for Elastic APM"
+optional = false
+python-versions = "<4,>=3.6"
+groups = ["main"]
+files = [
+    {file = "elastic_apm-6.26.1-py2.py3-none-any.whl", hash = "sha256:12842fc090405e3300df4fb2ba758a8aad6967c649a94c30621bf80decab9e91"},
+    {file = "elastic_apm-6.26.1.tar.gz", hash = "sha256:a598d82a0c3e94e85f4192c996df7c8a887e26c2197e1662175e0ff277803058"},
+]
+
+[package.dependencies]
+certifi = "*"
+ecs_logging = "*"
+urllib3 = "<2.0.0 || >2.0.0,<3.0.0"
+wrapt = ">=1.14.1,<1.15.0 || >1.15.0"
+
+[package.extras]
+aiohttp = ["aiohttp"]
+flask = ["blinker"]
+opentelemetry = ["opentelemetry-api", "opentelemetry-sdk"]
+opentracing = ["opentracing (>=2.0.0)"]
+sanic = ["sanic"]
+starlette = ["starlette"]
+tornado = ["tornado"]
+
+[[package]]
 name = "elastic-transport"
 version = "9.1.0"
 description = "Transport classes and utilities shared among Python Elastic client libraries"
@@ -6672,4 +6714,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "554214f920d4952898682f0a09979531743c1cae6c059bd2427f3803419f86f3"
+content-hash = "67136e2f88f684460a13946d0bba537559ed3d8d5c67724cd34d5f8610c607a6"

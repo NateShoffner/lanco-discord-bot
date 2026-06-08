@@ -145,6 +145,65 @@ if dev_arg:
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
 
+# Elastic APM (optional). Enabled only when ELASTIC_APM_SERVER_URL is set.
+# The agent self-configures from standard ELASTIC_APM_* environment variables
+# (SERVER_URL, SECRET_TOKEN or API_KEY, VERIFY_SERVER_CERT, etc.) so this works
+# against Elastic Cloud, a self-hosted APM Server, or a local stack without any
+# hardcoded, deployment-specific values. When unset, apm_client stays None and
+# all capture calls are no-ops.
+apm_client = None
+
+
+def init_apm():
+    """Construct the Elastic APM client once, if configured.
+
+    Called from main() rather than at module level so cog re-imports don't
+    register a duplicate client. Idempotent.
+    """
+    global apm_client
+    if apm_client is not None:
+        return
+    if not os.getenv("ELASTIC_APM_SERVER_URL"):
+        return
+    try:
+        import elasticapm
+
+        apm_client = elasticapm.Client(
+            service_name=os.getenv("ELASTIC_APM_SERVICE_NAME", "lanco-bot"),
+            environment=(
+                "dev" if os.getenv("DEV_MODE", "").lower() == "true" else "production"
+            ),
+        )
+        logger.info(
+            f"Elastic APM enabled (server={os.getenv('ELASTIC_APM_SERVER_URL')}, "
+            f"service={apm_client.config.service_name}, "
+            f"environment={apm_client.config.environment})"
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize Elastic APM: {e}")
+        apm_client = None
+
+
+def capture_apm_exception(**context) -> None:
+    """Report the current exception to Elastic APM, if configured.
+
+    No-op when disabled. Keyword args become filterable labels; a "user" dict
+    sets the APM user context.
+    """
+    if apm_client is None:
+        return
+    try:
+        user = context.pop("user", None)
+        if user:
+            elasticapm.set_user_context(**user)
+        labels = {k: v for k, v in context.items() if v is not None}
+        if labels:
+            elasticapm.label(**labels)
+        apm_client.capture_exception(handled=True)
+    except Exception as e:
+        logger.error(f"Failed to capture exception in Elastic APM: {e}")
+
+
 intents = discord.Intents.all()
 
 DEFAULT_PREFIX = "."
@@ -386,6 +445,61 @@ bot = LancoBot(
 )
 
 
+def _apm_user(obj) -> Optional[dict]:
+    """Build an APM user-context dict from a discord User/Member, if present."""
+    user = getattr(obj, "author", None) or getattr(obj, "user", None)
+    if user is None:
+        return None
+    return {"user_id": str(user.id), "username": str(user)}
+
+
+@bot.event
+async def on_command_error(ctx: commands.Context, error: Exception):
+    # Ignore the common, expected non-errors so they don't pollute APM/logs.
+    if isinstance(
+        error,
+        (commands.CommandNotFound, commands.CheckFailure, commands.UserInputError),
+    ):
+        return
+    original = getattr(error, "original", error)
+    logger.error(f"Command error in {ctx.command}: {original}", exc_info=original)
+    capture_apm_exception(
+        command=str(ctx.command) if ctx.command else None,
+        cog=ctx.cog.qualified_name if ctx.cog else None,
+        guild_id=ctx.guild.id if ctx.guild else None,
+        channel_id=ctx.channel.id if ctx.channel else None,
+        user=_apm_user(ctx),
+    )
+
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: Exception):
+    if isinstance(error, discord.app_commands.CheckFailure):
+        return
+    original = getattr(error, "original", error)
+    command = interaction.command.qualified_name if interaction.command else None
+    logger.error(f"App command error in {command}: {original}", exc_info=original)
+    capture_apm_exception(
+        command=command,
+        cog=(
+            interaction.command.binding.qualified_name
+            if getattr(interaction.command, "binding", None)
+            else None
+        ),
+        guild_id=interaction.guild_id,
+        channel_id=interaction.channel_id,
+        user=_apm_user(interaction),
+    )
+
+
+@bot.event
+async def on_error(event_method: str, *args, **kwargs):
+    # Fires for any uncaught exception in an event listener (on_message, etc.).
+    # logger.exception() pulls the active exception from sys.exc_info().
+    logger.exception(f"Unhandled exception in event: {event_method}")
+    capture_apm_exception(event=event_method)
+
+
 @bot.command(name="gsync")
 @commands.is_owner()
 async def guildsync(ctx):
@@ -500,6 +614,7 @@ async def main():
     from utils.config import GuildConfig
     from utils.db_backup import DatabaseBackup
 
+    init_apm()
     database.create_tables([GuildConfig])
     for config in GuildConfig.select():
         if config.prefix:
