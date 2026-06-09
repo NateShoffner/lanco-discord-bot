@@ -10,7 +10,11 @@ from utils.common import is_regex
 from .models import AutoResponseConfig
 
 
-class AutoResponse(LancoCog, name="AutoResponse", description="AutoResponse cog"):
+class AutoResponse(
+    LancoCog,
+    name="AutoResponse",
+    description="Auto-reply to messages matching configured phrases or patterns",
+):
     g = app_commands.Group(name="autoresponse", description="AutoResponse commands")
 
     def __init__(self, bot: commands.Bot):

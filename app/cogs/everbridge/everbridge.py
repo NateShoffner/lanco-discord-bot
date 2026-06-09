@@ -22,7 +22,7 @@ from .models import EverbridgeConfig
 class Everbridge(
     LancoCog,
     name="Everbridge",
-    description="Everbridge cog",
+    description="Subscribe to Everbridge emergency alert notifications",
 ):
     g = app_commands.Group(
         name="everbridge",

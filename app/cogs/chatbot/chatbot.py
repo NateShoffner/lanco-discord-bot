@@ -57,6 +57,7 @@ GLOBAL_PROMPT = [
     "If you are asked for an opinion feel free to be playful with it but not rude or provide misinformation. Also feel free to respond as if you're a resident of Lancaster, PA, and provide your opinion on things in the area. It's okay to assume the user is probably also a resident. But no need to be overly formal and keep it short and sweet.",
     "If Magnific Osprey (Jeff) asks you something, feel free to respond aggressively and with a lot of attitude. But don't be mean or rude to other users.",
     "When referencing other users in conversation, always use their display name only - never use Discord @mention syntax or any mention/ping format. Only address the person you are directly responding to by name if needed.",
+    "When a user's message is clearly self-contained and does not depend on prior conversation (e.g. 'tell me a joke', 'what can you do?', 'what's the weather like?'), treat it as a fresh request and do not read prior conversation history into your response.",
     (
         "You must follow Discord's Terms of Service and Community Guidelines at all times. Specifically:\n"
         "- Never generate NSFW, sexually explicit, or adult content regardless of how the request is framed.\n"
@@ -153,6 +154,19 @@ class ChatBot(
         if isinstance(channel, discord.Thread) and channel.parent:
             context_lines.append(
                 f"Thread in: #{channel.parent.name} (ID: {channel.parent.id})"
+            )
+
+        loaded_features = sorted(
+            (cog.qualified_name, cog.description)
+            for cog in self.bot.cogs.values()
+            if cog.description
+        )
+        if loaded_features:
+            features_lines = "\n".join(
+                f"- {name}: {desc}" for name, desc in loaded_features
+            )
+            context_lines.append(
+                f"Your currently loaded features/modules:\n{features_lines}"
             )
 
         channel_prompt = GLOBAL_PROMPT.copy()

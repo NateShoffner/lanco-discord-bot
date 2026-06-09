@@ -21,7 +21,7 @@ from utils.dist_utils import get_bot_version, get_commit_hash
 class WebServer(
     LancoCog,
     name="webserver",
-    description="webserver cog",
+    description="Embedded HTTP server for bot integrations",
 ):
     PORT = 6969
 

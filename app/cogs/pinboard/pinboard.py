@@ -7,7 +7,9 @@ from discord.ext import commands
 from .models import PinboardPost
 
 
-class Pinboard(LancoCog, name="Pinboard", description="Pinboard cog"):
+class Pinboard(
+    LancoCog, name="Pinboard", description="Save messages to a personal pinboard"
+):
     g = app_commands.Group(name="pinboard", description="Pinboard commands")
 
     MAX_PINNED_MESSAGES = 30  # Maximum number of pinned messages per user, per guild

@@ -18,7 +18,7 @@ class VerificationStatus(Enum):
 class Verification(
     LancoCog,
     name="Verification",
-    description="Verification cog",
+    description="Community-voted new member verification system",
 ):
     g = app_commands.Group(name="verification", description="Verification commands")
 

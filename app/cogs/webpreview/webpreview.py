@@ -18,7 +18,11 @@ class PageDetails(BaseModel):
     description: Optional[str]
 
 
-class WebPreview(LancoCog, name="WebPreview", description="WebPreview cog"):
+class WebPreview(
+    LancoCog,
+    name="WebPreview",
+    description="Generate rich previews for URLs posted in messages",
+):
     g = app_commands.Group(name="webpreview", description="Web preview commands")
 
     def __init__(self, bot: commands.Bot):
