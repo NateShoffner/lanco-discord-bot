@@ -1,7 +1,9 @@
+import asyncio
 import logging
 import os
 import uuid
 
+import aiofiles
 import aiohttp
 from discord import Message
 
@@ -34,16 +36,15 @@ class FileDownloader:
                 if response.status == 200:
                     data = await response.read()
 
-                    if not os.path.exists(dir):
-                        os.makedirs(dir)
+                    await asyncio.to_thread(os.makedirs, dir, exist_ok=True)
 
                     if not filename:
                         filename = self.get_random_filename(url, dir)
                     else:
                         filename = os.path.join(dir, filename)
 
-                    with open(filename, "wb") as f:
-                        f.write(data)
+                    async with aiofiles.open(filename, "wb") as f:
+                        await f.write(data)
 
                     return filename
 
@@ -99,8 +100,7 @@ class FileDownloader:
                         # https://c.tenor.com/jv1uzXK_ELwAAAC/fullmetal-alchemist.gif
             self.logger.info(f"URL: {url}")
 
-        if not os.path.exists(dir):
-            os.makedirs(dir)
+        await asyncio.to_thread(os.makedirs, dir, exist_ok=True)
 
         for url in urls:
             filename = await self.download_file(url, dir)

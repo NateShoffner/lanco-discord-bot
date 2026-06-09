@@ -1,6 +1,7 @@
 import io
 import os
 
+import aiofiles
 import discord
 
 
@@ -29,7 +30,7 @@ async def download_voice_message(message: discord.Message, dir: str) -> str:
     voice_file = io.BytesIO(voice_file)
 
     ogg_file_path = os.path.join(dir, f"{message.id}.ogg")
-    with open(ogg_file_path, "wb") as f:
-        f.write(voice_file.getvalue())
+    async with aiofiles.open(ogg_file_path, "wb") as f:
+        await f.write(voice_file.getvalue())
 
     return ogg_file_path
