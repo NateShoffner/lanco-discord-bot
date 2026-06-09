@@ -80,7 +80,6 @@ The bot is built around a modular cog system. Each cog is self-contained and can
 - [Weather](app/cogs/weather) - Weather lookup
 - [WebPreview](app/cogs/webpreview) - Web link previews
 - [WebServer](app/cogs/webserver) - Embedded status web server
-- [Whisper](app/cogs/whisper) - Send private messages
 - [WolframAlpha](app/cogs/wolframalpha) - Wolfram Alpha queries
 - [YouTube](app/cogs/youtube) - YouTube channel feed polling
 
