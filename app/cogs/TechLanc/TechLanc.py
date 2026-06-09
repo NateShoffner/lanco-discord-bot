@@ -215,11 +215,22 @@ class TechLanc(
     @techlanc_group.command(
         name="post", description="Manually post this week's Tech Lancaster meetups"
     )
+    @app_commands.checks.cooldown(1, 30.0, key=lambda i: i.guild_id)
     @is_bot_owner_or_admin()
     async def post(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await self.send_weekly_meetups(interaction.channel)
         await interaction.followup.send("Posted.", ephemeral=True)
+
+    @post.error
+    async def post_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
+        if isinstance(error, app_commands.errors.CommandOnCooldown):
+            await interaction.response.send_message(
+                f"This command is on cooldown. Try again in {error.retry_after:.0f}s.",
+                ephemeral=True,
+            )
 
     @techlanc_group.command(
         name="seteventurl",
@@ -352,6 +363,7 @@ class TechLanc(
 
     # TODO: replace with a custom command once the CustomCommands cog supports dynamic date formatting
     @commands.command(name="ps")
+    @commands.cooldown(1, 30, commands.BucketType.guild)
     async def ps_command(self, ctx):
         """Post the Pub Standards meetup announcement."""
         if not self._can_post_tlm(ctx):
@@ -377,6 +389,7 @@ class TechLanc(
         await ctx.send(f"{intro}\n\n{PS_DESCRIPTION}")
 
     @commands.command(name="tl", aliases=["techlanc", "techlancaster"])
+    @commands.cooldown(1, 30, commands.BucketType.guild)
     async def tl_command(self, ctx):
         """Post this week's Tech Lancaster meetups."""
         await self.send_weekly_meetups(ctx.channel)
@@ -510,6 +523,12 @@ class TechLanc(
 
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
+    async def cog_command_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ):
+        if isinstance(error, commands.CommandOnCooldown):
+            return
+
     def _can_post_tlm(self, ctx: commands.Context) -> bool:
         """Returns True if the user is allowed to run !tlm."""
         # Bot owner and admins always can
@@ -530,6 +549,7 @@ class TechLanc(
         return False
 
     @commands.command(name="tlm")
+    @commands.cooldown(1, 30, commands.BucketType.guild)
     async def tlm_command(self, ctx):
         """Post the next Tech Lancaster Meetup details including speakers."""
         if not self._can_post_tlm(ctx):
