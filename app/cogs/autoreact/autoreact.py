@@ -10,7 +10,11 @@ from utils.common import is_emoji, is_regex
 from .models import AutoReactConfig
 
 
-class AutoReact(LancoCog, name="AutoReact", description="AutoReact cog"):
+class AutoReact(
+    LancoCog,
+    name="AutoReact",
+    description="Auto-react to messages with emojis based on phrases or patterns",
+):
     g = app_commands.Group(name="autoreact", description="AutoReact commands")
 
     def __init__(self, bot: commands.Bot):

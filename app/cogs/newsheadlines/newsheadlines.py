@@ -23,7 +23,11 @@ class Headline(BaseModel):
         json_encoders = {datetime: lambda v: v.isoformat()}
 
 
-class NewsHeadlines(LancoCog, name="NewsHeadlines", description="NewsHeadlines cog"):
+class NewsHeadlines(
+    LancoCog,
+    name="NewsHeadlines",
+    description="Fetch and display latest news headlines",
+):
     MAX_HEADLINES = 5
     BASE_URL = "https://newsapi.org/v2"
 

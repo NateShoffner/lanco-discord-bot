@@ -4,7 +4,11 @@ from discord import app_commands
 from discord.ext import commands
 
 
-class Conversions(LancoCog, name="Conversions", description="Conversions cog"):
+class Conversions(
+    LancoCog,
+    name="Conversions",
+    description="Unit conversion commands (temperature, etc.)",
+):
     conversion_group = app_commands.Group(
         name="conversion", description="Conversion commands"
     )

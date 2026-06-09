@@ -8,7 +8,11 @@ from PIL import Image
 from utils.emoji_uploader import EmojiUploader, LocalEmoji
 
 
-class PeeCheck(LancoCog, name="PeeCheck", description="PeeCheck cog"):
+class PeeCheck(
+    LancoCog,
+    name="PeeCheck",
+    description="Daily hydration check-in via pee clarity tracking",
+):
     colors = [
         "#FBFCEE",
         "#FAFAD5",

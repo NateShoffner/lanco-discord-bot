@@ -7,7 +7,11 @@ from discord.ext import commands
 from utils.channel_lock import command_channel_lock
 
 
-class Genshin(LancoCog, name="Genshin", description="Genshin cog"):
+class Genshin(
+    LancoCog,
+    name="Genshin",
+    description="Reacts with a warning emoji when Genshin Impact is mentioned",
+):
     blacklisted_words = ["genshin"]
 
     @commands.Cog.listener()

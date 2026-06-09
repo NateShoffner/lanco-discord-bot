@@ -43,7 +43,11 @@ class FactModal(discord.ui.Modal, title="Fact Info"):
         )
 
 
-class Facts(LancoCog, name="Facts", description="Facts cog"):
+class Facts(
+    LancoCog,
+    name="Facts",
+    description="Community-submitted facts with random retrieval",
+):
     fact_group = app_commands.Group(name="fact", description="Fact commands")
 
     def __init__(self, bot: commands.Bot):

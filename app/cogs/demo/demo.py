@@ -7,7 +7,7 @@ from discord.ext import commands
 from utils.channel_lock import command_channel_lock
 
 
-class Demo(LancoCog, name="Demo", description="Demo cog"):
+class Demo(LancoCog, name="Demo", description="Demo and example commands"):
     def build_options(self):
         dynamic_options = [
             {"name": "Dynamic Option 1", "value": "dynamic1"},

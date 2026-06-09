@@ -7,7 +7,11 @@ from utils.command_utils import is_bot_owner_or_admin
 from .models import FishbowlConfig
 
 
-class Fishbowl(LancoCog, name="Fishbowl", description="Fishbowl cog"):
+class Fishbowl(
+    LancoCog,
+    name="Fishbowl",
+    description="Auto-delete messages in designated channels after a time delay",
+):
     g = app_commands.Group(name="fishbowl", description="Fishbowl commands")
 
     def __init__(self, bot: commands.Bot):

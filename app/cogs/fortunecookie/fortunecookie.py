@@ -6,7 +6,11 @@ from cogs.lancocog import LancoCog
 from discord.ext import commands
 
 
-class FortuneCookie(LancoCog, name="FortuneCookie", description="FortuneCookie cog"):
+class FortuneCookie(
+    LancoCog,
+    name="FortuneCookie",
+    description="Dispense random fortune cookie messages",
+):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

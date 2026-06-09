@@ -19,7 +19,11 @@ class YoutubeVideo:
     uploaded_at: str
 
 
-class Youtube(LancoCog, name="Youtube", description="Youtube cog"):
+class Youtube(
+    LancoCog,
+    name="Youtube",
+    description="Subscribe to YouTube channels and post new video notifications",
+):
     g = app_commands.Group(name="youtube", description="Youtube commands")
 
     UPDATE_INTERVAL = 10 * 60  # 10 minutes

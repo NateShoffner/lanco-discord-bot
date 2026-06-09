@@ -7,7 +7,9 @@ from discord.ext import commands
 from PIL import Image
 
 
-class NutCheck(LancoCog, name="NutCheck", description="NutCheck cog"):
+class NutCheck(
+    LancoCog, name="NutCheck", description="No Nut November participation tracker"
+):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
 

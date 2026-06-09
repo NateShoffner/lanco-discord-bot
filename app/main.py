@@ -97,6 +97,8 @@ for noisy in [
     "asyncprawcore",
     "discord",
     "watchfiles",
+    "httpx",
+    "openai",
 ]:
     logging.getLogger(noisy).setLevel(logging.WARNING)
 

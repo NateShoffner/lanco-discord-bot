@@ -14,7 +14,7 @@ from discord.ext import commands
 class RoleStats(
     LancoCog,
     name="RoleStats",
-    description="RoleStats cog",
+    description="Show member counts and stats per role",
 ):
     g = app_commands.Group(name="rolestats", description="RoleStats commands")
 

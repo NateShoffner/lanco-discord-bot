@@ -21,7 +21,7 @@ from discord.ext import commands, tasks
 class RandomNsfwReddit(
     LancoCog,
     name="RandomNsfwReddit",
-    description="RandomNsfwReddit cog",
+    description="Post random NSFW Reddit content to age-gated channels",
 ):
     UPDATE_INTERVAL = 6 * 60 * 60  # 6 hours in seconds
 
