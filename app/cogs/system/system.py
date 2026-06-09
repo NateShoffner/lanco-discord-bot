@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import os
 from sys import version_info as sysv
@@ -52,24 +53,8 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
             title=f"{self.bot.user.name} Info", description=desc, color=0x00FF00
         )
 
-        users = len(self.bot.users)
-        unique_users = sum(len(g.members) for g in self.bot.guilds)
-        channels = list(self.bot.get_all_channels())
-        text_channels = sum(1 for c in channels if isinstance(c, discord.TextChannel))
-        voice_channels = sum(1 for c in channels if isinstance(c, discord.VoiceChannel))
-
         uptime = datetime.datetime.now() - self.bot.start_time
         uptime_str = f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s"
-
-        memory_usage = cpu_usage = "N/A"
-        pid = None
-        try:
-            pid = os.getpid()
-            process = psutil.Process(pid)
-            memory_usage = f"{process.memory_info().rss / 1024 / 1024:.2f} MB"
-            cpu_usage = f"{psutil.cpu_percent(interval=1)}%"
-        except Exception as e:
-            self.logger.error(f"Failed to get memory/cpu usage: {e}")
 
         owner_str = "Unknown"
         if info.owner:
@@ -77,13 +62,48 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         if info.team:
             owner_str = info.team.name
 
+        commit = get_commit_hash()
+        github = os.getenv("GITHUB_REPO")
+        version_value = (
+            f"v{get_bot_version()} - [{commit[:7]}]({github}/commit/{commit})"
+            if github
+            else f"v{get_bot_version()} - {commit[:7]}"
+        )
+
+        embed.add_field(name="Servers", value=str(len(self.bot.guilds)))
+        embed.add_field(name="Users", value=str(len(self.bot.users)))
+        embed.add_field(name="Uptime", value=uptime_str)
+        embed.add_field(name="Latency", value=f"{round(self.bot.latency * 1000)}ms")
+        embed.add_field(name="Owner", value=owner_str)
+        embed.add_field(name="Version", value=version_value)
+
+        embed.set_footer(
+            text=f"Discord.py v{discord.__version__} • Python {sysv.major}.{sysv.minor}.{sysv.micro}",
+            icon_url="https://lancobot.dev/discord.py.png",
+        )
+
+        await interaction.response.send_message(embed=embed)
+
+    @discord.app_commands.command(name="diag", description="Show bot diagnostics")
+    @is_bot_owner()
+    async def diag(self, interaction: discord.Interaction):
+        channels = list(self.bot.get_all_channels())
+        text_channels = sum(1 for c in channels if isinstance(c, discord.TextChannel))
+        voice_channels = sum(1 for c in channels if isinstance(c, discord.VoiceChannel))
+
+        memory_usage = cpu_usage = "N/A"
+        pid = None
+        try:
+            pid = os.getpid()
+            process = psutil.Process(pid)
+            memory_usage = f"{process.memory_info().rss / 1024 / 1024:.2f} MB"
+            cpu_usage = f"{await asyncio.to_thread(psutil.cpu_percent, interval=1)}%"
+        except Exception as e:
+            self.logger.error(f"Failed to get memory/cpu usage: {e}")
+
         application_emojis = await self.bot.fetch_application_emojis()
 
-        embed.add_field(
-            name="Servers",
-            value=f"Total: {len(self.bot.guilds)}\nShards: {self.bot.shard_count or 1}",
-        )
-        embed.add_field(name="Users", value=f"Total: {users}\nUnique: {unique_users}")
+        embed = discord.Embed(title="Bot Diagnostics", color=0x00FF00)
         embed.add_field(
             name="Channels",
             value=f"Total: {len(channels)}\nText: {text_channels}\nVoice: {voice_channels}",
@@ -99,62 +119,14 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         embed.add_field(
             name="Process", value=f"RAM: {memory_usage}\nCPU: {cpu_usage}\nPID: {pid}"
         )
-        embed.add_field(name="Latency", value=f"{round(self.bot.latency * 1000)}ms")
+        embed.add_field(name="Cogs", value=str(len(self.bot.get_lanco_cogs())))
         embed.add_field(
             name="Dev Mode", value="Enabled" if self.bot.dev_mode else "Disabled"
         )
-        embed.add_field(name="Uptime", value=uptime_str)
-        embed.add_field(name="Cogs", value=f"{len(self.bot.get_lanco_cogs())}")
-        embed.add_field(name="Owner", value=owner_str)
+        embed.add_field(name="Message Cache", value=str(len(self.bot.cached_messages)))
+        embed.add_field(name="Voice Clients", value=str(len(self.bot.voice_clients)))
+        embed.add_field(name="URL Handlers", value=str(len(self.bot.url_handlers)))
 
-        commit = get_commit_hash()
-        github = os.getenv("GITHUB_REPO")
-        if github:
-            embed.add_field(
-                name="Version",
-                value=f"v{get_bot_version()} - [{commit[:7]}]({github}/commit/{commit})",
-            )
-        else:
-            embed.add_field(
-                name="Version", value=f"v{get_bot_version()} - Commit: {commit[:7]}"
-            )
-
-        embed.add_field(name="Message Cache", value=f"{len(self.bot.cached_messages)}")
-        embed.add_field(name="Voice Clients", value=f"{len(self.bot.voice_clients)}")
-        embed.add_field(name="URL Handlers", value=f"{len(self.bot.url_handlers)}")
-
-        embed.set_footer(
-            text=f"Made with ❤️ with Discord.py v{discord.__version__} on Python {sysv.major}.{sysv.minor}.{sysv.micro}",
-            icon_url="https://lancobot.dev/discord.py.png",
-        )
-
-        await interaction.response.send_message(embed=embed)
-
-    @discord.app_commands.command(name="cogs", description="List loaded cogs")
-    async def cogs(self, interaction: discord.Interaction):
-        cogs = self.bot.get_lanco_cogs()
-        cog_list = "\n".join(f"{c.qualified_name} - {c.description}" for c in cogs)
-        embed = discord.Embed(
-            title=f"Loaded Cogs: {len(cogs)}",
-            description=f"```{cog_list}```",
-            color=0x00FF00,
-        )
-        await interaction.response.send_message(embed=embed)
-
-    @discord.app_commands.command(name="netstats", description="Show network stats")
-    async def netstats(self, interaction: discord.Interaction):
-        is_owner = await self.bot.is_owner(interaction.user)
-        ip = await get_external_ip()
-
-        embed = discord.Embed(
-            title="Network Stats", description="Various network stats", color=0x00FF00
-        )
-        embed.add_field(
-            name="External IP", value=ip if is_owner else "🔒 Hidden", inline=False
-        )
-        embed.add_field(
-            name="Latency", value=f"{round(self.bot.latency * 1000)}ms", inline=False
-        )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.command(name="dbinfo", description="Show database info")

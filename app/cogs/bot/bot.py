@@ -85,24 +85,6 @@ class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
             f"Prefix set to `{prefix}`", ephemeral=True
         )
 
-    @app_commands.command(
-        name="prefix",
-        description="Show the current command prefix for this guild",
-    )
-    async def prefix(self, interaction: discord.Interaction):
-        import main
-
-        guild_id = interaction.guild.id
-        if guild_id in main._prefix_cache:
-            current = main._prefix_cache[guild_id]
-        else:
-            config = GuildConfig.get_or_none(guild_id=guild_id)
-            current = config.prefix if config and config.prefix else main.DEFAULT_PREFIX
-            main._prefix_cache[guild_id] = current
-        await interaction.response.send_message(
-            f"Current prefix: `{current}`", ephemeral=True
-        )
-
 
 async def setup(bot):
     await bot.add_cog(Bot(bot))
