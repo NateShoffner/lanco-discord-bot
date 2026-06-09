@@ -18,7 +18,7 @@ from utils.ai_utils import run_agent
 _MENTION_RE = re.compile(r"<@!?(\d+)>")
 
 MAX_HISTORY_MESSAGES = 40  # rolling window (~20 back-and-forth turns)
-CONTEXT_MESSAGE_LIMIT = 20  # recent channel messages to inject as context
+CONTEXT_MESSAGE_LIMIT = 10  # recent channel messages to inject as context
 MAX_IMAGE_SIZE = (
     25 * 1024 * 1024
 )  # 25 MB, pre-resize (always resized down before sending)
@@ -144,30 +144,28 @@ class ChatBot(
         topic = getattr(channel, "topic", None)
         member_count = channel.guild.member_count
 
+        _INTERNAL_COGS = {"LancoCog", "EmbedFixCog", "Demo"}
+
         context_lines = [
-            f"You are a helpful assistant. Your creator is {owner_name}. You are known as {bot_name} (ID: {self.bot.user.id}).",
-            f"Guild: {channel.guild.name} (ID: {channel.guild.id}, members: {member_count})",
-            f"Channel: #{channel.name} (ID: {channel.id})",
+            f"You are a helpful assistant. Your creator is {owner_name}. You are known as {bot_name}.",
+            f"Guild: {channel.guild.name} ({member_count} members)",
+            f"Channel: #{channel.name}",
         ]
         if topic:
             context_lines.append(f"Channel topic: {topic}")
         if isinstance(channel, discord.Thread) and channel.parent:
-            context_lines.append(
-                f"Thread in: #{channel.parent.name} (ID: {channel.parent.id})"
-            )
+            context_lines.append(f"Thread in: #{channel.parent.name}")
 
         loaded_features = sorted(
             (cog.qualified_name, cog.description)
             for cog in self.bot.cogs.values()
-            if cog.description
+            if cog.description and cog.qualified_name not in _INTERNAL_COGS
         )
         if loaded_features:
             features_lines = "\n".join(
-                f"- {name}: {desc}" for name, desc in loaded_features
+                f"{name}: {desc}" for name, desc in loaded_features
             )
-            context_lines.append(
-                f"Your currently loaded features/modules:\n{features_lines}"
-            )
+            context_lines.append(f"Loaded features:\n{features_lines}")
 
         channel_prompt = GLOBAL_PROMPT.copy()
         channel_prompt.insert(0, "\n".join(context_lines))
@@ -296,43 +294,27 @@ class ChatBot(
         author = message.author
         now = datetime.now(timezone.utc)
         roles = []
-        joined_at_str = "unknown"
+        joined_days: int | None = None
         if isinstance(author, discord.Member):
             roles = [r.name for r in author.roles if r.name != "@everyone"]
             if author.joined_at:
-                days_in_guild = (now - author.joined_at).days
-                joined_at_str = f"{author.joined_at.strftime('%Y-%m-%d')} ({days_in_guild} days ago)"
+                joined_days = (now - author.joined_at).days
 
-        account_age_str = "unknown"
-        if author.created_at:
-            account_age_days = (now - author.created_at).days
-            account_age_str = f"{author.created_at.strftime('%Y-%m-%d')} ({account_age_days} days ago)"
-
-        sender_ctx = (
-            f"Display name: {author.display_name}\n"
-            f"Username: {author.name}\n"
-            f"User ID: {author.id}\n"
-            f"Account created: {account_age_str}\n"
-            f"Joined server: {joined_at_str}\n"
-            f"Roles: {', '.join(roles) if roles else 'none'}"
-        )
-
-        timestamp = now.strftime("%Y-%m-%d %H:%M UTC")
+        sender_parts = [f"{author.display_name} (@{author.name})"]
+        if joined_days is not None:
+            sender_parts.append(f"joined {joined_days}d ago")
+        if roles:
+            sender_parts.append(f"roles: {', '.join(roles)}")
+        sender_ctx = ", ".join(sender_parts)
 
         if ctx_lines:
             context_block = "\n".join(ctx_lines)
             content = (
-                f"[Timestamp: {timestamp}]\n\n"
-                f"[Recent channel conversation]\n{context_block}\n\n"
-                f"[Message sender]\n{sender_ctx}\n\n"
-                f"[Message]\n{content}"
+                f"[Recent conversation]\n{context_block}\n\n"
+                f"[{sender_ctx}]\n{content}"
             )
         else:
-            content = (
-                f"[Timestamp: {timestamp}]\n\n"
-                f"[Message sender]\n{sender_ctx}\n\n"
-                f"[Message]\n{content}"
-            )
+            content = f"[{sender_ctx}]\n{content}"
 
         # Build message parts: text first, then direct attachments (primary subject),
         # then context images newest-first (background reference)
