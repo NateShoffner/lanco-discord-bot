@@ -119,6 +119,18 @@ poetry run dev
 docker-compose up --build
 ```
 
+## 📊 Monitoring (optional)
+
+The bot can report errors to [Elastic APM](https://www.elastic.co/observability/application-performance-monitoring). Uncaught exceptions from commands, slash commands, event listeners, and cog loading are sent with stack traces and labels (command/cog/guild/user).
+
+It's enabled only when `ELASTIC_APM_SERVER_URL` is set, and fully disabled (no-op) otherwise. The agent self-configures from the standard `ELASTIC_APM_*` environment variables, so it works with Elastic Cloud, a self-hosted APM Server, or a local stack:
+
+```bash
+ELASTIC_APM_SERVER_URL=https://<id>.apm.<region>.cloud.es.io:443
+ELASTIC_APM_SECRET_TOKEN=<token>   # or ELASTIC_APM_API_KEY
+ELASTIC_APM_SERVICE_NAME=lanco-bot # optional
+```
+
 ## 🛠️ Contribute
 
 Feel free to fork and submit pull requests for any features or fixes you think should be included.

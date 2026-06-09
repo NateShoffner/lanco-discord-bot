@@ -10,6 +10,7 @@ from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 import discord
+import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
 from db import BaseModel, DatabaseType, database_proxy
 from discord.ext import commands
@@ -166,8 +167,6 @@ def init_apm():
     if not os.getenv("ELASTIC_APM_SERVER_URL"):
         return
     try:
-        import elasticapm
-
         apm_client = elasticapm.Client(
             service_name=os.getenv("ELASTIC_APM_SERVICE_NAME", "lanco-bot"),
             environment=(
@@ -193,13 +192,17 @@ def capture_apm_exception(**context) -> None:
     if apm_client is None:
         return
     try:
+        # Attach context directly to the error event. The transaction-scoped
+        # helpers (label()/set_user_context()) are dropped when no transaction
+        # is active, which is the case for cog-load and listener errors.
         user = context.pop("user", None)
-        if user:
-            elasticapm.set_user_context(**user)
         labels = {k: v for k, v in context.items() if v is not None}
+        ctx = {}
+        if user:
+            ctx["user"] = user
         if labels:
-            elasticapm.label(**labels)
-        apm_client.capture_exception(handled=True)
+            ctx["tags"] = labels
+        apm_client.capture_exception(handled=True, context=ctx or None)
     except Exception as e:
         logger.error(f"Failed to capture exception in Elastic APM: {e}")
 
@@ -342,6 +345,7 @@ class LancoBot(commands.Bot):
                 result.status = CogStatus.LOADED
         except Exception as e:
             logger.error(f"Failed to load cog {name}: {e}")
+            capture_apm_exception(cog=name, event="cog_load")
             result.status = CogStatus.ERROR
             result.error = str(e)
         return result
@@ -377,6 +381,7 @@ class LancoBot(commands.Bot):
                 result.status = CogStatus.UNLOADED
             except Exception as e:
                 logger.error(f"Failed to unload cog {name}: {e}")
+                capture_apm_exception(cog=name, event="cog_unload")
                 result.status = CogStatus.ERROR
                 result.error = str(e)
         return result
@@ -519,6 +524,9 @@ async def guildsync(ctx):
         await msg.edit(embed=embed)
     except Exception as e:
         logger.error(e)
+        capture_apm_exception(
+            command="gsync", guild_id=ctx.guild.id, user=_apm_user(ctx)
+        )
 
 
 @bot.command(name="sync")
@@ -539,6 +547,7 @@ async def sync(ctx):
         await msg.edit(embed=embed)
     except Exception as e:
         logger.error(e)
+        capture_apm_exception(command="sync", user=_apm_user(ctx))
 
 
 @bot.tree.command(name="reload", description="Reload a cog")
