@@ -26,3 +26,14 @@ A conversational AI cog powered by OpenAI via pydantic-ai. The bot responds when
 | Text files (`text/*`, JSON, XML, YAML) | 32 KB |
 
 Unsupported or oversized attachments are noted in the message to the model so it can acknowledge them.
+
+## Safeguards
+
+| Safeguard | Limit |
+|---|---|
+| Per-user rate limit | 5 requests per 60 seconds (sliding window) |
+| Input length | 1500 characters max (user message, before context injection) |
+| Attachments per message | 3 max |
+| Blacklisted users | Silently ignored |
+| Mention sanitization | `<@id>` syntax in model output is resolved to display names; `allowed_mentions` prevents any unintended pings |
+| Cache eviction | Text file cache capped at 200 entries; seen-attachment set capped at 500 per channel |
