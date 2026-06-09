@@ -360,11 +360,22 @@ class LancoBot(commands.Bot):
         if cog_whitelist:
             logger.info(f"COG_WHITELIST active: {cog_whitelist}")
 
+        cog_blacklist_env = os.getenv("COG_BLACKLIST", "")
+        cog_blacklist = (
+            {c.strip().lower() for c in cog_blacklist_env.split(",") if c.strip()}
+            if cog_blacklist_env
+            else None
+        )
+        if cog_blacklist:
+            logger.info(f"COG_BLACKLIST active: {cog_blacklist}")
+
         results = []
         for entry in os.scandir(COGS_DIR):
             if not entry.is_dir():
                 continue
             if cog_whitelist and entry.name.lower() not in cog_whitelist:
+                continue
+            if cog_blacklist and entry.name.lower() in cog_blacklist:
                 continue
             if os.path.isfile(os.path.join(entry.path, "__init__.py")):
                 result = await self.load_cog(entry.name)
