@@ -103,9 +103,25 @@ Copy `.env.default` to `.env` and fill in values. Key variables:
 - `SQLITE_DB` — path to SQLite file (default `data/lancobot.db`)
 - `DEV_MODE` — set to `true` to enable hot-reload (set automatically by `poetry run dev`)
 - `COG_WHITELIST` — comma-separated list of cog directory names to load exclusively (e.g. `geoguesser,incidents`). When set, all other cogs are skipped. Useful for faster dev startup.
+- `COG_BLACKLIST` — comma-separated list of cog directory names to skip (e.g. `honeybot,triviasniper`). Ignored if `COG_WHITELIST` is also set.
 - `LOG_COGS` — comma-separated list of cog names whose logs appear on the console in dev mode (e.g. `geoguesser`). All other cog loggers are suppressed on console only; the log file still receives everything.
 - `ELASTIC_APM_SERVER_URL` — optional. When set, enables Elastic APM error tracking; uncaught exceptions from commands, app commands, and event listeners are reported with stack traces, locals, and labels (command/cog/guild/user). The agent self-configures from the standard `ELASTIC_APM_*` env vars (`SERVER_URL`, `SECRET_TOKEN` or `API_KEY`, `SERVICE_NAME`, etc.), so it works against Elastic Cloud, a self-hosted APM Server, or a local stack with no hardcoded values. When unset, APM is fully disabled and all capture calls are no-ops.
 - All external API keys (OpenAI, Google Maps, Spotify, OWM, etc.) are optional; the cogs that depend on them fail gracefully or skip loading when the keys are absent.
+
+### Git
+
+Commit messages must follow Conventional Commits with a scope:
+
+```
+type(scope): description
+```
+
+- **type**: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`
+- **scope**: the cog name or subsystem (e.g. `counting`, `techlanc`, `core`, `apm`)
+- **description**: lowercase, imperative, no period — concise but descriptive enough to capture intent; avoid overly specific implementation details
+- No `Co-Authored-By` trailers
+
+Examples: `feat(counting): add counting game cog`, `fix(techlanc): silence cooldown errors`
 
 ### Deployment
 

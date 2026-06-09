@@ -365,7 +365,6 @@ class GeoGuesser(
         )
 
         try:
-
             import threading
 
             completed = {"count": 0, "last_label": ""}

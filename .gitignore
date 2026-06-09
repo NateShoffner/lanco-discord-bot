@@ -167,3 +167,5 @@ config/config.json
 .env.*
 *.sqlite
 /.claude
+tools/
+COG_AUDIT.md
