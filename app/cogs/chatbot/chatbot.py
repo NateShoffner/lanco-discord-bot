@@ -192,6 +192,8 @@ class ChatBot(
                 message.reference.message_id
             )
             if referenced_msg.author.id == self.bot.user.id:
+                if referenced_msg.embeds:
+                    return
                 is_reply = True
             elif referenced_msg.author.bot:
                 return
