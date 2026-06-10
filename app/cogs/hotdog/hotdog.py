@@ -35,7 +35,7 @@ class HotDog(LancoCog, name="HotDog", description="Profile Glizzies"):
             name="Hot Dog", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
         self.agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt="Describe this image.",
             output_type=ImageDetails,
         )

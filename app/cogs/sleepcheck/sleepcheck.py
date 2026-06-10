@@ -41,7 +41,7 @@ class SleepCheck(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt="Describe this image.",
             output_type=SleepScreenshot,
         )

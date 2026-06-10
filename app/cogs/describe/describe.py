@@ -29,7 +29,7 @@ class Describe(
             name="Describe", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
         self.agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt="Describe this image.",
             output_type=FileDetails,
         )

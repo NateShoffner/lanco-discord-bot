@@ -61,12 +61,12 @@ class Summarize(
     def __init__(self, bot):
         super().__init__(bot)
         self.agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt=self.SYSTEM_PROMPT,
             output_type=ChannelDiscussion,
         )
         self.eli5_agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt="Explain the current vibe of the channel in a way that a 5-year-old would understand.",
             output_type=ChannelDiscussion,
         )

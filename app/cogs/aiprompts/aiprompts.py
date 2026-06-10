@@ -80,7 +80,7 @@ class OpenAIPrompts(
         ai_id = AIpromptConfig.id
         if ai_id not in self.custom_agents:
             agent = Agent(
-                model="openai:gpt-4o",
+                model="openai:gpt-5-nano",
                 system_prompt="You are a helpful assistant that responds to user queries.",
                 output_type=CustomBotConversation,
             )
