@@ -93,6 +93,7 @@ for noisy in [
     "asyncio",
     "aiohttp",
     "elastic_transport",
+    "elasticapm",
     "peewee",
     "asyncprawcore",
     "discord",
@@ -157,6 +158,24 @@ if os.getenv("LOGTAIL_TOKEN"):
 apm_client = None
 
 
+class ApmLoggingHandler(logging.Handler):
+    def emit(self, record):
+        if apm_client is None:
+            return
+        if record.name.startswith("elasticapm"):
+            return
+        try:
+            if record.exc_info and record.exc_info[0] is not None:
+                apm_client.capture_exception(exc_info=record.exc_info, handled=True)
+            else:
+                try:
+                    raise Exception(record.getMessage())
+                except Exception:
+                    apm_client.capture_exception(handled=True)
+        except Exception:
+            self.handleError(record)
+
+
 def init_apm():
     """Construct the Elastic APM client once, if configured.
 
@@ -175,28 +194,38 @@ def init_apm():
                 "dev" if os.getenv("DEV_MODE", "").lower() == "true" else "production"
             ),
         )
+        logging.getLogger().addHandler(ApmLoggingHandler(level=logging.ERROR))
         logger.info(
             f"Elastic APM enabled (server={os.getenv('ELASTIC_APM_SERVER_URL')}, "
             f"service={apm_client.config.service_name}, "
             f"environment={apm_client.config.environment})"
         )
+        try:
+            raise Exception("APM startup test")
+        except Exception:
+            event_id = apm_client.capture_exception(handled=True)
+            if event_id:
+                logger.info(f"APM startup test event queued: {event_id}")
+            else:
+                logger.warning(
+                    "APM startup test returned None — is_recording may be False"
+                )
     except Exception as e:
         logger.error(f"Failed to initialize Elastic APM: {e}")
         apm_client = None
 
 
-def capture_apm_exception(**context) -> None:
-    """Report the current exception to Elastic APM, if configured.
+def capture_apm_exception(exc_info=None, **context) -> None:
+    """Report an exception to Elastic APM, if configured.
 
-    No-op when disabled. Keyword args become filterable labels; a "user" dict
-    sets the APM user context.
+    Pass exc_info=(type, value, tb) explicitly when there is no active
+    sys.exc_info() — e.g. when the exception was passed as a parameter rather
+    than caught in the current frame. Without it, capture_exception raises
+    ValueError. No-op when APM is disabled.
     """
     if apm_client is None:
         return
     try:
-        # Attach context directly to the error event. The transaction-scoped
-        # helpers (label()/set_user_context()) are dropped when no transaction
-        # is active, which is the case for cog-load and listener errors.
         user = context.pop("user", None)
         labels = {k: v for k, v in context.items() if v is not None}
         ctx = {}
@@ -204,7 +233,9 @@ def capture_apm_exception(**context) -> None:
             ctx["user"] = user
         if labels:
             ctx["tags"] = labels
-        apm_client.capture_exception(handled=True, context=ctx or None)
+        apm_client.capture_exception(
+            exc_info=exc_info, handled=True, context=ctx or None
+        )
     except Exception as e:
         logger.error(f"Failed to capture exception in Elastic APM: {e}")
 
@@ -453,6 +484,32 @@ class LancoBot(commands.Bot):
                     await self.load_cog(cog_name)
 
 
+class ApmCommandTree(discord.app_commands.CommandTree):
+    async def _call(self, interaction: discord.Interaction) -> None:
+        if (
+            apm_client is None
+            or interaction.type != discord.InteractionType.application_command
+        ):
+            await super()._call(interaction)
+            return
+        command_name = (
+            interaction.command.qualified_name if interaction.command else "unknown"
+        )
+        apm_client.begin_transaction("app_command")
+        elasticapm.label(command=command_name)
+        if interaction.guild_id:
+            elasticapm.label(guild_id=str(interaction.guild_id))
+        try:
+            await super()._call(interaction)
+        finally:
+            result = (
+                "failure"
+                if getattr(interaction, "command_failed", False)
+                else "success"
+            )
+            apm_client.end_transaction(command_name, result)
+
+
 owner_id = int(os.getenv("OWNER_ID", 0))
 message_cache_size = int(os.getenv("MESSAGE_CACHE_SIZE", 1000))
 bot = LancoBot(
@@ -460,6 +517,7 @@ bot = LancoBot(
     intents=intents,
     owner_id=owner_id,
     max_messages=message_cache_size,
+    tree_cls=ApmCommandTree,
 )
 
 
@@ -469,6 +527,24 @@ def _apm_user(obj) -> Optional[dict]:
     if user is None:
         return None
     return {"user_id": str(user.id), "username": str(user)}
+
+
+@bot.before_invoke
+async def _begin_command_transaction(ctx: commands.Context):
+    if apm_client is None:
+        return
+    apm_client.begin_transaction("command")
+    elasticapm.label(command=str(ctx.command))
+    if ctx.guild:
+        elasticapm.label(guild_id=str(ctx.guild.id))
+
+
+@bot.after_invoke
+async def _end_command_transaction(ctx: commands.Context):
+    if apm_client is None:
+        return
+    result = "failure" if ctx.command_failed else "success"
+    apm_client.end_transaction(str(ctx.command) if ctx.command else "unknown", result)
 
 
 @bot.event
@@ -482,6 +558,7 @@ async def on_command_error(ctx: commands.Context, error: Exception):
     original = getattr(error, "original", error)
     logger.error(f"Command error in {ctx.command}: {original}", exc_info=original)
     capture_apm_exception(
+        exc_info=(type(original), original, original.__traceback__),
         command=str(ctx.command) if ctx.command else None,
         cog=ctx.cog.qualified_name if ctx.cog else None,
         guild_id=ctx.guild.id if ctx.guild else None,
@@ -498,6 +575,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: Exceptio
     command = interaction.command.qualified_name if interaction.command else None
     logger.error(f"App command error in {command}: {original}", exc_info=original)
     capture_apm_exception(
+        exc_info=(type(original), original, original.__traceback__),
         command=command,
         cog=(
             interaction.command.binding.qualified_name

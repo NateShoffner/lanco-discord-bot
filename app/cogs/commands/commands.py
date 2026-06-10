@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
 from reactionmenu import ReactionButton, ReactionMenu
 from utils.ai_utils import run_agent
+from utils.apm import transaction as apm_transaction
 from utils.command_utils import is_bot_owner_or_admin
 from utils.tracked_message import track_message_ids
 
@@ -322,28 +323,33 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
                 msg = None
 
-                if command.command_type == CommandTypes.AI:
-                    await message.channel.typing()
-                    response = await run_agent(
-                        lambda: self.agent.run(command.command_response),
-                        message.channel.send,
-                    )
-                    if response is None:
-                        return
-
-                    # limit it for a discord message
-                    if len(response.output.response) > 2000:
-                        response.output.response = (
-                            response.output.response[:1997] + "..."
+                async with apm_transaction(
+                    command.command_name,
+                    "custom_command",
+                    guild_id=message.guild.id,
+                ):
+                    if command.command_type == CommandTypes.AI:
+                        await message.channel.typing()
+                        response = await run_agent(
+                            lambda: self.agent.run(command.command_response),
+                            message.channel.send,
                         )
-                        self.logger.info(
-                            "Message was too long, truncated to 2000 characters."
-                        )
+                        if response is None:
+                            return
 
-                    msg = await message.channel.send(response.output.response)
+                        # limit it for a discord message
+                        if len(response.output.response) > 2000:
+                            response.output.response = (
+                                response.output.response[:1997] + "..."
+                            )
+                            self.logger.info(
+                                "Message was too long, truncated to 2000 characters."
+                            )
 
-                else:
-                    msg = await message.channel.send(command.command_response)
+                        msg = await message.channel.send(response.output.response)
+
+                    else:
+                        msg = await message.channel.send(command.command_response)
 
                 command.last_used = discord.utils.utcnow()
                 command.save()
