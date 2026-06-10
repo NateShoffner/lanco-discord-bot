@@ -9,9 +9,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord.ext import commands
 from PIL import Image
-from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ImageUrl
-from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.messages import ModelMessage
 from utils.ai_utils import run_agent
 
@@ -39,13 +37,6 @@ TEXT_MIME_PREFIXES = (
     "application/xml",
     "application/yaml",
 )
-
-
-class ChannelDiscussion(BaseModel):
-    response: str = Field(
-        ...,
-        description="The response from the chatbot based on the user's input",
-    )
 
 
 GLOBAL_PROMPT = [
@@ -113,6 +104,7 @@ class ChatBot(
             return data
         except Exception as e:
             self.logger.warning("Failed to process image %s: %s", att.filename, e)
+            self.image_cache.pop(att.id, None)
             return None
 
     def _is_rate_limited(self, user_id: int) -> bool:
@@ -175,9 +167,9 @@ class ChatBot(
     def get_agent(self, channel: discord.TextChannel) -> Agent:
         if channel.id not in self.channel_agents:
             agent = Agent(
-                model="openai:gpt-4o-mini",
+                model="openai:gpt-5-nano",
                 system_prompt=self.get_channel_prompt(channel),
-                output_type=ChannelDiscussion,
+                output_type=str,
             )
             self.channel_agents[channel.id] = agent
         return self.channel_agents[channel.id]
@@ -187,11 +179,13 @@ class ChatBot(
         if message.author.bot:
             return
 
+        if message.webhook_id:
+            return
+
         if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
             return
 
         is_reply = False
-        is_embed = False
 
         if message.reference:
             referenced_msg = await message.channel.fetch_message(
@@ -199,11 +193,10 @@ class ChatBot(
             )
             if referenced_msg.author.id == self.bot.user.id:
                 is_reply = True
-            if referenced_msg.embeds:
-                is_embed = True
-
-        if is_embed:
-            return
+            elif referenced_msg.author.bot:
+                return
+            elif referenced_msg.embeds:
+                return
 
         is_mention = self.bot.user.mentioned_in(message)
 
@@ -255,7 +248,9 @@ class ChatBot(
         content: str,
         is_mention: bool,
     ) -> None:
-        # Inject recent channel context so the bot can weigh in on ongoing conversations
+        # Inject recent channel context so the bot can weigh in on ongoing conversations.
+        # Context images are loaded so users can ask about them, but the model is instructed
+        # not to describe them unless explicitly asked.
         ctx_lines = []
         ctx_images: list[ImageUrl] = []
         seen_this_request: set[int] = set()
@@ -310,7 +305,7 @@ class ChatBot(
         if ctx_lines:
             context_block = "\n".join(ctx_lines)
             content = (
-                f"[Recent conversation]\n{context_block}\n\n"
+                f"[Recent conversation - background context only. Do not describe or reference any images here unless the user explicitly asks about them.]\n{context_block}\n\n"
                 f"[{sender_ctx}]\n{content}"
             )
         else:
@@ -376,7 +371,7 @@ class ChatBot(
         if response is None:
             return
 
-        reply_text = response.output.response
+        reply_text = response.output
 
         # Resolve any <@id> mention syntax the model may have emitted into display names
         reply_text = self._resolve_mentions(reply_text, message.guild)
