@@ -115,6 +115,9 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         if message.author.bot:
             return
 
+        if not message.guild:
+            return
+
         if not message.channel.permissions_for(message.guild.me).embed_links:
             return
 
