@@ -1,7 +1,7 @@
-import math
 import mimetypes
 import os
 
+import discord
 from cogs.lancocog import LancoCog
 from discord import Embed, Message
 from discord.ext import commands
@@ -24,11 +24,73 @@ class TipSuggestion:
         self.bill_total = self.bill_amount + self.tip_amount
 
 
+class CustomTipModal(discord.ui.Modal, title="Custom Tip"):
+    percentage = discord.ui.TextInput(
+        label="Tip Percentage",
+        placeholder="e.g. 18",
+        min_length=1,
+        max_length=5,
+    )
+
+    def __init__(self, view: "TipView"):
+        super().__init__()
+        self.tip_view = view
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            pct = float(self.percentage.value.replace("%", "").strip())
+        except ValueError:
+            await interaction.response.send_message(
+                "Please enter a valid number.", ephemeral=True
+            )
+            return
+        await self.tip_view.apply_custom_tip(interaction, pct)
+
+
+class TipView(discord.ui.View):
+    DEFAULT_PERCENTAGES = [15, 20, 25]
+
+    def __init__(self, bill_amount: float):
+        super().__init__(timeout=120)
+        self.bill_amount = bill_amount
+        self.suggestions = [
+            TipSuggestion(bill_amount, pct) for pct in self.DEFAULT_PERCENTAGES
+        ]
+        self.custom_ts: TipSuggestion | None = None
+
+    def build_embed(self) -> Embed:
+        lines = [
+            f"**{ts.tip_percentage:.0f}%** — ${ts.tip_amount:.2f} tip · **${ts.bill_total:.2f}** total"
+            for ts in self.suggestions
+        ]
+        if self.custom_ts:
+            ts = self.custom_ts
+            lines.append(
+                f"**{ts.tip_percentage:.0f}% (custom)** — ${ts.tip_amount:.2f} tip · **${ts.bill_total:.2f}** total"
+            )
+        return Embed(
+            title="Tip Calculator",
+            description=f"Suggestions for a bill of **${self.bill_amount:.2f}**\n\n"
+            + "\n".join(lines),
+            color=0x00FF00,
+        )
+
+    async def apply_custom_tip(self, interaction: discord.Interaction, pct: float):
+        self.custom_ts = TipSuggestion(self.bill_amount, pct)
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
+
+    @discord.ui.button(label="Custom Tip...", style=discord.ButtonStyle.secondary)
+    async def custom_tip_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.send_modal(CustomTipModal(self))
+
+
 class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.agent = Agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-5-nano",
             system_prompt="Describe this image.",
             output_type=BillDetails,
         )
@@ -36,9 +98,7 @@ class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
         self.file_downloader = FileDownloader()
 
     @commands.hybrid_command()
-    async def tip(
-        self, ctx: commands.Context, bill_amount: str = None, tip_percentage: str = None
-    ):
+    async def tip(self, ctx: commands.Context, bill_amount: str = None):
         is_slash_command = ctx.interaction is not None
 
         def prompt_for_bill_amount(m: Message):
@@ -100,42 +160,12 @@ class TipCalc(LancoCog, name="TipCalc", description="Tip calculator commands"):
                 await ctx.send("Please provide a valid bill amount.")
                 return
 
-        valid_tip_perc = False
-        try:
-            if tip_percentage is not None:
-                tip_percentage = float(tip_percentage.replace("$", ""))
-                valid_tip_perc = True
-        except ValueError:
-            await ctx.send("Please provide a valid tip percentage.")
-            return
+        view = TipView(bill_amount)
 
-        tip_amounts = (
-            [15, 20, 25] if tip_percentage is None else [float(tip_percentage)]
-        )
-        tip_suggestions = [TipSuggestion(bill_amount, tip) for tip in tip_amounts]
-
-        response = f"Tip suggestions for a bill amount of **${bill_amount:.2f}**\n\n"
-        for ts in tip_suggestions:
-            response += f"**{ts.tip_percentage}%**\n"
-            response += "----------------\n"
-            response += f"Tip amount: **${ts.tip_amount:.2f}**\n"
-            response += f"Bill total: **${ts.bill_total:.2f}**\n"
-            response += "\n"
-
-        if not valid_tip_perc:
-            example = f"Example: ```{self.bot.get_guild_prefix(interaction.guild)}tip {bill_amount:.2f} 22```"
-            if is_slash_command:
-                example = f"Example: ```/{ctx.command} {bill_amount:.2f} 22```"
-            response += f"Tip: You can provide a custom tip percentage as the 2nd argument. {example}"
-            response += "\n\n*Disclaimer: The tip suggestions are for reference only. Please tip responsibly.*"
-
-        response_embed = Embed(
-            title="Tip Calculator", description=response, color=0x00FF00
-        )
         if response_msg:
-            await response_msg.edit(embed=response_embed)
+            await response_msg.edit(embed=view.build_embed(), view=view)
         else:
-            await ctx.send(embed=response_embed)
+            await ctx.send(embed=view.build_embed(), view=view)
 
     async def get_bill_details_from_image(self, message: Message) -> BillDetails:
         results = await self.file_downloader.download_attachments(
