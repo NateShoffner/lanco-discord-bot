@@ -72,9 +72,10 @@ class GeoGuesser(
     async def cog_load(self):
         await super().cog_load()
         self._ready_at = time.time()
-        self.gmaps = await asyncio.to_thread(
-            googlemaps.Client, key=os.getenv("GMAPS_API_KEY")
-        )
+        api_key = os.getenv("GMAPS_API_KEY")
+        if not api_key:
+            raise ValueError("GMAPS_API_KEY is not set")
+        self.gmaps = await asyncio.to_thread(googlemaps.Client, key=api_key)
         self.location_utils = LocationUtils(self.gmaps)
 
     @property

@@ -96,6 +96,7 @@ async def test_all_cogs_load_without_errors(bot):
         "OpenAIError",
         "ValidationError",
         "OPENAI_API_KEY",
+        "GMAPS_API_KEY",
         "SPOTIPY_CLIENT_ID",
         "API Key must be set",
         # System libraries present in Docker but not necessarily on dev machines
