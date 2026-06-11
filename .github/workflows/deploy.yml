@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "app/**"
+      - "tests/**"
+      - "migrations/**"
+      - "tools/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".github/workflows/deploy.yml"
 
 env:
   REGISTRY: ghcr.io

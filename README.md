@@ -54,7 +54,6 @@ The bot is built around a modular cog system. Each cog is self-contained and can
 - [PetTax](app/cogs/pettax) - Pet tax enforcement
 - [Pinboard](app/cogs/pinboard) - Personal message pinboard
 - [Profile](app/cogs/profile) - Custom user profiles
-- [RandomNSFWReddit](app/cogs/randomnsfwreddit) - Random NSFW subreddits
 - [ReactTrack](app/cogs/reacttrack) - Reaction analytics
 - [RedditEmbed](app/cogs/redditembed) - Reddit embed fix
 - [RedditFeed](app/cogs/redditfeed) - Subreddit feed polling
@@ -117,6 +116,10 @@ poetry run dev
 ```bash
 docker-compose up --build
 ```
+
+## 🔄 CI / CD
+
+The deploy pipeline runs on push to `master` and only triggers when code-relevant files change (`app/`, `tests/`, `migrations/`, `Dockerfile`, etc.). Pushes that only touch documentation or other non-code files skip the pipeline entirely.
 
 ## 📊 Monitoring (optional)
 

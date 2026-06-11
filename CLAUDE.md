@@ -125,7 +125,8 @@ Examples: `feat(counting): add counting game cog`, `fix(techlanc): silence coold
 
 ### Deployment
 
-The bot is deployed via GitHub Actions on push to `master`:
+The bot is deployed via GitHub Actions on push to `master`. The workflow only triggers when code-relevant paths change (`app/`, `tests/`, `migrations/`, `tools/`, `pyproject.toml`, `poetry.lock`, `Dockerfile`, `docker-compose.yml`). Pushes that only modify docs or other non-code files skip the pipeline entirely.
+
 1. Tests run via `poetry run test`
 2. Docker image is built and pushed to `ghcr.io`
 3. VPS pulls the new image and restarts via `docker-compose`

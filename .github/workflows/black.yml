@@ -1,6 +1,14 @@
 name: Lint
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "app/**"
+      - "pyproject.toml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "pyproject.toml"
 
 jobs:
   lint:
