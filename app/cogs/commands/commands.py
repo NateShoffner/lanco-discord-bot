@@ -187,12 +187,10 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         self,
         interaction: discord.Interaction,
         command_name: str,
-        channel: discord.TextChannel = None,
     ):
         command = CustomCommands.get_or_none(
             guild_id=interaction.guild_id,
             command_name=command_name.lower(),
-            channel_id=channel.id if channel else None,
         )
         if not command:
             embed = discord.Embed(
