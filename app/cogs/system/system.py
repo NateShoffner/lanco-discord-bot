@@ -178,6 +178,37 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
 
         await interaction.response.send_message(embed=embed)
 
+    @discord.app_commands.command(
+        name="contribute", description="Learn how to contribute to LancoBot"
+    )
+    async def contribute(self, interaction: discord.Interaction):
+        github = os.getenv(
+            "GITHUB_REPO", "https://github.com/NateShoffner/lanco-discord-bot"
+        )
+        issues_url = f"{github}/issues"
+        pulls_url = f"{github}/pulls"
+
+        desc = (
+            f"Want to help improve {self.bot.user.name}? Here's how to get started.\n\n"
+            f"**1. Report a bug or request a feature**\n"
+            f"Open an issue on [GitHub]({issues_url}) with as much detail as possible.\n\n"
+            f"**2. Fork & clone the repo**\n"
+            f"Fork [{github.split('github.com/')[-1]}]({github}) and clone your fork locally.\n\n"
+            f"**3. Make your changes**\n"
+            f"Create a branch, make your changes, and test them.\n\n"
+            f"**4. Open a pull request**\n"
+            f"Submit a [pull request]({pulls_url}) against `master` with a clear description of what you changed and why."
+        )
+
+        embed = discord.Embed(
+            title=f"Contributing to {self.bot.user.name}",
+            description=desc,
+            color=0x00FF00,
+        )
+        embed.set_footer(text=github)
+
+        await interaction.response.send_message(embed=embed)
+
     @discord.app_commands.command(name="diag", description="Show bot diagnostics")
     @is_bot_owner()
     async def diag(self, interaction: discord.Interaction):
