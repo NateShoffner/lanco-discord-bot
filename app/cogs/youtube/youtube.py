@@ -1,7 +1,9 @@
 import datetime
 import os
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
+import aiohttp
 import discord
 from aiogoogle import Aiogoogle
 from cogs.lancocog import LancoCog
@@ -171,20 +173,28 @@ class Youtube(
     async def get_latest_videos(
         self, channel_id: str, limit: int = 1
     ) -> list[YoutubeVideo]:
-        youtube_api = await self.google.discover("youtube", "v3")
-        response = await self.google.as_api_key(
-            youtube_api.search.list(
-                part="snippet", channelId=channel_id, order="date", type="video"
-            )
-        )
+        feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(feed_url) as response:
+                if response.status != 200:
+                    self.logger.error(
+                        f"RSS feed returned {response.status} for channel {channel_id}"
+                    )
+                    return []
+                text = await response.text()
+
+        ns = {
+            "atom": "http://www.w3.org/2005/Atom",
+            "yt": "http://www.youtube.com/xml/schemas/2015",
+        }
+        root = ET.fromstring(text)
 
         videos = []
-        if "items" in response and len(response["items"]) > 0:
-            for item in response["items"]:
-                video_id = item["id"]["videoId"]
-                channel_name = item["snippet"]["channelTitle"]
-                uploaded_at = item["snippet"]["publishedAt"]
-                videos.append(YoutubeVideo(channel_name, video_id, uploaded_at))
+        for entry in root.findall("atom:entry", ns)[:limit]:
+            video_id = entry.find("yt:videoId", ns).text
+            channel_name = entry.find("atom:author/atom:name", ns).text
+            uploaded_at = entry.find("atom:published", ns).text
+            videos.append(YoutubeVideo(channel_name, video_id, uploaded_at))
 
         return videos
 
