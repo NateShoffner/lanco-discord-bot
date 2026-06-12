@@ -103,21 +103,28 @@ class Summarize(
     @track_message_ids()
     async def topic(self, ctx: commands.Context):
         chan = ctx.channel
-
-        embed = discord.Embed(
-            title="Analyzing Channel Topics",
-            description=f"Please wait while I analyze {chan.mention} for trending topics...",
-        )
+        can_embed = chan.permissions_for(ctx.guild.me).embed_links
 
         await ctx.channel.typing()
-        msg = await ctx.send(embed=embed)
+
+        if can_embed:
+            embed = discord.Embed(
+                title="Analyzing Channel Topics",
+                description=f"Please wait while I analyze {chan.mention} for trending topics...",
+            )
+            msg = await ctx.send(embed=embed)
+        else:
+            msg = await ctx.send(f"Analyzing {chan.mention} for trending topics...")
 
         messages = await get_user_messages(chan, limit=100)
 
         if not messages or len(messages) == 0:
             self.logger.info("No messages found")
-            embed.description = "No messages found to analyze."
-            return await msg.edit(embed=embed)
+            no_messages_text = "No messages found to analyze."
+            if can_embed:
+                embed.description = no_messages_text
+                return await msg.edit(embed=embed)
+            return await msg.edit(content=no_messages_text)
 
         MAX_TOPICS = 3
         MAX_USERS_TO_MENTION = 3
@@ -134,8 +141,11 @@ class Summarize(
         )
 
         async def on_topic_error(err_msg: str):
-            embed.description = err_msg
-            await msg.edit(embed=embed)
+            if can_embed:
+                embed.description = err_msg
+                await msg.edit(embed=embed)
+            else:
+                await msg.edit(content=err_msg)
 
         result = await run_agent(lambda: self.agent.run(prompt), on_topic_error)
         if result is None:
@@ -177,10 +187,13 @@ class Summarize(
         if lines_out:
             content += "\n" + "\n".join(lines_out)
 
-        embed.title = "Channel Topic Analysis"
-        embed.description = content
-        embed.color = discord.Color.blue()
-        await msg.edit(content=None, embed=embed)
+        if can_embed:
+            embed.title = "Channel Topic Analysis"
+            embed.description = content
+            embed.color = discord.Color.blue()
+            await msg.edit(content=None, embed=embed)
+        else:
+            await msg.edit(content=content)
         return msg
 
     @commands.command(
