@@ -9,7 +9,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord.ext import commands
 from PIL import Image
-from pydantic_ai import Agent, ImageUrl
+from pydantic_ai import Agent, BinaryContent, ImageUrl
 from pydantic_ai.messages import ModelMessage
 from utils.ai_utils import run_agent
 
@@ -37,6 +37,12 @@ TEXT_MIME_PREFIXES = (
     "application/xml",
     "application/yaml",
 )
+
+MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+DOCUMENT_MIME_TYPES = {
+    "application/pdf",
+}
 
 
 GLOBAL_PROMPT = [
@@ -354,6 +360,14 @@ class ChatBot(
                 else:
                     direct_parts.append(
                         f"[File '{att.filename}' skipped - too large ({att.size // 1024} KB, max 32 KB)]"
+                    )
+            elif ct in DOCUMENT_MIME_TYPES:
+                if att.size <= MAX_DOCUMENT_SIZE:
+                    raw = await att.read()
+                    direct_parts.append(BinaryContent(data=raw, media_type=ct))
+                else:
+                    direct_parts.append(
+                        f"[File '{att.filename}' skipped - exceeds 10 MB limit ({att.size // (1024 * 1024)} MB)]"
                     )
             else:
                 direct_parts.append(
