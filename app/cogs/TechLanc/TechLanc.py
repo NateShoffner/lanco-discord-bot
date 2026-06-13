@@ -605,6 +605,7 @@ class TechLanc(
         )
 
         if meetups:
+            now = dt.datetime.now(dt.timezone.utc)
             lines = []
             for meetup in meetups:
                 local = meetup.time_start.astimezone(dt.timezone.utc)
@@ -617,6 +618,8 @@ class TechLanc(
                         f"https://www.google.com/maps/search/?api=1&query={encoded}"
                     )
                     line += f" ([📍 Map]({gmaps_url}))"
+                if meetup.time_start < now:
+                    line = f"~~{line}~~"
                 lines.append(line)
             embed.description = "\n".join(lines)
         else:
@@ -716,10 +719,15 @@ class TechLanc(
         now = dt.datetime.utcnow()
         if self._cache and self._cache_time and now - self._cache_time < CACHE_TTL:
             return self._cache
-        now_str = now.isoformat() + "Z"
-        end_str = (
-            now + dt.timedelta(days=self.settings.lookahead_days)
-        ).isoformat() + "Z"
+        today = dt.date.today()
+        week_start = dt.datetime.combine(
+            today - dt.timedelta(days=today.weekday()),
+            dt.time.min,
+            tzinfo=dt.timezone.utc,
+        )
+        week_end = week_start + dt.timedelta(days=7)
+        now_str = week_start.isoformat().replace("+00:00", "Z")
+        end_str = week_end.isoformat().replace("+00:00", "Z")
 
         url = (
             f"https://www.googleapis.com/calendar/v3/calendars/{self.settings.calendar}/events"
