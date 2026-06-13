@@ -3,6 +3,10 @@ import re
 from bs4 import BeautifulSoup
 
 
+def _looks_like_html(text: str) -> bool:
+    return bool(re.search(r"<[a-zA-Z][^>]*>", text))
+
+
 def reddit_to_discord(text: str) -> str:
     """
     Convert Reddit markdown to Discord-compatible markdown.
@@ -18,6 +22,9 @@ def reddit_to_discord(text: str) -> str:
     """
     if not text:
         return text
+
+    if _looks_like_html(text):
+        text = html_to_markdown(text)
 
     # Spoilers: >!text!< -> ||text||
     text = re.sub(r">!(.*?)!<", r"||\1||", text)
