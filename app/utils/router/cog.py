@@ -17,7 +17,6 @@ from .base import (
     CheapPredicate,
     ConfidenceFn,
     Intent,
-    IntentScope,
     ProcessFn,
 )
 from .image import IMAGE_EXTENSIONS, ImageIntent, looks_like_image
@@ -34,7 +33,6 @@ class ProcessorCog(LancoCog):
         conflict_group: str | None = None,
         exclusive: bool = True,
         threshold: float = 0.5,
-        scope: IntentScope | None = None,
     ) -> Intent:
         return self._register(
             Intent(
@@ -47,7 +45,6 @@ class ProcessorCog(LancoCog):
                 exclusive=exclusive,
                 threshold=threshold,
                 level=LEVEL_MESSAGE,
-                scope=scope,
             )
         )
 
@@ -60,7 +57,6 @@ class ProcessorCog(LancoCog):
         conflict_group: str | None = None,
         exclusive: bool = True,
         threshold: float = 0.5,
-        scope: IntentScope | None = None,
     ) -> Intent:
         return self._register(
             Intent(
@@ -73,7 +69,6 @@ class ProcessorCog(LancoCog):
                 exclusive=exclusive,
                 threshold=threshold,
                 level=LEVEL_FILE,
-                scope=scope,
             )
         )
 
@@ -87,7 +82,6 @@ class ProcessorCog(LancoCog):
         conflict_group: str | None = None,
         exclusive: bool = True,
         threshold: float = 0.5,
-        scope: IntentScope | None = None,
     ) -> ImageIntent:
         return self._register(
             ImageIntent(
@@ -100,7 +94,6 @@ class ProcessorCog(LancoCog):
                 conflict_group=conflict_group,
                 exclusive=exclusive,
                 threshold=threshold,
-                scope=scope,
             )
         )
 

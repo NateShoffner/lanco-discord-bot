@@ -288,6 +288,7 @@ class _FakeMessage:
         self.guild = object()
         self.attachments = attachments
         self.embeds = []
+        self.content = ""
         self.replies = []
 
     async def reply(self, content):
@@ -353,21 +354,28 @@ async def test_router_listener_registered_in_setup_hook(bot):
     ), "router.handle_message should be registered as an on_message listener"
 
 
-def _make_scoped_cat_cog(bot, scope):
-    """A cog with a single scoped cat intent."""
+async def test_cog_predicate_is_the_arbiter(bot, monkeypatch):
+    """The cog's own cheap_predicate decides whether the router runs for it,
+    and gates before any download or vision call."""
     from utils.router import ProcessorCog, VisionQuestion
+
+    target_channel = 111
 
     class _ScopedCog(ProcessorCog, name="ScopedCog", description="test"):
         async def cog_load(self):
             await super().cog_load()
             self.register_image_intent(
                 name="cat",
-                cheap_predicate=self.is_image,
+                cheap_predicate=self._only_pets_channel,
                 questions=[VisionQuestion("is_cat", "cat?")],
                 confidence=self._cat,
                 process=self._say,
-                scope=scope,
             )
+
+        def _only_pets_channel(self, candidate, message):
+            return getattr(
+                message.channel, "id", None
+            ) == target_channel and self.is_image(candidate, message)
 
         async def _cat(self, ctx):
             return 0.95 if ctx.answer("is_cat") else 0.0
@@ -375,63 +383,21 @@ def _make_scoped_cat_cog(bot, scope):
         async def _say(self, ctx):
             await ctx.message.reply("nice cat")
 
-    return _ScopedCog(bot)
-
-
-async def test_scope_allows_matching_channel(bot, monkeypatch):
-    """An intent scoped to a channel runs there: download + vision + reply."""
-    from utils.router import IntentScope
-
-    cog = _make_scoped_cat_cog(bot, IntentScope(channels={111}))
-    await bot.add_cog(cog)
+    await bot.add_cog(_ScopedCog(bot))
     calls = _stub_network(monkeypatch, bot, {"is_cat": True})
 
-    msg = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
-    msg.channel = type("Ch", (), {"id": 111, "parent_id": None, "category": None})()
-    await bot.router.handle_message(msg)
+    in_channel = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    in_channel.channel = type("Ch", (), {"id": target_channel})()
+    await bot.router.handle_message(in_channel)
+    assert in_channel.replies == ["nice cat"]
 
+    other_channel = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    other_channel.channel = type("Ch", (), {"id": 999})()
+    await bot.router.handle_message(other_channel)
+    assert other_channel.replies == []
+    # the cog declined before download, so only the in-channel message paid cost
+    assert calls["download"] == 1
     assert calls["vision"] == 1
-    assert msg.replies == ["nice cat"]
-
-
-async def test_scope_blocks_other_channel_before_download(bot, monkeypatch):
-    """Out of scope: no download, no vision, no reply (gated before the cheap
-    predicate)."""
-    from utils.router import IntentScope
-
-    cog = _make_scoped_cat_cog(bot, IntentScope(channels={111}))
-    await bot.add_cog(cog)
-    calls = _stub_network(monkeypatch, bot, {"is_cat": True})
-
-    msg = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
-    msg.channel = type("Ch", (), {"id": 999, "parent_id": None, "category": None})()
-    await bot.router.handle_message(msg)
-
-    assert calls["download"] == 0
-    assert calls["vision"] == 0
-    assert msg.replies == []
-
-
-async def test_scope_custom_predicate(bot, monkeypatch):
-    """A custom scope predicate gates the intent."""
-    from utils.router import IntentScope
-
-    cog = _make_scoped_cat_cog(
-        bot, IntentScope(custom=lambda m: getattr(m, "allow", False))
-    )
-    await bot.add_cog(cog)
-    calls = _stub_network(monkeypatch, bot, {"is_cat": True})
-
-    blocked = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
-    blocked.allow = False
-    await bot.router.handle_message(blocked)
-    assert blocked.replies == []
-    assert calls["vision"] == 0
-
-    allowed = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
-    allowed.allow = True
-    await bot.router.handle_message(allowed)
-    assert allowed.replies == ["nice cat"]
 
 
 # ---------------------------------------------------------------------------

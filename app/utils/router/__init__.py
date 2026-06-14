@@ -4,7 +4,6 @@ from .base import (
     LEVEL_MESSAGE,
     Candidate,
     Intent,
-    IntentScope,
     MessageRouter,
     RouterContext,
 )
@@ -28,7 +27,6 @@ __all__ = [
     "LEVEL_IMAGE",
     "Candidate",
     "Intent",
-    "IntentScope",
     "RouterContext",
     "MessageRouter",
     "FileCandidate",

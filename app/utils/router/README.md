@@ -27,8 +27,9 @@ image intents.
 1. **Extract** candidates from the message. Message level yields one candidate
    wrapping the message; file/image levels yield one per attachment (images
    become `ImageCandidate`, everything else `FileCandidate`).
-2. **Cheap gate**: each applicable intent's `cheap_predicate(candidate, message)`
-   runs (sync, metadata only). No download, no AI.
+2. **Gate**: each applicable intent's `cheap_predicate(candidate, message)`
+   runs (sync, metadata only, no I/O). This is the cog's own arbiter of whether
+   it wants the message; it runs before any download or model call.
 3. **Prepare**: file/image candidates are downloaded once; bytes shared.
 4. **Enrich**: for image candidates, the `questions` from all qualifying image
    intents are unioned (de-duped by key) and asked in **one** vision call.
@@ -42,44 +43,42 @@ image intents.
 
 | Field | Meaning |
 |-------|---------|
-| `cheap_predicate(candidate, message) -> bool` | Sync metadata-only gate. No I/O, no AI. |
+| `cheap_predicate(candidate, message) -> bool` | The cog's arbiter: sync, metadata only, no I/O. Decides whether this intent wants the message; runs before any download or model call. |
 | `confidence(ctx) -> float` | 0.0 to 1.0. Reads `ctx` plus own cheap checks. |
 | `process(ctx) -> None` | The work; runs only if selected. |
 | `questions` (image only) | `list[VisionQuestion]` for the shared vision call. |
 | `conflict_group` | Intents sharing a group compete; the highest score wins. |
 | `exclusive` (default `True`) | Isolated by default: runs only as the top winner. Set `False` to coexist. |
 | `threshold` (default `0.5`) | Minimum confidence to be eligible. |
-| `scope` (optional) | `IntentScope` restricting where the intent runs (see below). |
 
-## Scoping where an intent runs
+## The cog decides whether to run
 
-By default the router runs everywhere; an intent opts into restrictions by
-declaring an `IntentScope`. The router checks scope **before** the cheap
-predicate, so an out-of-scope intent never downloads or calls a model.
+There is no router-side channel/role/pattern config. Like a URL-handler cog
+deciding in its own listener, each intent's `cheap_predicate` is the sole arbiter
+of whether the router runs it for a given message. The cog puts whatever logic it
+wants there: channel, role, user, regex on `message.content`, content type, NSFW
+flag, and so on. Because it runs before download and vision, declining there
+costs nothing.
 
 ```python
-from utils.router import IntentScope
+def should_handle(self, candidate, message):
+    return (
+        message.channel.id in self.pets_channels      # cog owns its own config
+        and self.is_image(candidate, message)         # helper for the common case
+    )
 
 self.register_image_intent(
-    name="cat",
-    cheap_predicate=self.is_image,
+    name="nice_cat",
+    cheap_predicate=self.should_handle,
+    questions=[VisionQuestion("is_cat", "Is the main subject a cat?")],
     confidence=self.cat_confidence,
     process=self.say_nice_cat,
-    scope=IntentScope(channels={123456789}),  # only this channel
 )
 ```
 
-`IntentScope` dimensions, each allow-all when unset and AND-ed when set:
-
-| Dimension | Meaning |
-|-----------|---------|
-| `channels` | Channel, thread parent, or category id must match. |
-| `roles` | The author must have one of these role ids. |
-| `users` | The author must be one of these user ids. |
-| `custom` | A `(message) -> bool` callable for anything else (NSFW flag, message age, attachment count, ...). |
-
-Scope is declared by the cog at registration; the router enforces it, so the
-channel/role checks are not duplicated in every cog's `cheap_predicate`.
+`is_image` is a convenience predicate on `ProcessorCog` for the common "any
+image" case; compose it with your own checks as above, or write a predicate from
+scratch.
 
 `ctx` is a `RouterContext` (`message`, `candidate`); `FileContext` adds the
 downloaded candidate; `ImageContext` adds `answers` and `ctx.answer(key)`.
