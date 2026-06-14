@@ -70,6 +70,9 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
             self.bot.tree.remove_command(ctx_menu.name, type=ctx_menu.type)
 
         self.bot.url_handlers = [h for h in self.bot.url_handlers if h.cog is not self]
+        self.bot.image_processors = [
+            i for i in self.bot.image_processors if i.cog is not self
+        ]
 
 
 class RoundGameCog(LancoCog, Generic[TSession]):
