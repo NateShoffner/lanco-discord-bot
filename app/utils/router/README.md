@@ -49,6 +49,37 @@ image intents.
 | `conflict_group` | Intents sharing a group compete; the highest score wins. |
 | `exclusive` (default `True`) | Isolated by default: runs only as the top winner. Set `False` to coexist. |
 | `threshold` (default `0.5`) | Minimum confidence to be eligible. |
+| `scope` (optional) | `IntentScope` restricting where the intent runs (see below). |
+
+## Scoping where an intent runs
+
+By default the router runs everywhere; an intent opts into restrictions by
+declaring an `IntentScope`. The router checks scope **before** the cheap
+predicate, so an out-of-scope intent never downloads or calls a model.
+
+```python
+from utils.router import IntentScope
+
+self.register_image_intent(
+    name="cat",
+    cheap_predicate=self.is_image,
+    confidence=self.cat_confidence,
+    process=self.say_nice_cat,
+    scope=IntentScope(channels={123456789}),  # only this channel
+)
+```
+
+`IntentScope` dimensions, each allow-all when unset and AND-ed when set:
+
+| Dimension | Meaning |
+|-----------|---------|
+| `channels` | Channel, thread parent, or category id must match. |
+| `roles` | The author must have one of these role ids. |
+| `users` | The author must be one of these user ids. |
+| `custom` | A `(message) -> bool` callable for anything else (NSFW flag, message age, attachment count, ...). |
+
+Scope is declared by the cog at registration; the router enforces it, so the
+channel/role checks are not duplicated in every cog's `cheap_predicate`.
 
 `ctx` is a `RouterContext` (`message`, `candidate`); `FileContext` adds the
 downloaded candidate; `ImageContext` adds `answers` and `ctx.answer(key)`.

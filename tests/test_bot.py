@@ -353,6 +353,87 @@ async def test_router_listener_registered_in_setup_hook(bot):
     ), "router.handle_message should be registered as an on_message listener"
 
 
+def _make_scoped_cat_cog(bot, scope):
+    """A cog with a single scoped cat intent."""
+    from utils.router import ProcessorCog, VisionQuestion
+
+    class _ScopedCog(ProcessorCog, name="ScopedCog", description="test"):
+        async def cog_load(self):
+            await super().cog_load()
+            self.register_image_intent(
+                name="cat",
+                cheap_predicate=self.is_image,
+                questions=[VisionQuestion("is_cat", "cat?")],
+                confidence=self._cat,
+                process=self._say,
+                scope=scope,
+            )
+
+        async def _cat(self, ctx):
+            return 0.95 if ctx.answer("is_cat") else 0.0
+
+        async def _say(self, ctx):
+            await ctx.message.reply("nice cat")
+
+    return _ScopedCog(bot)
+
+
+async def test_scope_allows_matching_channel(bot, monkeypatch):
+    """An intent scoped to a channel runs there: download + vision + reply."""
+    from utils.router import IntentScope
+
+    cog = _make_scoped_cat_cog(bot, IntentScope(channels={111}))
+    await bot.add_cog(cog)
+    calls = _stub_network(monkeypatch, bot, {"is_cat": True})
+
+    msg = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    msg.channel = type("Ch", (), {"id": 111, "parent_id": None, "category": None})()
+    await bot.router.handle_message(msg)
+
+    assert calls["vision"] == 1
+    assert msg.replies == ["nice cat"]
+
+
+async def test_scope_blocks_other_channel_before_download(bot, monkeypatch):
+    """Out of scope: no download, no vision, no reply (gated before the cheap
+    predicate)."""
+    from utils.router import IntentScope
+
+    cog = _make_scoped_cat_cog(bot, IntentScope(channels={111}))
+    await bot.add_cog(cog)
+    calls = _stub_network(monkeypatch, bot, {"is_cat": True})
+
+    msg = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    msg.channel = type("Ch", (), {"id": 999, "parent_id": None, "category": None})()
+    await bot.router.handle_message(msg)
+
+    assert calls["download"] == 0
+    assert calls["vision"] == 0
+    assert msg.replies == []
+
+
+async def test_scope_custom_predicate(bot, monkeypatch):
+    """A custom scope predicate gates the intent."""
+    from utils.router import IntentScope
+
+    cog = _make_scoped_cat_cog(
+        bot, IntentScope(custom=lambda m: getattr(m, "allow", False))
+    )
+    await bot.add_cog(cog)
+    calls = _stub_network(monkeypatch, bot, {"is_cat": True})
+
+    blocked = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    blocked.allow = False
+    await bot.router.handle_message(blocked)
+    assert blocked.replies == []
+    assert calls["vision"] == 0
+
+    allowed = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    allowed.allow = True
+    await bot.router.handle_message(allowed)
+    assert allowed.replies == ["nice cat"]
+
+
 # ---------------------------------------------------------------------------
 # BlacklistedUser model
 # ---------------------------------------------------------------------------

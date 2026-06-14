@@ -67,6 +67,45 @@ class RouterContext:
 CheapPredicate = Callable[[Candidate, discord.Message], bool]
 ConfidenceFn = Callable[["RouterContext"], Awaitable[float]]
 ProcessFn = Callable[["RouterContext"], Awaitable[None]]
+ScopePredicate = Callable[[discord.Message], bool]
+
+
+@dataclass
+class IntentScope:
+    """Where an intent is allowed to run, declared by the cog at registration.
+
+    Each dimension is allow-all when unset; when set, it is an allow-list. All
+    set dimensions must pass (AND). ``custom`` covers anything not expressible
+    by the other dimensions (NSFW flag, message age, attachment count, etc.).
+    """
+
+    channels: Optional[set[int]] = None  # channel, thread, or parent category id
+    roles: Optional[set[int]] = None  # author must have one of these roles
+    users: Optional[set[int]] = None  # author must be one of these users
+    custom: Optional[ScopePredicate] = None
+
+    def allows(self, message: discord.Message) -> bool:
+        if self.channels is not None and not self._channel_match(message):
+            return False
+        if self.users is not None and message.author.id not in self.users:
+            return False
+        if self.roles is not None and not self._role_match(message):
+            return False
+        if self.custom is not None and not self.custom(message):
+            return False
+        return True
+
+    def _channel_match(self, message: discord.Message) -> bool:
+        channel = message.channel
+        ids = {getattr(channel, "id", None), getattr(channel, "parent_id", None)}
+        ids.add(getattr(getattr(channel, "category", None), "id", None))
+        return bool(ids & self.channels)
+
+    def _role_match(self, message: discord.Message) -> bool:
+        author_roles = getattr(message.author, "roles", None)
+        if not author_roles:
+            return False
+        return bool({r.id for r in author_roles} & self.roles)
 
 
 @dataclass
@@ -77,6 +116,10 @@ class Intent:
     top-confidence winner unless ``exclusive=False`` lets it coexist. Intents
     sharing a non-None ``conflict_group`` always compete, highest confidence
     winning regardless of ``exclusive``.
+
+    ``scope`` (optional) restricts where the intent runs; the router checks it
+    before the cheap predicate, so an out-of-scope intent never downloads or
+    calls a model.
     """
 
     cog: LancoCog
@@ -88,6 +131,7 @@ class Intent:
     exclusive: bool = True
     threshold: float = 0.5
     level: str = LEVEL_MESSAGE
+    scope: Optional[IntentScope] = None
 
 
 class MessageRouter:
@@ -136,7 +180,9 @@ class MessageRouter:
             return
 
         intents: list[Intent] = [
-            i for i in self.bot.processors if i.level in self.LEVELS
+            i
+            for i in self.bot.processors
+            if i.level in self.LEVELS and self._in_scope(i, message)
         ]
         if not intents:
             return
@@ -232,6 +278,15 @@ class MessageRouter:
             if not intent.exclusive:
                 winners.append(intent)
         return winners
+
+    def _in_scope(self, intent: Intent, message: discord.Message) -> bool:
+        if intent.scope is None:
+            return True
+        try:
+            return intent.scope.allows(message)
+        except Exception as e:
+            logger.error("Scope error in %s: %s", intent.name, e)
+            return False
 
     # --- safety wrappers: one bad intent must not break the others --------
 
