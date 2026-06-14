@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
 from utils.command_utils import is_bot_owner
-from utils.image_router import ImageIntent, ImageRouter
+from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
 
 DATA_DIR = "data"
@@ -336,12 +336,12 @@ class LancoBot(commands.Bot):
         # TODO probably a better way to inject a database into a cog
         self.database = database
         self.url_handlers = []
-        # Image processor router. Cogs register an ImageIntent; the router owns
-        # the single image on_message handler and dispatches to the winning
-        # intent(s). IMAGE_ROUTER_ALL_IMAGES=true routes every image in a
-        # message instead of just the first.
-        self.image_processors: list["ImageIntent"] = []
-        self.image_router: "ImageRouter" = ImageRouter(
+        # Message/file/image router. Cogs register an Intent (or File/Image
+        # subclass) on this single list; the router owns the one on_message
+        # handler and dispatches the winning intent(s). IMAGE_ROUTER_ALL_IMAGES=
+        # true routes every image in a message instead of just the first.
+        self.processors: list["Intent"] = []
+        self.router: "ImageRouter" = ImageRouter(
             self,
             cache_dir=os.path.join(DATA_DIR, "ImageRouter", "Cache"),
             process_all_images=os.getenv("IMAGE_ROUTER_ALL_IMAGES", "").lower()
@@ -464,14 +464,14 @@ class LancoBot(commands.Bot):
     def has_url_handler(self, url: str) -> bool:
         return self.get_url_handler(url) is not None
 
-    def register_image_processor(self, intent: ImageIntent) -> None:
-        """Register an ImageIntent with the router. Intents are removed on cog
-        unload via the cleanup in LancoCog.cog_unload.
+    def register_processor(self, intent: Intent) -> None:
+        """Register a routing Intent. Intents are removed on cog unload via the
+        cleanup in LancoCog.cog_unload.
         """
         logger.info(
-            f"Registering image processor: {intent.name} - {intent.cog.get_cog_name()}"
+            f"Registering {intent.level} processor: {intent.name} - {intent.cog.get_cog_name()}"
         )
-        self.image_processors.append(intent)
+        self.processors.append(intent)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
@@ -482,7 +482,7 @@ class LancoBot(commands.Bot):
         logger.info(f"Bot ready: {self.user.name} - {self.user.id}")
 
     async def setup_hook(self):
-        self.add_listener(self.image_router.handle_message, "on_message")
+        self.add_listener(self.router.handle_message, "on_message")
         if self.dev_mode:
             self.loop.create_task(self._hot_reload_watcher())
 

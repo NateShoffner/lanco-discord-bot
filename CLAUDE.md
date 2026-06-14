@@ -91,9 +91,9 @@ Use `poetry run cog create` to scaffold from `tools/templates/cog_template.py` r
 
 Several cogs (Spotify, Twitter/X, Instagram, TikTok fixes) register themselves as URL handlers via a registry on the bot. When a message contains a matching URL, the relevant cog intercepts it to produce a better embed.
 
-### Image Processor Router
+### Router
 
-Core bot functionality (`app/utils/image_router/`, not a cog) that owns the single image-bearing `on_message` handler. Image cogs no longer hook `on_message` individually; they subclass `ImageProcessorCog` and register an `ImageIntent` (cheap predicate, optional vision questions, confidence scorer, processor). The router gates cheaply, downloads each image once, runs **one** shared vision call answering the union of all intents' questions, scores, arbitrates by confidence (isolated by default; `conflict_group` for mutually exclusive outputs), and dispatches the winner(s). This prevents N cogs from each re-downloading and independently calling a vision model on the same image. See `app/utils/image_router/README.md` for the full contract and a worked cog example.
+Core bot functionality (`app/utils/router/`, not a cog) that owns the single `on_message` handler. It is a three-layer inheritance chain: `MessageRouter` (registry, cheap gate, score, arbitrate, dispatch) → `FileRouter` (extract attachments, download each once) → `ImageRouter` (filter to images, one shared vision call). Only `ImageRouter` is instantiated and it inherits the other levels; there is one registry (`bot.processors`) and one listener. Cogs subclass `ProcessorCog` and register an `Intent` at the `message`, `file`, or `image` level (cheap predicate, confidence scorer, processor; image intents add vision questions). The router gates cheaply, downloads each file once, runs **one** shared vision call answering the union of all image intents' questions, scores, arbitrates by confidence (isolated by default; `conflict_group` for mutually exclusive outputs), and dispatches the winner(s). This prevents N cogs from each re-downloading and independently calling a vision model on the same image. See `app/utils/router/README.md` for the full contract and a worked cog example.
 
 ### Development Mode
 

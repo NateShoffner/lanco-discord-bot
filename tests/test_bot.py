@@ -209,6 +209,151 @@ def test_no_url_handler_returns_none(bot):
 
 
 # ---------------------------------------------------------------------------
+# Router (message / file / image)
+# ---------------------------------------------------------------------------
+
+
+def _make_image_cog(bot):
+    """A throwaway ProcessorCog registering cat/dog image intents in one
+    conflict group, used to drive the router in tests."""
+    from utils.router import ProcessorCog, VisionQuestion
+
+    class _RouterTestCog(ProcessorCog, name="RouterTestCog", description="test"):
+        async def cog_load(self):
+            await super().cog_load()
+            self.register_image_intent(
+                name="cat",
+                cheap_predicate=self.is_image,
+                questions=[VisionQuestion("is_cat", "cat?")],
+                confidence=self._cat,
+                process=self._say_cat,
+                conflict_group="pets",
+            )
+            self.register_image_intent(
+                name="dog",
+                cheap_predicate=self.is_image,
+                questions=[VisionQuestion("is_dog", "dog?")],
+                confidence=self._dog,
+                process=self._say_dog,
+                conflict_group="pets",
+            )
+
+        async def _cat(self, ctx):
+            return 0.95 if ctx.answer("is_cat") else 0.0
+
+        async def _dog(self, ctx):
+            return 0.95 if ctx.answer("is_dog") else 0.0
+
+        async def _say_cat(self, ctx):
+            await ctx.message.reply("nice cat")
+
+        async def _say_dog(self, ctx):
+            await ctx.message.reply("nice dog")
+
+    return _RouterTestCog(bot)
+
+
+async def test_register_processor_and_unload_cleanup(bot):
+    """Registered intents land on bot.processors and are cleared on unload."""
+    cog = _make_image_cog(bot)
+    await bot.add_cog(cog)
+
+    assert sorted(i.name for i in bot.processors) == ["cat", "dog"]
+    assert all(i.level == "image" for i in bot.processors)
+
+    await bot.remove_cog(cog.qualified_name)
+    assert bot.processors == []
+
+
+class _FakeAttachment:
+    """Minimal stand-in for discord.Attachment for router extraction."""
+
+    def __init__(self, name, content_type):
+        self.url = f"https://cdn.example.com/{name}"
+        self.proxy_url = self.url
+        self.content_type = content_type
+        self.size = 1234
+        self.filename = name
+
+
+class _FakeMessage:
+    """Minimal stand-in for discord.Message that the router reads."""
+
+    _id = 1
+
+    def __init__(self, attachments):
+        self.id = _FakeMessage._id
+        _FakeMessage._id += 1
+        self.author = type("Author", (), {"bot": False})()
+        self.guild = object()
+        self.attachments = attachments
+        self.embeds = []
+        self.replies = []
+
+    async def reply(self, content):
+        self.replies.append(content)
+
+
+def _stub_network(monkeypatch, bot, vision_result):
+    """Stub download + vision so the pipeline runs without network/API.
+    Returns a dict counting download and vision invocations."""
+    calls = {"download": 0, "vision": 0}
+
+    async def fake_prepare(candidate):
+        calls["download"] += 1
+        candidate.data = b"img"
+        candidate.content_type = candidate.content_type or "image/png"
+        candidate.filename = None
+        return True
+
+    async def fake_classify(image_bytes, media_type, questions):
+        calls["vision"] += 1
+        return dict(vision_result)
+
+    monkeypatch.setattr(bot.router, "_prepare", fake_prepare)
+    monkeypatch.setattr(bot.router.vision, "classify", fake_classify)
+    return calls
+
+
+async def test_image_message_routes_one_vision_call_and_dispatches(bot, monkeypatch):
+    """An image message: downloaded once, one shared vision call, winner replies."""
+    cog = _make_image_cog(bot)
+    await bot.add_cog(cog)
+    calls = _stub_network(monkeypatch, bot, {"is_cat": True, "is_dog": False})
+
+    msg = _FakeMessage([_FakeAttachment("cat.png", "image/png")])
+    await bot.router.handle_message(msg)
+
+    assert calls["download"] == 1  # downloaded once
+    assert calls["vision"] == 1  # single shared vision call for both intents
+    assert msg.replies == ["nice cat"]  # cat wins its conflict group
+
+
+async def test_non_image_attachment_skips_download_and_vision(bot, monkeypatch):
+    """A non-image attachment passes no image cheap gate, so it is never
+    downloaded and never triggers the shared vision call."""
+    cog = _make_image_cog(bot)
+    await bot.add_cog(cog)
+    calls = _stub_network(monkeypatch, bot, {})
+
+    msg = _FakeMessage([_FakeAttachment("report.pdf", "application/pdf")])
+    await bot.router.handle_message(msg)
+
+    assert calls["download"] == 0
+    assert calls["vision"] == 0
+    assert msg.replies == []
+
+
+async def test_router_listener_registered_in_setup_hook(bot):
+    """setup_hook wires the router as the single on_message listener."""
+    await bot.setup_hook()
+    listeners = bot.extra_events.get("on_message", [])
+    assert any(
+        getattr(h, "__self__", None) is bot.router for h in listeners
+    ), "router.handle_message should be registered as an on_message listener"
+
+
+# ---------------------------------------------------------------------------
 # BlacklistedUser model
 # ---------------------------------------------------------------------------
 
