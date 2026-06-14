@@ -345,6 +345,51 @@ async def test_non_image_attachment_skips_download_and_vision(bot, monkeypatch):
     assert msg.replies == []
 
 
+async def test_file_intent_matches_attachment_and_content_link(bot, monkeypatch):
+    """A file intent fires for a matching attachment and for a bare file URL
+    typed in the message body."""
+    from utils.router import ProcessorCog
+
+    seen = []
+
+    class _PdfCog(ProcessorCog, name="PdfCog", description="test"):
+        async def cog_load(self):
+            await super().cog_load()
+            self.register_file_intent(
+                name="pdf",
+                cheap_predicate=lambda c, m: c.extension == "pdf",
+                confidence=self._yes,
+                process=self._note,
+            )
+
+        async def _yes(self, ctx):
+            return 1.0
+
+        async def _note(self, ctx):
+            seen.append(ctx.candidate.url)
+
+    await bot.add_cog(_PdfCog(bot))
+
+    async def fake_prepare(candidate):
+        candidate.data = b"%PDF"
+        candidate.filename = None
+        return True
+
+    monkeypatch.setattr(bot.router, "_prepare", fake_prepare)
+
+    att = _FakeMessage([_FakeAttachment("doc.pdf", "application/pdf")])
+    await bot.router.handle_message(att)
+
+    link = _FakeMessage([])
+    link.content = "report here https://files.example.com/q3.pdf thanks"
+    await bot.router.handle_message(link)
+
+    assert seen == [
+        "https://cdn.example.com/doc.pdf",
+        "https://files.example.com/q3.pdf",
+    ]
+
+
 async def test_router_listener_registered_in_setup_hook(bot):
     """setup_hook wires the router as the single on_message listener."""
     await bot.setup_hook()

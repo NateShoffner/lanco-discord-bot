@@ -138,10 +138,54 @@ async def setup(bot):
 `register_message_intent` and `register_file_intent` exist for the other levels;
 they take the same arguments minus `questions`.
 
+## Vision questions
+
+Each `VisionQuestion` is one field the model is asked to fill for the image. The
+router unions every qualifying image intent's questions (de-duped by `key`) into
+a single structured call, so N image cogs cost one vision request, not N.
+
+```python
+VisionQuestion("is_cat", "Is the main subject a cat?")                  # bool (default)
+VisionQuestion("battery_pct", "Battery percent, 0-100. Null if hidden.", kind="int")
+VisionQuestion("bill_total", "Bill total before tip, as a number.", kind="float")
+VisionQuestion("clock", "Time in the status bar, e.g. '9:41'.", kind="str")
+```
+
+- `key`: how the answer is read back, `ctx.answer("battery_pct")`.
+- `kind`: `"bool"` (default), `"int"`, `"str"`, or `"float"`. Non-bool kinds are
+  nullable, so always handle `None` (the model could not read it).
+- Word prompts so "not present / unreadable" maps to `False`/`None`, and let
+  `confidence` decide what a missing answer means.
+
+## Confidence is also a filter
+
+`confidence` does double duty: it ranks intents for arbitration **and** decides
+whether the intent acts at all. Returning `0.0` (below `threshold`) means "not
+me, stay silent". Use this so a proactive cog only speaks when it has something
+worth saying:
+
+```python
+async def battery_confidence(self, ctx) -> float:
+    pct = ctx.answer("battery_pct")
+    if not ctx.answer("is_phone_screenshot") or pct is None:
+        return 0.0                      # not a phone screenshot / unreadable
+    if pct in (67, 69) or pct <= 30:
+        return 0.95                     # only fire when low or a joke value
+    return 0.0                          # healthy battery: say nothing
+```
+
+Raise `threshold` above the default `0.5` for unprompted replies you want the
+model to be sure about (e.g. auto-processing a receipt).
+
 ### Notes
 
-- `is_image` is a default image cheap predicate on `ProcessorCog`. Supply your
-  own for narrower gating (e.g. only `.png`).
+- `is_image` is a default image cheap predicate on `ProcessorCog`. Compose it
+  with your own checks (e.g. a channel id) to scope a cog, or supply a narrower
+  predicate of your own.
+- A cog can be **proactive and command-driven at once**: register an intent for
+  the automatic path and keep a normal command for the explicit one. They can
+  share helpers (an embed builder, a view) without the command going through the
+  router.
 - Intents are removed automatically on cog unload, so hot-reload leaves none
   stale.
 - Read non-image data (timezone, config, current time) directly inside

@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import mimetypes
 import os
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -26,6 +27,10 @@ from .base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Bare http(s) links in message content that point at a file (have a path
+# segment ending in an extension). Query strings are tolerated.
+_FILE_URL_RE = re.compile(r"https?://\S+/[^/\s?#]+\.[a-zA-Z0-9]{1,8}(?:\?\S*)?")
 
 
 @dataclass
@@ -67,7 +72,9 @@ class FileRouter(MessageRouter):
 
     def _extract_candidates(self, message: discord.Message) -> list[Candidate]:
         candidates = super()._extract_candidates(message)
+        seen_urls: set[str] = set()
         for att in message.attachments:
+            seen_urls.add(att.url)
             candidates.append(
                 self._make_file_candidate(
                     url=att.url,
@@ -79,11 +86,17 @@ class FileRouter(MessageRouter):
         if not message.attachments:
             for embed in message.embeds:
                 if embed.image and embed.image.proxy_url:
+                    seen_urls.add(embed.image.proxy_url)
                     candidates.append(
                         self._make_file_candidate(
                             url=embed.image.proxy_url, source="embed"
                         )
                     )
+        # Bare file links typed in the message body (e.g. a .pdf URL).
+        for url in _FILE_URL_RE.findall(message.content or ""):
+            if url not in seen_urls:
+                seen_urls.add(url)
+                candidates.append(self._make_file_candidate(url=url, source="link"))
         return candidates
 
     def _make_file_candidate(self, **kwargs) -> FileCandidate:
