@@ -2,18 +2,19 @@ import os
 
 import discord
 import fitz
-from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
-from utils.file_downloader import FileDownloader
+from utils.router import FileContext, ImageProcessorCog
 from utils.viruscheck import VirusCheck, VirusTotalResults
 
 from .models import PDFPreviewConfig
 
 
 class PDFPreview(
-    LancoCog, name="PDFPreview", description="Generates a preview of a PDF file"
+    ImageProcessorCog,
+    name="PDFPreview",
+    description="Generates a preview of a PDF file",
 ):
     pdf_group = app_commands.Group(name="pdf", description="PDF Preview Commands")
 
@@ -23,56 +24,42 @@ class PDFPreview(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.previews_path = os.path.join(self.get_cog_data_directory(), "Previews")
         self.virus_check = VirusCheck(os.getenv("VIRUS_TOTAL_API_KEY"))
         if not os.path.exists(self.previews_path):
             os.makedirs(self.previews_path)
         self.bot.database.create_tables([PDFPreviewConfig])
-        self.file_downloader = FileDownloader()
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
+    async def cog_load(self):
+        await super().cog_load()
+        # A file intent: any .pdf attachment or link in an enabled guild. The
+        # router downloads it once and hands us the local path + bytes.
+        self.register_file_intent(
+            name="pdf_preview",
+            cheap_predicate=self.wants_pdf,
+            confidence=self.pdf_confidence,
+            process=self.post_preview,
+        )
 
-        pdf_preview_config = PDFPreviewConfig.get_or_none(guild_id=message.guild.id)
+    def wants_pdf(self, candidate, message: discord.Message) -> bool:
+        if not message.guild:
+            return False
+        if candidate.extension != "pdf":
+            return False
+        config = PDFPreviewConfig.get_or_none(guild_id=message.guild.id)
+        return bool(config and config.enabled)
 
-        if not pdf_preview_config or not pdf_preview_config.enabled:
-            return
+    async def pdf_confidence(self, ctx: FileContext) -> float:
+        return 1.0
 
-        pdf_atts = [
-            attachment.url
-            for attachment in message.attachments
-            if attachment.filename.endswith(".pdf")
-        ]
-        # check for pdf links in the message content
-        pdf_links = [word for word in message.content.split() if word.endswith(".pdf")]
-
-        # TODO check for multiple pdfs in a single message
-
-        if not pdf_links and not pdf_atts:
-            return
-
-        pdf_filename = None
-        pdf_url = None
-
-        if pdf_atts:
-            results = await self.file_downloader.download_attachments(
-                message, self.cache_dir
-            )
-            pdf_filename = results[0].filename
-            pdf_url = pdf_atts[0]
-        elif pdf_links:
-            pdf_filename = await self.file_downloader.download_file(
-                pdf_links[0], self.cache_dir
-            )
-            pdf_url = pdf_links[0]
-
+    async def post_preview(self, ctx: FileContext) -> None:
+        pdf_filename = ctx.candidate.filename
+        pdf_url = ctx.candidate.url
         if not pdf_filename:
             return
 
-        preview_pages = max(1, pdf_preview_config.preview_pages)
+        config = PDFPreviewConfig.get_or_none(guild_id=ctx.message.guild.id)
+        preview_pages = max(1, config.preview_pages if config else 1)
 
         file_size = os.path.getsize(pdf_filename)
         image_paths, page_count = self.generate_pdf_preview(pdf_filename, preview_pages)
@@ -82,7 +69,7 @@ class PDFPreview(
         ]
         embeds = self.build_preview_embeds(image_paths, page_count, file_size, pdf_url)
 
-        embed_msg = await message.channel.send(files=files, embeds=embeds)
+        embed_msg = await ctx.message.channel.send(files=files, embeds=embeds)
 
         vt_results = await self.virus_check.check_file(pdf_filename)
         # update the embeds with the VirusTotal results
