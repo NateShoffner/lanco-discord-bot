@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
 from utils.command_utils import is_bot_owner
+from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
 
 DATA_DIR = "data"
@@ -335,6 +336,17 @@ class LancoBot(commands.Bot):
         # TODO probably a better way to inject a database into a cog
         self.database = database
         self.url_handlers = []
+        # Message/file/image router. Cogs register an Intent (or File/Image
+        # subclass) on this single list; the router owns the one on_message
+        # handler and dispatches the winning intent(s). IMAGE_ROUTER_ALL_IMAGES=
+        # true routes every image in a message instead of just the first.
+        self.processors: list["Intent"] = []
+        self.router: "ImageRouter" = ImageRouter(
+            self,
+            cache_dir=os.path.join(DATA_DIR, "ImageRouter", "Cache"),
+            process_all_images=os.getenv("IMAGE_ROUTER_ALL_IMAGES", "").lower()
+            == "true",
+        )
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
@@ -452,6 +464,15 @@ class LancoBot(commands.Bot):
     def has_url_handler(self, url: str) -> bool:
         return self.get_url_handler(url) is not None
 
+    def register_processor(self, intent: Intent) -> None:
+        """Register a routing Intent. Intents are removed on cog unload via the
+        cleanup in LancoCog.cog_unload.
+        """
+        logger.info(
+            f"Registering {intent.level} processor: {intent.name} - {intent.cog.get_cog_name()}"
+        )
+        self.processors.append(intent)
+
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
         _prefix_cache.pop(guild.id, None)
@@ -461,6 +482,7 @@ class LancoBot(commands.Bot):
         logger.info(f"Bot ready: {self.user.name} - {self.user.id}")
 
     async def setup_hook(self):
+        self.add_listener(self.router.handle_message, "on_message")
         if self.dev_mode:
             self.loop.create_task(self._hot_reload_watcher())
 
