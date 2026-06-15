@@ -811,24 +811,23 @@ class GeoGuesser(
 
                 thread_db = SqliteDatabase(os.getenv("SQLITE_DB"))
                 thread_db.connect()
-                LocationModel.bind(thread_db)
                 try:
-                    with thread_db.atomic():
-                        LocationModel.delete().where(
-                            LocationModel.mode == mode.name
-                        ).execute()
-                        for location in locations:
-                            LocationModel.create(
-                                mode=mode.name,
-                                initial_lat=location.initial_location.lat,
-                                initial_lng=location.initial_location.lng,
-                                road_lat=location.road_coords.lat,
-                                road_lng=location.road_coords.lng,
-                                label=location.label,
-                            )
+                    with LocationModel.bind_ctx(thread_db):
+                        with thread_db.atomic():
+                            LocationModel.delete().where(
+                                LocationModel.mode == mode.name
+                            ).execute()
+                            for location in locations:
+                                LocationModel.create(
+                                    mode=mode.name,
+                                    initial_lat=location.initial_location.lat,
+                                    initial_lng=location.initial_location.lng,
+                                    road_lat=location.road_coords.lat,
+                                    road_lng=location.road_coords.lng,
+                                    label=location.label,
+                                )
                     return locations
                 finally:
-                    LocationModel.bind(self.bot.database)
                     thread_db.close()
 
             task = asyncio.create_task(asyncio.to_thread(generate_and_save))

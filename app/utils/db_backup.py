@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseBackup:
-    def __init__(self):
+    def __init__(self, database=None):
+        self.database = database
         self.backup_dir = os.getenv("DATABASE_BACKUP_DIRECTORY", "db_backups")
         self.backup_filename = os.getenv("DATABASE_BACKUP_FILENAME", "db_backup_{}.db")
         self.backup_interval = int(os.getenv("DATABASE_BACKUP_INTERVAL", 86400))
@@ -48,6 +49,8 @@ class DatabaseBackup:
 
         logger.info(f"Backing up database to {dest}")
         try:
+            if self.database:
+                self.database.execute_sql("PRAGMA wal_checkpoint(TRUNCATE)")
             await asyncio.to_thread(shutil.copy2, self.database_path, dest)
             logger.info(f"Database backed up to {dest}")
             await asyncio.to_thread(self._prune_old_backups)

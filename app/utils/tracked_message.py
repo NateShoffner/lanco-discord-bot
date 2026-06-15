@@ -14,8 +14,7 @@ class TrackedMessage(BaseModel):
 
 def create_tables():
     """Create the tables"""
-    with BaseModel._meta.database:
-        BaseModel._meta.database.create_tables([TrackedMessage])
+    BaseModel._meta.database.create_tables([TrackedMessage])
 
 
 def is_message_tracked(message_id: int) -> bool:

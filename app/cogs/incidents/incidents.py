@@ -125,11 +125,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
                     if self.is_using_arcgis():
                         feed_config.last_known_incident = incident.number
-                        feed_config.save()
                     else:
-                        incident_timestamp = incident.date.timestamp()
-                        feed_config.latest_incident_timestamp = incident_timestamp
-                        feed_config.save()
+                        feed_config.latest_incident_timestamp = (
+                            incident.date.timestamp()
+                        )
+                    feed_config.save()
 
     def is_using_arcgis(self) -> bool:
         return isinstance(self.current_client, ArcGISClient)
