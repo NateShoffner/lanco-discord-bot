@@ -4,7 +4,7 @@ from peewee import *
 
 
 class GuildConfig(BaseModel):
-    guild_id = IntegerField()
+    guild_id = IntegerField(unique=True)
     prefix = CharField(default=".")
     timezone = CharField(default="UTC")
 

@@ -17,6 +17,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
+from playhouse.sqliteq import SqliteQueueDatabase
 from utils.command_utils import is_bot_owner
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
@@ -255,7 +256,7 @@ def get_prefix(bot, message):
     return DEFAULT_PREFIX
 
 
-def init_db() -> SqliteDatabase:
+def init_db() -> Database:
     """Initialize and connect the database, returning the database instance."""
     db_type_str = os.getenv("DB_TYPE", "sqlite")
 
@@ -271,7 +272,16 @@ def init_db() -> SqliteDatabase:
         db_dir = os.path.dirname(sqlite_path)
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir)
-        db = SqliteDatabase(sqlite_path)
+        db = SqliteQueueDatabase(
+            sqlite_path,
+            pragmas={
+                "journal_mode": "wal",
+                "cache_size": -1024 * 32,
+                "foreign_keys": 1,
+            },
+            thread_safe=True,
+            timeout=5,
+        )
 
     elif db_type == DatabaseType.MYSQL:
         db = MySQLDatabase(
@@ -742,7 +752,7 @@ async def main():
         if config.prefix:
             _prefix_cache[config.guild_id] = config.prefix
 
-    db_backup = DatabaseBackup()
+    db_backup = DatabaseBackup(database=database)
     await bot.load_cogs()
     async with bot:
         db_backup.start()

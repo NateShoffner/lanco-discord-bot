@@ -172,12 +172,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         last_updated=now,
                         message_id=msg.id,
                     )
-
-                # Mark as seen and update last known post creation
-                seen_ids.add(submission.id)
-                for config in configs:
                     config.last_known_post_creation = submission.created_utc
                     config.save()
+
+                # Mark as seen
+                seen_ids.add(submission.id)
                 self.logger.info(f"[{sr}] Marked {submission.id} as seen")
 
     async def update_post_states(self):
