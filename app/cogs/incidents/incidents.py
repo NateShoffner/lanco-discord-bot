@@ -2,13 +2,13 @@ import asyncio
 import datetime
 import os
 from dataclasses import dataclass
+from importlib.metadata import version as get_package_version
 from urllib.parse import urlencode
 
 import aiofiles
 import aiohttp
 import discord
 import googlemaps
-import pkg_resources
 import pytz
 from cogs.lancocog import LancoCog
 from discord import app_commands
@@ -366,17 +366,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         embed, map_attachment = await self.build_incident_embed(incident)
         await interaction.response.send_message(file=map_attachment, embed=embed)
 
-    lcwc_dist = None
-
     def get_lcwc_version(self):
-        if not self.lcwc_dist:
-            self.get_lcwc_dist()
-        return self.lcwc_dist.version
-
-    def get_lcwc_dist(self):
-        if not self.lcwc_dist:
-            self.lcwc_dist = pkg_resources.get_distribution("lcwc")
-        return self.lcwc_dist
+        return get_package_version("lcwc")
 
     def set_client_from_name(self, name: str):
         client = next((c for c in self.clients if c.name == name), None)
