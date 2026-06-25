@@ -49,6 +49,10 @@ async def bot(test_db):
     """A real LancoBot instance configured for testing."""
     from main import LancoBot
 
+    # Re-bind the proxy to test_db in case main.py's module-level init_db()
+    # re-initialized it to a different :memory: connection on first import.
+    database_proxy.initialize(test_db)
+
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
