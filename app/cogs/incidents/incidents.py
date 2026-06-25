@@ -87,12 +87,12 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         incidents = []
         async with aiohttp.ClientSession() as session:
             try:
-                self.last_sync_attempt = datetime.datetime.now()
+                self.last_sync_attempt = datetime.datetime.now(datetime.timezone.utc)
                 if self.is_using_arcgis():
                     incidents = await self.current_client.get_incidents(session)
                 else:
                     incidents = await self.current_client.get_incidents(session)
-                self.last_successful_sync = datetime.datetime.now()
+                self.last_successful_sync = datetime.datetime.now(datetime.timezone.utc)
             except Exception as e:
                 self.logger.error(f"Error getting incidents: {e}")
                 return
