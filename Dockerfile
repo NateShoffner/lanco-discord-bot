@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN poetry install --no-root --only main && \
     /app/.venv/bin/pip uninstall -y pip setuptools 2>/dev/null || true
 
 
-FROM python:3.10-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 ARG GIT_COMMIT_HASH=unknown
 ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
