@@ -5340,21 +5340,22 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 
 [[package]]
 name = "vt-py"
-version = "0.18.4"
+version = "0.22.0"
 description = "The official Python client library for VirusTotal"
 optional = false
 python-versions = ">=3.7.0"
 groups = ["main"]
 files = [
-    {file = "vt_py-0.18.4-py3-none-any.whl", hash = "sha256:0107e2e949ac80e0010e2078e12c9cbe7ee0f1050bd2ce86a11bc155ed6769b3"},
-    {file = "vt_py-0.18.4.tar.gz", hash = "sha256:4ec89365d4da4d70b5be5c6bc7baa3fa12037065ef22de3eb4210d1957d31aa9"},
+    {file = "vt_py-0.22.0-py3-none-any.whl", hash = "sha256:cc81107500ef9b4d68e835643a0c4da8bb2c19c265daa7fc23e03d2569246a16"},
+    {file = "vt_py-0.22.0.tar.gz", hash = "sha256:241baf95af552376eea7ebd129cb03736d49049190c995193952d2cc82a2ad37"},
 ]
 
 [package.dependencies]
-aiohttp = {version = "*", markers = "python_version > \"3.7\""}
+aiofiles = "*"
+aiohttp = "*"
 
 [package.extras]
-test = ["flask", "pytest", "pytest-asyncio", "pytest-httpserver"]
+test = ["flask", "pytest", "pytest_asyncio", "pytest_httpserver"]
 
 [[package]]
 name = "watchfiles"
@@ -5874,4 +5875,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "3918b5dc4793d68acd4c68c6620f1ab82bb715bb3fc3684a9a11a1d5be3f8292"
+content-hash = "4541dba6ed0964ecc231c8f7dfb4c37840235ae6c7948fe2a991139b6242c317"
