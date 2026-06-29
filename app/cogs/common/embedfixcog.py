@@ -243,11 +243,10 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         )
 
         fixed_msg = await message.reply(fixed_url)
-        self.fixed_messages[message.id] = fixed_msg.id
-
-        # suppress the original embed if we can
         if message.channel.permissions_for(message.guild.me).manage_messages:
             await message.edit(suppress=True)
+
+        self.fixed_messages[message.id] = fixed_msg.id
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
