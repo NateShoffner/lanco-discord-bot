@@ -96,30 +96,37 @@ class FacebookEmbed(
             bot,
             "Facebook Embed Fix",
             [
-                EmbedFixCog.PatternReplacement(
-                    www_facebook_pattern,
-                    "www.facebook.com",
-                    "facebed.seria.moe",
-                ),
-                EmbedFixCog.PatternReplacement(
-                    web_facebook_pattern,
-                    "web.facebook.com",
-                    "facebed.seria.moe",
-                ),
-                EmbedFixCog.PatternReplacement(
-                    m_facebook_pattern,
-                    "m.facebook.com",
-                    "facebed.seria.moe",
-                ),
-                EmbedFixCog.PatternReplacement(
-                    bare_facebook_pattern,
-                    "facebook.com",
-                    "facebed.seria.moe",
-                ),
-                EmbedFixCog.PatternReplacement(
-                    fb_watch_pattern,
-                    "fb.watch",
-                    "facebed.seria.moe/fb.watch",
+                EmbedFixCog.Handler(
+                    "facebed",
+                    "Facebed",
+                    "Uses facebed.seria.moe",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            www_facebook_pattern,
+                            "www.facebook.com",
+                            "facebed.seria.moe",
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            web_facebook_pattern,
+                            "web.facebook.com",
+                            "facebed.seria.moe",
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            m_facebook_pattern,
+                            "m.facebook.com",
+                            "facebed.seria.moe",
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            bare_facebook_pattern,
+                            "facebook.com",
+                            "facebed.seria.moe",
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            fb_watch_pattern,
+                            "fb.watch",
+                            "facebed.seria.moe/fb.watch",
+                        ),
+                    ],
                 ),
             ],
             FacebookEmbedConfig,

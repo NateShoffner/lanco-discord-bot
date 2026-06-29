@@ -8,6 +8,10 @@ Replaces broken Facebook embeds with rich previews. URLs are routed by type: ree
 |---|---|---|
 | `/facebookembed toggle` | Admin | Enable or disable the embed fix for this guild |
 
+## Handler
+
+Facebook uses a single fixed handler (`facebed.seria.moe`). Handler switching is not supported because the native event, post, and page embeds also rely on the facebed service and cannot be easily redirected.
+
 ## Behavior
 
 | URL type | Handling |

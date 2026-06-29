@@ -21,10 +21,25 @@ class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fi
             bot,
             "Instagram Embed Fix",
             [
-                EmbedFixCog.PatternReplacement(
-                    self.insta_pattern,
-                    "instagram.com",
-                    "zzinstagram.com",
+                EmbedFixCog.Handler(
+                    "zzinstagram",
+                    "ZZInstagram",
+                    "Uses zzinstagram.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            self.insta_pattern, "instagram.com", "zzinstagram.com"
+                        ),
+                    ],
+                ),
+                EmbedFixCog.Handler(
+                    "ddinstagram",
+                    "DDInstagram",
+                    "Uses ddinstagram.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            self.insta_pattern, "instagram.com", "ddinstagram.com"
+                        ),
+                    ],
                 ),
             ],
             InstaEmbedConfig,
@@ -42,6 +57,14 @@ class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fi
     @is_bot_owner_or_admin()
     async def toggle(self, interaction):
         await super().toggle(interaction)
+
+    @g.command(
+        name="handler",
+        description="Switch the Instagram embed handler for this server",
+    )
+    @is_bot_owner_or_admin()
+    async def handler(self, interaction):
+        await self._show_handler_select(interaction)
 
 
 async def setup(bot):
