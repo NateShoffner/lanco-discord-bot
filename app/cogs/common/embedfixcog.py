@@ -57,6 +57,19 @@ class _HandlerSelectView(discord.ui.View):
         return True
 
 
+class _BypassButtonView(discord.ui.View):
+    def __init__(self, bypass_url: str, service_name: str):
+        super().__init__(timeout=None)
+        self.add_item(
+            discord.ui.Button(
+                label=f"Read via {service_name}",
+                url=bypass_url,
+                style=discord.ButtonStyle.link,
+                emoji="🔓",
+            )
+        )
+
+
 class EmbedFixConfigBase(BaseModel):
     guild_id = BigIntegerField(primary_key=True)
     enabled = BooleanField(default=False)
@@ -83,11 +96,14 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
             name: str,
             description: str,
             patterns: list,
+            service_url: str = None,
         ):
             self.id = id
             self.name = name
             self.description = description
             self.patterns = patterns
+            # When set, bypass_button_mode uses this prefix instead of PatternReplacement
+            self.service_url = service_url
 
     @staticmethod
     def _is_within_angle_brackets(content: str, match: re.Match) -> bool:
@@ -131,6 +147,7 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         config_model: Model,
         skip_if_handled_by_discord: bool = False,
         wait_time: float = 2.5,
+        bypass_button_mode: bool = False,
     ):
         super().__init__(bot)
         self.name = name
@@ -138,8 +155,12 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         self.config_model = config_model
         self.skip_if_handled_by_discord = skip_if_handled_by_discord
         self.wait_time = wait_time
+        self.bypass_button_mode = bypass_button_mode
         self.bot.database.create_tables([self.config_model])
         self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
+
+    def _bypass_embed(self, active: "EmbedFixCog.Handler") -> discord.Embed | None:
+        return None
 
     def _active_handler(self, config) -> "EmbedFixCog.Handler":
         """Return the configured Handler for this guild, falling back to the first."""
@@ -235,19 +256,29 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
             return
 
         active = self._active_handler(embed_config)
-        pr = active.patterns[min(matched_idx, len(active.patterns) - 1)]
-        fixed_url = original_url.replace(pr.original, pr.replacement)
+
+        if self.bypass_button_mode and active.service_url:
+            fixed_url = active.service_url + original_url
+        else:
+            pr = active.patterns[min(matched_idx, len(active.patterns) - 1)]
+            fixed_url = original_url.replace(pr.original, pr.replacement)
 
         self.logger.info(
             f"Fixing URL with handler '{active.id}': {original_url} -> {fixed_url}"
         )
 
-        fixed_msg = await message.reply(fixed_url)
-        self.fixed_messages[message.id] = fixed_msg.id
+        if self.bypass_button_mode:
+            view = _BypassButtonView(fixed_url, active.name)
+            fixed_msg = await message.reply(
+                embed=self._bypass_embed(active), view=view, mention_author=False
+            )
+        else:
+            fixed_msg = await message.reply(fixed_url)
+            # suppress the original embed if we can
+            if message.channel.permissions_for(message.guild.me).manage_messages:
+                await message.edit(suppress=True)
 
-        # suppress the original embed if we can
-        if message.channel.permissions_for(message.guild.me).manage_messages:
-            await message.edit(suppress=True)
+        self.fixed_messages[message.id] = fixed_msg.id
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
