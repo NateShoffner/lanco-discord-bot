@@ -27,15 +27,42 @@ class TwitterEmbed(
             bot,
             "Twitter/X Embed Fix",
             [
-                EmbedFixCog.PatternReplacement(
-                    twitter_pattern,
-                    "twitter.com",
-                    "fxtwitter.com",
+                EmbedFixCog.Handler(
+                    "fxtwitter",
+                    "FxTwitter",
+                    "Uses fxtwitter.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            twitter_pattern, "twitter.com", "fxtwitter.com"
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            x_pattern, "x.com", "fxtwitter.com"
+                        ),
+                    ],
                 ),
-                EmbedFixCog.PatternReplacement(
-                    x_pattern,
-                    "x.com",
-                    "fxtwitter.com",
+                EmbedFixCog.Handler(
+                    "vxtwitter",
+                    "VxTwitter",
+                    "Uses vxtwitter.com / fixvx.com for x.com links",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            twitter_pattern, "twitter.com", "vxtwitter.com"
+                        ),
+                        EmbedFixCog.PatternReplacement(x_pattern, "x.com", "fixvx.com"),
+                    ],
+                ),
+                EmbedFixCog.Handler(
+                    "fixupx",
+                    "FixupX",
+                    "Uses fixupx.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            twitter_pattern, "twitter.com", "fixupx.com"
+                        ),
+                        EmbedFixCog.PatternReplacement(
+                            x_pattern, "x.com", "fixupx.com"
+                        ),
+                    ],
                 ),
             ],
             TwitterEmbedConfig,
@@ -60,6 +87,14 @@ class TwitterEmbed(
     @is_bot_owner_or_admin()
     async def toggle(self, interaction):
         await super().toggle(interaction)
+
+    @g.command(
+        name="handler",
+        description="Switch the Twitter/X embed handler for this server",
+    )
+    @is_bot_owner_or_admin()
+    async def handler(self, interaction):
+        await self._show_handler_select(interaction)
 
 
 async def setup(bot):

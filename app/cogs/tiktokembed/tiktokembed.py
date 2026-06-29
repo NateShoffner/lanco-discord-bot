@@ -23,10 +23,25 @@ class TikTokEmbed(
             bot,
             "TikTok Embed Fix",
             [
-                EmbedFixCog.PatternReplacement(
-                    self.tiktok_pattern,
-                    "tiktok.com",
-                    "vxtiktok.com",
+                EmbedFixCog.Handler(
+                    "vxtiktok",
+                    "VxTikTok",
+                    "Uses vxtiktok.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            self.tiktok_pattern, "tiktok.com", "vxtiktok.com"
+                        ),
+                    ],
+                ),
+                EmbedFixCog.Handler(
+                    "tnktok",
+                    "TnkTok",
+                    "Uses tnktok.com",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            self.tiktok_pattern, "tiktok.com", "tnktok.com"
+                        ),
+                    ],
                 ),
             ],
             TikTokEmbedConfig,
@@ -44,6 +59,14 @@ class TikTokEmbed(
     @is_bot_owner_or_admin()
     async def toggle(self, interaction):
         await super().toggle(interaction)
+
+    @g.command(
+        name="handler",
+        description="Switch the TikTok embed handler for this server",
+    )
+    @is_bot_owner_or_admin()
+    async def handler(self, interaction):
+        await self._show_handler_select(interaction)
 
 
 async def setup(bot):
