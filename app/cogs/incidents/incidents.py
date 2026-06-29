@@ -41,6 +41,9 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     est = pytz.timezone("US/Eastern")
 
+    FAILURE_THRESHOLD = 3
+    RECOVERY_CHECK_MINUTES = 1
+
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot.database.create_tables([IncidentsGlobalConfig, IncidentConfig])
@@ -56,6 +59,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
             self.feed_client,
             self.web_client,
         ]
+        self._client_priority = [self.arcgis_client, self.feed_client, self.web_client]
 
         client_config = IncidentsGlobalConfig.get_or_none(
             IncidentsGlobalConfig.name == "client"
@@ -66,6 +70,10 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         else:
             self.current_client = self.arcgis_client
 
+        self.preferred_client = self.current_client
+        self.auto_switched = False
+        self.consecutive_failures = 0
+
         self.active_incidents = []
         self.last_sync_attempt = None
         self.last_successful_sync = None
@@ -74,6 +82,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         await super().cog_load()
         self.get_incidents_loop.change_interval(seconds=5)
         self.get_incidents_loop.start()
+        self.recovery_check_loop.start()
+
+    async def cog_unload(self):
+        self.get_incidents_loop.cancel()
+        self.recovery_check_loop.cancel()
 
     @tasks.loop(seconds=10)
     async def get_incidents_loop(self):
@@ -82,22 +95,86 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
             await self.process_incidents(incidents)
             self.active_incidents = incidents
 
+    @tasks.loop(minutes=1)
+    async def recovery_check_loop(self):
+        if not self.auto_switched or self.current_client is self.preferred_client:
+            return
+
+        self.logger.info(f"Checking if {self.preferred_client.name} is back online...")
+        async with aiohttp.ClientSession() as session:
+            try:
+                incidents = await self.preferred_client.get_incidents(session)
+                self.logger.info(
+                    f"{self.preferred_client.name} is back online, switching back"
+                )
+                await self._recover_to_preferred(incidents)
+            except Exception as e:
+                self.logger.info(f"{self.preferred_client.name} still offline: {e}")
+
     async def get_incidents(self):
         self.logger.info(f"Getting incidents via {self.current_client.name}")
         incidents = []
         async with aiohttp.ClientSession() as session:
             try:
                 self.last_sync_attempt = datetime.datetime.now(datetime.timezone.utc)
-                if self.is_using_arcgis():
-                    incidents = await self.current_client.get_incidents(session)
-                else:
-                    incidents = await self.current_client.get_incidents(session)
+                incidents = await self.current_client.get_incidents(session)
                 self.last_successful_sync = datetime.datetime.now(datetime.timezone.utc)
+                self.consecutive_failures = 0
             except Exception as e:
                 self.logger.error(f"Error getting incidents: {e}")
-                return
+                self.consecutive_failures += 1
+                if self.consecutive_failures >= self.FAILURE_THRESHOLD:
+                    await self._try_switch_to_fallback()
+                return None
 
         return incidents
+
+    async def _try_switch_to_fallback(self):
+        try:
+            current_idx = self._client_priority.index(self.current_client)
+        except ValueError:
+            return
+
+        if current_idx >= len(self._client_priority) - 1:
+            self.logger.warning(
+                f"Already on last fallback client ({self.current_client.name}), no further fallback available"
+            )
+            return
+
+        next_client = self._client_priority[current_idx + 1]
+        self.logger.warning(
+            f"Switching from {self.current_client.name} to {next_client.name} "
+            f"after {self.consecutive_failures} consecutive failures"
+        )
+        await self._do_automatic_switch(next_client)
+
+    async def _do_automatic_switch(self, new_client: Client):
+        now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+
+        if not isinstance(new_client, ArcGISClient):
+            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+                config.latest_incident_timestamp = now_ts
+                config.save()
+
+        self.auto_switched = True
+        self.consecutive_failures = 0
+        self.set_client_from_name(new_client.name)
+
+    async def _recover_to_preferred(self, incidents):
+        if isinstance(self.preferred_client, ArcGISClient) and incidents:
+            max_number = max(i.number for i in incidents)
+            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+                config.last_known_incident = max_number
+                config.save()
+        elif not isinstance(self.preferred_client, ArcGISClient) and incidents:
+            max_ts = max(i.date.timestamp() for i in incidents)
+            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+                config.latest_incident_timestamp = max_ts
+                config.save()
+
+        self.auto_switched = False
+        self.consecutive_failures = 0
+        self.set_client_from_name(self.preferred_client.name)
 
     async def process_incidents(self, incidents):
         feed_configs = IncidentConfig.select().where(IncidentConfig.enabled == True)
@@ -323,11 +400,17 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         embed = discord.Embed(
             title="Status", description="Incident Cog Status", color=0x00FF00
         )
-        embed.add_field(
-            name="Current Client", value=f"{self.current_client.__class__.__name__}"
-        )
+        client_display = self.current_client.__class__.__name__
+        if self.auto_switched:
+            client_display += f" (auto-switched, preferred: {self.preferred_client.__class__.__name__})"
+        embed.add_field(name="Current Client", value=client_display)
         embed.add_field(
             name="Active Incidents", value=f"{len(self.active_incidents)}", inline=False
+        )
+        embed.add_field(
+            name="Consecutive Failures",
+            value=f"{self.consecutive_failures}/{self.FAILURE_THRESHOLD}",
+            inline=False,
         )
         embed.add_field(
             name="Last Sync Attempt",
@@ -381,6 +464,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         client_value = interaction.data["values"][0]
         self.logger.info(f"Setting client to: {client_value}")
         self.set_client_from_name(client_value)
+
+        # Manual override clears auto-switch state and updates preferred client
+        self.preferred_client = self.current_client
+        self.auto_switched = False
+        self.consecutive_failures = 0
 
         config, created = IncidentsGlobalConfig.get_or_create(
             name="client", defaults={"value": client_value}
