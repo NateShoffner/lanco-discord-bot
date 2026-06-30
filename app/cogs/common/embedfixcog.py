@@ -29,7 +29,10 @@ class _HandlerSelect(discord.ui.Select):
         handler_id = self.values[0]
         handler = next(h for h in self._cog.handlers if h.id == handler_id)
 
-        config, _ = self._cog.config_model.get_or_create(guild_id=self._guild_id)
+        try:
+            config, _ = self._cog.config_model.get_or_create(guild_id=self._guild_id)
+        except IntegrityError:
+            config = self._cog.config_model.get_or_none(guild_id=self._guild_id)
         config.handler_id = handler_id
         config.save()
 
@@ -150,7 +153,14 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         return self.handlers[0]
 
     async def toggle(self, interaction: discord.Interaction):
-        config, created = self.config_model.get_or_create(guild_id=interaction.guild.id)
+        try:
+            config, created = self.config_model.get_or_create(
+                guild_id=interaction.guild.id
+            )
+        except IntegrityError:
+            config = self.config_model.get_or_none(guild_id=interaction.guild.id)
+            created = False
+
         if created or not config.enabled:
             config.enabled = True
             config.save()
