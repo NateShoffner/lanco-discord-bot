@@ -44,6 +44,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         )  # 24 hours
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
+        # In-memory seen set so SqliteQueueDatabase write-queue latency can't
+        # cause re-posts between poll cycles. Seeded from DB on first poll.
+        self._seen_ids: dict[str, set[str]] = {}  # subreddit -> set of post_ids
+        self._seen_ids_loaded: set[str] = set()  # subreddits whose DB rows are loaded
 
     async def cog_load(self):
         self.poll.start()
@@ -95,13 +99,17 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 f"[{sr}] Fetched {len(submissions)} submissions from Reddit"
             )
 
-            # Load all known post IDs for this subreddit for deduplication
-            seen_ids = set(
-                row[0]
-                for row in RedditPost.select(RedditPost.post_id)
-                .where(RedditPost.subreddit == sr)
-                .tuples()
-            )
+            # Seed in-memory seen set from DB once per subreddit, then keep it
+            # updated in-process so write-queue latency can't cause re-posts.
+            if sr not in self._seen_ids_loaded:
+                self._seen_ids[sr] = set(
+                    row[0]
+                    for row in RedditPost.select(RedditPost.post_id)
+                    .where(RedditPost.subreddit == sr.lower())
+                    .tuples()
+                )
+                self._seen_ids_loaded.add(sr)
+            seen_ids = self._seen_ids.setdefault(sr, set())
             self.logger.info(f"[{sr}] {len(seen_ids)} known post IDs in DB")
 
             new_count = sum(1 for s in submissions if s.id not in seen_ids)
@@ -156,7 +164,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                     now = datetime.datetime.now(datetime.timezone.utc)
                     RedditPost.create(
                         post_id=submission.id,
-                        subreddit=submission.subreddit.display_name,
+                        subreddit=submission.subreddit.display_name.lower(),
                         channel_id=config.channel_id,
                         title=submission.title,
                         permalink=submission.permalink,
@@ -188,7 +196,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         # Only check posts for subreddits that still have active configs
         active_subreddits = set(
-            row[0]
+            row[0].lower()
             for row in RedditFeedConfig.select(RedditFeedConfig.subreddit).tuples()
         )
 
@@ -263,7 +271,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
     @is_bot_owner_or_admin()
     async def subscribe(self, interaction: discord.Interaction, subreddit_name: str):
-        subreddit_name = subreddit_name.lstrip("/r/")
+        subreddit_name = subreddit_name.lstrip("/r/").lower()
         reddit_config, created = RedditFeedConfig.get_or_create(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
@@ -287,7 +295,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
     @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction, subreddit_name: str):
-        subreddit_name = subreddit_name.lstrip("/r/")
+        subreddit_name = subreddit_name.lstrip("/r/").lower()
         reddit_config = RedditFeedConfig.get_or_none(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
