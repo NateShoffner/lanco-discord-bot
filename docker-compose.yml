@@ -1,4 +1,7 @@
-version: "3.7"
+# Format 2.4 (not 3.x): docker-compose (non-swarm) only honors mem_limit /
+# mem_reservation in the 2.x format. In 3.x these move under deploy.resources,
+# which `docker-compose up` ignores outside swarm.
+version: "2.4"
 
 services:
   app:
@@ -6,6 +9,11 @@ services:
     container_name: lanco-bot
     restart: unless-stopped
     env_file: .env.prod
+    # Hard cap so a memory spike/leak restarts THIS container cleanly instead of
+    # the host OOM killer reaping the process. 512m fits the bot's normal usage
+    # with headroom; raise it if `docker stats` shows it sitting near the limit.
+    mem_limit: 512m
+    mem_reservation: 256m
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

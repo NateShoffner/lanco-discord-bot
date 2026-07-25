@@ -30,6 +30,13 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     STATE_WINDOW_MINUTES = (
         120  # only check posts made within this window for state changes
     )
+    # Safety valve: a live subreddit yields 0-1 new posts per poll cycle. Seeing
+    # many "new" posts at once is the signature of a lost/stale baseline (fresh
+    # process, rolled-back DB, missing rows), not real activity. Above this count
+    # we do NOT post — we silently adopt the current feed as the new baseline.
+    # This makes the "is this post new?" decision fail closed instead of open,
+    # so a stale baseline can never turn into a mass re-post.
+    MAX_NEW_POSTS_PER_POLL = 10
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -114,6 +121,26 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
             new_count = sum(1 for s in submissions if s.id not in seen_ids)
             self.logger.info(f"[{sr}] {new_count} new post(s) to process")
+
+            # Safety valve: too many "new" posts at once means the baseline is
+            # lost/stale, not that the subreddit suddenly exploded. Adopt the
+            # current feed as the baseline (persist the high-water mark so future
+            # restarts stay quiet) and post nothing, rather than spamming days of
+            # old posts to every channel.
+            if new_count > self.MAX_NEW_POSTS_PER_POLL:
+                self.logger.warning(
+                    f"[{sr}] {new_count} new posts in one poll exceeds safety "
+                    f"threshold ({self.MAX_NEW_POSTS_PER_POLL}); adopting current "
+                    f"feed as baseline and skipping posting to avoid a re-post spam"
+                )
+                newest_ts = max((s.created_utc for s in submissions), default=None)
+                for s in submissions:
+                    seen_ids.add(s.id)
+                if newest_ts is not None:
+                    for config in configs:
+                        config.last_known_post_creation = newest_ts
+                        config.save()
+                continue
 
             for submission in submissions:
                 # Skip already seen posts — state changes handled by check_post_states
