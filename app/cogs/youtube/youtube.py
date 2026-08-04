@@ -44,7 +44,7 @@ class Youtube(
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
         """Poll for new videos from subscribed channels"""
-        self.logger.info("Polling...")
+        self.logger.debug("Polling...")
         try:
             await self.get_new_videos()
         except Exception as e:
@@ -64,7 +64,7 @@ class Youtube(
             youtube_channels[youtube_config.yt_channel_id].append(youtube_config)
 
         for channel, configs in youtube_channels.items():
-            self.logger.info(f"Checking for new videos from channel: {channel}")
+            self.logger.debug(f"Checking for new videos from channel: {channel}")
 
             videos = await self.get_latest_videos(channel, limit=5)
             videos.sort(key=lambda x: x.uploaded_at, reverse=True)

@@ -101,7 +101,11 @@ for noisy in [
     "discord",
     "watchfiles",
     "httpx",
+    "httpcore",
     "openai",
+    "lcwc",
+    "seeclickfix",
+    "googlemaps",
 ]:
     logging.getLogger(noisy).setLevel(logging.WARNING)
 

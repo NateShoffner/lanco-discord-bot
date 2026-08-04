@@ -39,6 +39,7 @@ class Everbridge(
             password=os.getenv("EVERBRIDGE_PASSWORD"),
         )
         self.bot.database.create_tables([EverbridgeConfig])
+        self._warned_channels: set[int] = set()
 
     async def cog_load(self):
         self.poll.start()
@@ -49,7 +50,7 @@ class Everbridge(
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
         """Poll for new Everbridge notifications."""
-        self.logger.info("Polling...")
+        self.logger.debug("Polling...")
         try:
             await self.get_new_notifications()
         except Exception as e:
@@ -75,13 +76,13 @@ class Everbridge(
         """Get new Everbridge notifications."""
         everbridge_configs = EverbridgeConfig.select()
         if not everbridge_configs:
-            self.logger.info("No Everbridge configurations found.")
+            self.logger.debug("No Everbridge configurations found.")
             return
 
         notifications = await self.client.get_notifications()
 
         if not notifications:
-            self.logger.info("No new notifications found.")
+            self.logger.debug("No new notifications found.")
             return
 
         # reverse the notifs
@@ -90,7 +91,9 @@ class Everbridge(
         for config in everbridge_configs:
             channel = self.bot.get_channel(config.channel_id)
             if not channel:
-                self.logger.warning(f"Channel {config.channel_id} not found.")
+                if config.channel_id not in self._warned_channels:
+                    self._warned_channels.add(config.channel_id)
+                    self.logger.warning(f"Channel {config.channel_id} not found.")
                 continue
 
             last_event_date = config.last_event_date
