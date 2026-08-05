@@ -1,5 +1,12 @@
 from discord import Message, TextChannel
 
+DISCORD_MESSAGE_LIMIT = 2000
+
+
+def exceeds_discord_limit(text: str) -> bool:
+    """Check whether text exceeds Discord's message length limit."""
+    return len(text) > DISCORD_MESSAGE_LIMIT
+
 
 async def get_user_messages(
     channel: TextChannel, limit: int, oldest_first: bool = False

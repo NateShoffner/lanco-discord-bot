@@ -8,6 +8,7 @@ from reactionmenu import ReactionButton, ReactionMenu
 from utils.ai_utils import run_agent
 from utils.apm import transaction as apm_transaction
 from utils.command_utils import is_bot_owner_or_admin
+from utils.message_utils import DISCORD_MESSAGE_LIMIT, exceeds_discord_limit
 from utils.tracked_message import track_message_ids
 
 from .models import CustomCommands
@@ -336,12 +337,14 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
                             return
 
                         # limit it for a discord message
-                        if len(response.output.response) > 2000:
+                        if exceeds_discord_limit(response.output.response):
                             response.output.response = (
-                                response.output.response[:1997] + "..."
+                                response.output.response[: DISCORD_MESSAGE_LIMIT - 3]
+                                + "..."
                             )
                             self.logger.info(
-                                "Message was too long, truncated to 2000 characters."
+                                "Message was too long, truncated to %d characters.",
+                                DISCORD_MESSAGE_LIMIT,
                             )
 
                         msg = await message.channel.send(response.output.response)
