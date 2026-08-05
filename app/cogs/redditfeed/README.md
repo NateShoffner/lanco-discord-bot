@@ -40,6 +40,7 @@ Stop watching a subreddit in the current channel.
 
 - **Author deletions** are detected via `reddit.info()` and reflected near-instantly
 - **Moderator removals** are detected reliably and reflected within the state check interval
+- **Reddit admin takedowns** (content policy, legal, copyright) are detected via `removed_by_category` and shown with a **Removed by Reddit** status; the embed image is dropped along with the original content
 - **Edits** are best-effort — the Reddit API caches post data aggressively and edited state can take many minutes to propagate or may not propagate at all, particularly on low-traffic subreddits or new accounts. This is a known Reddit API limitation with no reliable workaround without streaming
 - The bot uses ID-based deduplication so posts held in a moderation queue will still be shared when they become visible
 - State changes are only tracked for posts within the last **30 minutes** of being created
