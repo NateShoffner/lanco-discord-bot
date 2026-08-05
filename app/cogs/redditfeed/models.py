@@ -24,6 +24,7 @@ class RedditPost(BaseModel):
     spoiler = BooleanField()
     deleted = BooleanField(default=False)
     removed = BooleanField(default=False)
+    removed_by_reddit = BooleanField(default=False)
     edited = BooleanField(default=False)
     comment_count = IntegerField(null=True)
     score = IntegerField(null=True)
