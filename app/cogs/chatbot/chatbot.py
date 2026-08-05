@@ -12,6 +12,7 @@ from PIL import Image
 from pydantic_ai import Agent, BinaryContent, ImageUrl
 from pydantic_ai.messages import ModelMessage
 from utils.ai_utils import run_agent
+from utils.tracked_message import is_message_tracked
 
 _MENTION_RE = re.compile(r"<@!?(\d+)>")
 
@@ -216,7 +217,7 @@ class ChatBot(
                 message.reference.message_id
             )
             if referenced_msg.author.id == self.bot.user.id:
-                if referenced_msg.embeds:
+                if is_message_tracked(referenced_msg.id):
                     return
                 is_reply = True
             elif referenced_msg.author.bot:
