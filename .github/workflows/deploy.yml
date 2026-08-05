@@ -92,6 +92,12 @@ jobs:
             cd ~/lanco-discord-bot
             git pull origin master
             docker pull ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
-            docker-compose down
-            docker-compose up -d
+            docker-compose -p lanco-discord-bot down
+            docker-compose -p lanco-discord-bot up -d
             docker image prune -f
+            sleep 5
+            if [ -z "$(docker ps -q --filter name=^lanco-bot$ --filter status=running)" ]; then
+              echo "lanco-bot container is not running after deploy"
+              docker logs --tail 50 lanco-bot || true
+              exit 1
+            fi
