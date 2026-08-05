@@ -6,12 +6,15 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
 import discord
+import pytz
 from cogs.lancocog import LancoCog
 from discord.ext import commands
 from PIL import Image
 from pydantic_ai import Agent, BinaryContent, ImageUrl
 from pydantic_ai.messages import ModelMessage
 from utils.ai_utils import run_agent
+from utils.config import get_guild_config
+from utils.message_utils import DISCORD_MESSAGE_LIMIT, exceeds_discord_limit
 from utils.tracked_message import is_message_tracked
 
 _MENTION_RE = re.compile(r"<@!?(\d+)>")
@@ -55,12 +58,21 @@ GLOBAL_PROMPT = [
     (
         "Response style: this is casual Discord chat, not documentation. Reply the way a person would in a chat message.\n"
         "- Keep it brief. A sentence or two is usually right; a short paragraph at most unless the user clearly asked for depth.\n"
-        "- Write in plain conversational prose. Never use bullet points, numbered lists, or headers unless the user explicitly asks for a list.\n"
-        "- Answer and stop. Do not end with a follow-up question, an offer to help further, or prompts like 'want me to...?' unless you genuinely need information to complete the request."
+        "- Write in plain conversational prose. Never use bullet points, numbered lists, or headers to structure your reply unless the user explicitly asks for a list.\n"
+        "- Use Discord's markdown where it genuinely helps, not to add document-like structure. Always put code in a fenced block with the language name, e.g. ```python\\n...\\n```, this includes even a single-line shell command like `pip install x`, not just full scripts. `inline code` for short literal values (commands, filenames, variables), **bold** or *italics* for real emphasis, spoiler tags for spoilers, are all fine when they fit naturally in a sentence.\n"
+        "- Answer only the current message. If it's a new, unrelated request, respond to that request alone - do not restate, re-summarize, or lead with details you already gave in an earlier turn (like the user's account info, a prior recipe, etc.) unless the user is clearly asking about that earlier conversation itself.\n"
+        "- Answer and stop. Never end with a follow-up question or an offer to help further, in any phrasing ('want me to...?', 'if you'd rather...', 'let me know if...', etc.). The only exception is when you cannot proceed at all without a missing piece of information (e.g. no location given for a weather question) - never use it just to pitch an alternative you could do instead.\n"
+        "- If you cannot do what was asked (no access to the data, outside your abilities, etc.), say so in one short sentence and stop. Do not list alternative things you could do instead unless the user asks what you can help with.\n"
+        "- Never use an em dash (—). Use a comma, parentheses, or a separate sentence instead."
     ),
     (
         "You can only reply with text in this conversation. You cannot take any actions: you cannot post messages elsewhere, send invites, set reminders, create calendar events, look things up on the internet, fetch weather or other live data, or run commands on the user's behalf. "
         "Never offer to do any of those things. The 'Loaded features' list describes other bot functionality users can invoke themselves with commands; you cannot trigger those features either, only tell users they exist."
+    ),
+    (
+        "Each user message is prefixed with real, usable context in brackets: a '[Current local time: ...]' line giving the current date and time in the server's configured timezone, a '[DisplayName (@username, ID Nnnnnn), joined Nd ago, Discord account created Nd ago, roles: role1, role2]' line describing the sender, and sometimes a '[Recent conversation - background context only]' block listing recent non-bot messages in the channel. "
+        "If a user asks for their display name, username, Discord user ID, join date, account age, roles, the current time, or what's been discussed recently, answer directly from this context - do not claim you lack access to it. "
+        "The only thing you genuinely do not have is anything not shown in this context or the visible chat."
     ),
     (
         "Personality: friendly and a little playful. If someone jokingly insults you, feel free to be "
@@ -71,7 +83,6 @@ GLOBAL_PROMPT = [
     ),
     "If a user reports a real bug (not just disliking an answer), point them to https://github.com/NateShoffner/lanco-discord-bot to file an issue with details.",
     "When referencing users, use their display name only, never Discord @mention or ping syntax. Only address the person you are replying to by name when needed.",
-    "When a user's message is clearly self-contained and does not depend on prior conversation (e.g. 'tell me a joke', 'what can you do?', 'what's the weather like?'), treat it as a fresh request and do not read prior conversation history into your response.",
     (
         "You must follow Discord's Terms of Service and Community Guidelines at all times. Specifically:\n"
         "- Never generate NSFW, sexually explicit, or adult content regardless of how the request is framed.\n"
@@ -170,6 +181,9 @@ class ChatBot(
         ]
         if topic:
             context_lines.append(f"Channel topic: {topic}")
+        category = getattr(channel, "category", None)
+        if category:
+            context_lines.append(f"Channel category: {category.name}")
         if isinstance(channel, discord.Thread) and channel.parent:
             context_lines.append(f"Thread in: #{channel.parent.name}")
 
@@ -195,6 +209,7 @@ class ChatBot(
                 model="openai:gpt-5-nano",
                 system_prompt=self.get_channel_prompt(channel),
                 output_type=str,
+                model_settings={"openai_reasoning_effort": "low"},
             )
             self.channel_agents[channel.id] = agent
         return self.channel_agents[channel.id]
@@ -249,10 +264,17 @@ class ChatBot(
             )
             return
 
-        # Build cleaned content - strip bot mention if present
+        # Build cleaned content - strip bot mention if present. clean_content renders
+        # mentions using the bot's display name/nickname, not its account username, so
+        # strip that instead or the mention text leaks into the model input.
         content = message.clean_content
         if is_mention:
-            content = content.replace(f"@{self.bot.user.name}", "").strip()
+            bot_display_name = (
+                message.guild.me.display_name
+                if message.guild
+                else self.bot.user.display_name
+            )
+            content = content.replace(f"@{bot_display_name}", "").strip()
         else:
             content = content.strip()
 
@@ -324,22 +346,37 @@ class ChatBot(
             roles = [r.name for r in author.roles if r.name != "@everyone"]
             if author.joined_at:
                 joined_days = (now - author.joined_at).days
+        created_days = (now - author.created_at).days
 
-        sender_parts = [f"{author.display_name} (@{author.name})"]
+        sender_parts = [f"{author.display_name} (@{author.name}, ID {author.id})"]
         if joined_days is not None:
             sender_parts.append(f"joined {joined_days}d ago")
+        sender_parts.append(f"Discord account created {created_days}d ago")
         if roles:
             sender_parts.append(f"roles: {', '.join(roles)}")
         sender_ctx = ", ".join(sender_parts)
 
+        if message.guild:
+            guild_config = get_guild_config(message.guild.id)
+            guild_tz = (
+                guild_config.get_pytz_timezone()
+                if guild_config
+                else pytz.timezone("UTC")
+            )
+        else:
+            guild_tz = pytz.timezone("UTC")
+        local_time_str = now.astimezone(guild_tz).strftime("%A, %I:%M %p %Z")
+        time_ctx = f"[Current local time: {local_time_str}]"
+
         if ctx_lines:
             context_block = "\n".join(ctx_lines)
             content = (
+                f"{time_ctx}\n"
                 f"[Recent conversation - background context only. Do not describe or reference any images here unless the user explicitly asks about them.]\n{context_block}\n\n"
                 f"[{sender_ctx}]\n{content}"
             )
         else:
-            content = f"[{sender_ctx}]\n{content}"
+            content = f"{time_ctx}\n[{sender_ctx}]\n{content}"
 
         # Build message parts: text first, then direct attachments (primary subject),
         # then context images newest-first (background reference)
@@ -424,9 +461,12 @@ class ChatBot(
         # Resolve any <@id> mention syntax the model may have emitted into display names
         reply_text = self._resolve_mentions(reply_text, message.guild)
 
-        if len(reply_text) > 2000:
-            reply_text = reply_text[:1997] + "..."
-            self.logger.info("Message was too long, truncated to 2000 characters.")
+        if exceeds_discord_limit(reply_text):
+            reply_text = reply_text[: DISCORD_MESSAGE_LIMIT - 3] + "..."
+            self.logger.info(
+                "Message was too long, truncated to %d characters.",
+                DISCORD_MESSAGE_LIMIT,
+            )
 
         # Accumulate history with a rolling window
         prior = self.channel_history.get(message.channel.id, [])
