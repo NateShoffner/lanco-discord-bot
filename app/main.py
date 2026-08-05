@@ -432,7 +432,6 @@ class LancoBot(commands.Bot):
                 await self.reload_extension(dotted)
                 result.status = CogStatus.RELOADED
             else:
-                logger.info(f"Loading {name}")
                 await self.load_extension(dotted)
                 result.status = CogStatus.LOADED
         except Exception as e:
@@ -472,6 +471,15 @@ class LancoBot(commands.Bot):
             if os.path.isfile(os.path.join(entry.path, "__init__.py")):
                 result = await self.load_cog(entry.name)
                 results.append(result)
+
+        ok = sum(
+            1 for r in results if r.status in (CogStatus.LOADED, CogStatus.RELOADED)
+        )
+        failed = [r.name for r in results if r.status == CogStatus.ERROR]
+        summary = f"Loaded {ok} cog(s)"
+        if failed:
+            summary += f", {len(failed)} failed: {', '.join(failed)}"
+        logger.info(summary)
         return results
 
     async def unload_cog(self, name: str) -> "CogLoadResult":
@@ -490,14 +498,16 @@ class LancoBot(commands.Bot):
         return result
 
     def register_url_handler(self, handler: UrlHandler):
-        logger.info(
-            f"Registering url handler: {handler.url_pattern.pattern} - {handler.cog.get_cog_name()}"
+        handler.cog.logger.info(
+            f"Registering url handler: {handler.url_pattern.pattern}"
         )
         # do a pre-check of possible duplicate url handlers
         if handler.example_url:
             for h in self.url_handlers:
                 if h.url_pattern.match(handler.example_url):
-                    logger.warning(f"Duplicate url handler: {handler.example_url}")
+                    handler.cog.logger.warning(
+                        f"Duplicate url handler: {handler.example_url}"
+                    )
         self.url_handlers.append(handler)
 
     # TODO allow cogs to declare whether a URL has been properly handled or not
@@ -512,13 +522,10 @@ class LancoBot(commands.Bot):
         return self.get_url_handler(url) is not None
 
     def register_processor(self, intent: Intent) -> None:
-        """Register a routing Intent. Intents are removed on cog unload via the
-        cleanup in LancoCog.cog_unload.
+        """Register a routing Intent. Delegates to the router, which owns the
+        registry semantics and logging.
         """
-        logger.info(
-            f"Registering {intent.level} processor: {intent.name} - {intent.cog.get_cog_name()}"
-        )
-        self.processors.append(intent)
+        self.router.register(intent)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
