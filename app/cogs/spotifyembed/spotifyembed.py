@@ -4,6 +4,7 @@ import re
 
 import discord
 import spotipy
+from cachetools import LRUCache
 from cogs.lancocog import LancoCog, UrlHandler
 from discord import app_commands
 from discord.ext import commands
@@ -31,6 +32,7 @@ class SpotifyEmbed(
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
         self.bot.database.create_tables([SpotifyEmbedConfig])
+        self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
 
         bot.register_url_handler(
             UrlHandler(
@@ -80,7 +82,36 @@ class SpotifyEmbed(
             elif spotify_type == "artist":
                 embed = self.generate_artist_embed(spotify_id)
 
-            await message.reply(embed=embed)
+            fixed_msg = await message.reply(embed=embed)
+            self.fixed_messages[message.id] = fixed_msg.id
+
+    # Discord's own embed server adds the native embed asynchronously via a
+    # MESSAGE_UPDATE. Raw variant is used since on_message_edit is skipped if
+    # the message has since aged out of discord.py's internal cache.
+    # See: https://github.com/Rapptz/discord.py/blob/master/docs/api.rst
+    # (on_message_edit / on_raw_message_edit)
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
+        fixed_message_id = self.fixed_messages.get(payload.message_id)
+        if not fixed_message_id:
+            return
+
+        if not payload.data.get("embeds"):
+            return
+
+        del self.fixed_messages[payload.message_id]
+        self.logger.info(
+            f"Discord eventually embedded message {payload.message_id} in channel "
+            f"{payload.channel_id}, removing our embed"
+        )
+        try:
+            channel = self.bot.get_channel(
+                payload.channel_id
+            ) or await self.bot.fetch_channel(payload.channel_id)
+            fixed_msg = await channel.fetch_message(fixed_message_id)
+            await fixed_msg.delete()
+        except discord.NotFound:
+            pass
 
     def generate_track_embed(self, track_id: str) -> discord.Embed:
         track = self.sp.track(track_id)
