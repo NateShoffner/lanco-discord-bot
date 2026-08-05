@@ -1285,14 +1285,14 @@ develop = ["elastic-apm", "mock", "pytest", "pytest-cov", "structlog"]
 
 [[package]]
 name = "elastic-apm"
-version = "6.26.1"
+version = "6.26.2"
 description = "The official Python module for Elastic APM"
 optional = false
 python-versions = "<4,>=3.6"
 groups = ["main"]
 files = [
-    {file = "elastic_apm-6.26.1-py2.py3-none-any.whl", hash = "sha256:12842fc090405e3300df4fb2ba758a8aad6967c649a94c30621bf80decab9e91"},
-    {file = "elastic_apm-6.26.1.tar.gz", hash = "sha256:a598d82a0c3e94e85f4192c996df7c8a887e26c2197e1662175e0ff277803058"},
+    {file = "elastic_apm-6.26.2-py2.py3-none-any.whl", hash = "sha256:bb102ccb5f81bf978722e3d396eab61d6b3c4400c4337c52ffdf18e4e513bf81"},
+    {file = "elastic_apm-6.26.2.tar.gz", hash = "sha256:2301de319a85353bd7810dc5d715df8e7e6fd829cf0148a5fb9f0811a2fed7bb"},
 ]
 
 [package.dependencies]
