@@ -35,7 +35,7 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         return task
 
     async def cog_load(self):
-        self.logger.info(f"{self.get_cog_name()} cog loaded")
+        self.logger.debug(f"{self.get_cog_name()} cog loaded")
 
     def get_cog_name(self):
         return self.qualified_name
@@ -60,7 +60,7 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         self.context_menus.append(ctx_menu)
 
     async def cog_unload(self):
-        self.logger.info(f"{self.get_cog_name()} cog unloaded")
+        self.logger.debug(f"{self.get_cog_name()} cog unloaded")
 
         for task in self._tracked_tasks:
             task.cancel()

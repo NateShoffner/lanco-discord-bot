@@ -32,28 +32,50 @@ logger = logging.getLogger()
 if logger.hasHandlers():
     logger.handlers.clear()
 
-LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(message)s"
+LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)-16s %(message)s"
 
 
 class CustomFormatter(logging.Formatter):
-    grey = "\x1b[38;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
+    """Console formatter: short timestamp, aligned columns, per-level color.
+
+    DEBUG lines are dimmed whole so routine chatter fades into the background,
+    INFO gets a plain message with only the metadata columns styled, and
+    WARNING and up color the entire line so problems stand out when scanning.
+    """
+
+    dim = "\x1b[2m"
+    cyan = "\x1b[36m"
+    green = "\x1b[32m"
+    yellow = "\x1b[33m"
+    red = "\x1b[31m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = LOG_FORMAT
 
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset,
+        logging.DEBUG: (
+            f"{dim}%(asctime)s %(levelname)-8s %(name)-16s %(message)s{reset}"
+        ),
+        logging.INFO: (
+            f"{dim}%(asctime)s{reset} {green}%(levelname)-8s{reset} "
+            f"{cyan}%(name)-16s{reset} %(message)s"
+        ),
+        logging.WARNING: (
+            f"{dim}%(asctime)s{reset} {yellow}%(levelname)-8s "
+            f"%(name)-16s %(message)s{reset}"
+        ),
+        logging.ERROR: (
+            f"{dim}%(asctime)s{reset} {red}%(levelname)-8s "
+            f"%(name)-16s %(message)s{reset}"
+        ),
+        logging.CRITICAL: (
+            f"{dim}%(asctime)s{reset} {bold_red}%(levelname)-8s "
+            f"%(name)-16s %(message)s{reset}"
+        ),
     }
 
     def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
+        log_fmt = self.FORMATS.get(record.levelno, self.FORMATS[logging.INFO])
+        formatter = logging.Formatter(log_fmt, datefmt="%H:%M:%S")
         return formatter.format(record)
 
 
@@ -101,7 +123,11 @@ for noisy in [
     "discord",
     "watchfiles",
     "httpx",
+    "httpcore",
     "openai",
+    "lcwc",
+    "seeclickfix",
+    "googlemaps",
 ]:
     logging.getLogger(noisy).setLevel(logging.WARNING)
 
@@ -116,6 +142,17 @@ if os.path.exists(env_file):
     logger.info(f"Loaded environment: {env_file}")
 else:
     logger.info("No .env file found, using environment variables")
+
+# LOG_LEVEL overrides the default root level (DEBUG in dev mode, INFO otherwise),
+# e.g. LOG_LEVEL=INFO hides debug output when running via poetry run dev
+_log_level_env = os.getenv("LOG_LEVEL", "").upper()
+if _log_level_env:
+    _level = logging.getLevelName(_log_level_env)
+    if isinstance(_level, int):
+        logger.setLevel(_level)
+        logger.info(f"Log level set to {_log_level_env} via LOG_LEVEL")
+    else:
+        logger.warning(f"Ignoring invalid LOG_LEVEL: {_log_level_env}")
 
 # In dev mode, LOG_COGS=geoguesser,incidents filters console output to only those cogs
 _log_cogs_env = os.getenv("LOG_COGS", "")
@@ -395,7 +432,6 @@ class LancoBot(commands.Bot):
                 await self.reload_extension(dotted)
                 result.status = CogStatus.RELOADED
             else:
-                logger.info(f"Loading {name}")
                 await self.load_extension(dotted)
                 result.status = CogStatus.LOADED
         except Exception as e:
@@ -435,6 +471,15 @@ class LancoBot(commands.Bot):
             if os.path.isfile(os.path.join(entry.path, "__init__.py")):
                 result = await self.load_cog(entry.name)
                 results.append(result)
+
+        ok = sum(
+            1 for r in results if r.status in (CogStatus.LOADED, CogStatus.RELOADED)
+        )
+        failed = [r.name for r in results if r.status == CogStatus.ERROR]
+        summary = f"Loaded {ok} cog(s)"
+        if failed:
+            summary += f", {len(failed)} failed: {', '.join(failed)}"
+        logger.info(summary)
         return results
 
     async def unload_cog(self, name: str) -> "CogLoadResult":
@@ -453,14 +498,16 @@ class LancoBot(commands.Bot):
         return result
 
     def register_url_handler(self, handler: UrlHandler):
-        logger.info(
-            f"Registering url handler: {handler.url_pattern.pattern} - {handler.cog.get_cog_name()}"
+        handler.cog.logger.info(
+            f"Registering url handler: {handler.url_pattern.pattern}"
         )
         # do a pre-check of possible duplicate url handlers
         if handler.example_url:
             for h in self.url_handlers:
                 if h.url_pattern.match(handler.example_url):
-                    logger.warning(f"Duplicate url handler: {handler.example_url}")
+                    handler.cog.logger.warning(
+                        f"Duplicate url handler: {handler.example_url}"
+                    )
         self.url_handlers.append(handler)
 
     # TODO allow cogs to declare whether a URL has been properly handled or not
@@ -475,13 +522,10 @@ class LancoBot(commands.Bot):
         return self.get_url_handler(url) is not None
 
     def register_processor(self, intent: Intent) -> None:
-        """Register a routing Intent. Intents are removed on cog unload via the
-        cleanup in LancoCog.cog_unload.
+        """Register a routing Intent. Delegates to the router, which owns the
+        registry semantics and logging.
         """
-        logger.info(
-            f"Registering {intent.level} processor: {intent.name} - {intent.cog.get_cog_name()}"
-        )
-        self.processors.append(intent)
+        self.router.register(intent)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):

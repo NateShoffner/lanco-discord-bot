@@ -31,7 +31,7 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
         """Poll for new issues"""
-        self.logger.info("Polling...")
+        self.logger.debug("Polling...")
         try:
             await self.get_new_issues()
         except Exception as e:

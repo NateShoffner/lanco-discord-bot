@@ -67,7 +67,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
         """Poll for new posts in watched subreddits"""
-        self.logger.info("Polling...")
+        self.logger.debug("Polling...")
         try:
             await self.get_new_posts()
         except Exception as e:
@@ -95,14 +95,14 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             subreddit_channels[reddit_config.subreddit].append(reddit_config)
 
         for sr, configs in subreddit_channels.items():
-            self.logger.info(f"[{sr}] Polling {len(configs)} channel config(s)")
+            self.logger.debug(f"[{sr}] Polling {len(configs)} channel config(s)")
             subreddit = await self.reddit.subreddit(sr)
 
             submissions = []
             async for submission in subreddit.new(limit=self.POST_LIMIT):
                 submissions.append(submission)
             submissions = sorted(submissions, key=lambda s: s.created_utc)
-            self.logger.info(
+            self.logger.debug(
                 f"[{sr}] Fetched {len(submissions)} submissions from Reddit"
             )
 
@@ -117,10 +117,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 )
                 self._seen_ids_loaded.add(sr)
             seen_ids = self._seen_ids.setdefault(sr, set())
-            self.logger.info(f"[{sr}] {len(seen_ids)} known post IDs in DB")
+            self.logger.debug(f"[{sr}] {len(seen_ids)} known post IDs in DB")
 
             new_count = sum(1 for s in submissions if s.id not in seen_ids)
-            self.logger.info(f"[{sr}] {new_count} new post(s) to process")
+            if new_count:
+                self.logger.info(f"[{sr}] {new_count} new post(s) to process")
 
             # Safety valve: too many "new" posts at once means the baseline is
             # lost/stale, not that the subreddit suddenly exploded. Adopt the
@@ -172,7 +173,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 )
 
                 for config in configs:
-                    self.logger.info(
+                    self.logger.debug(
                         f"[{sr}] Sharing post {submission.id} to channel {config.channel_id}"
                     )
 
@@ -245,7 +246,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             by_subreddit.setdefault(post.subreddit, []).append(post)
 
         for sr, posts in by_subreddit.items():
-            self.logger.info(
+            self.logger.debug(
                 f"[{sr}] Checking state of {len(posts)} recent post(s) via ID fetch"
             )
 

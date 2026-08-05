@@ -108,6 +108,18 @@ class MessageRouter:
     def __init__(self, bot):
         self.bot = bot
 
+    def register(self, intent: Intent) -> None:
+        """Add an intent to the bot's shared registry. Intents are removed on
+        cog unload via the cleanup in LancoCog.cog_unload.
+        """
+        logger.info(
+            "Registering %s processor: %s - %s",
+            intent.level,
+            intent.name,
+            intent.cog.get_cog_name(),
+        )
+        self.bot.processors.append(intent)
+
     # --- extension points -------------------------------------------------
 
     def _extract_candidates(self, message: discord.Message) -> list[Candidate]:

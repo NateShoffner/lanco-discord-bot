@@ -112,7 +112,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
                 self.logger.info(f"{self.preferred_client.name} still offline: {e}")
 
     async def get_incidents(self):
-        self.logger.info(f"Getting incidents via {self.current_client.name}")
+        self.logger.debug(f"Getting incidents via {self.current_client.name}")
         incidents = []
         async with aiohttp.ClientSession() as session:
             try:

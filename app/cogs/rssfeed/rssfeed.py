@@ -24,6 +24,7 @@ class RssFeed(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.bot.database.create_tables([RSSFeedConfig])
+        self._warned_channels: set[int] = set()
 
     async def cog_load(self):
         self.poll.start()
@@ -92,19 +93,24 @@ class RssFeed(
         """Poll for new RSS feed items"""
         for config in RSSFeedConfig.select():
             try:
-                self.logger.info(f"Checking feed: {config.url}")
+                self.logger.debug(f"Checking feed: {config.url}")
                 feed = await self.get_feed(config.url)
 
                 new_items = await self.get_new_items(feed, config.last_checked)
 
-                self.logger.info(f"New items: {len(new_items)}")
+                if new_items:
+                    self.logger.info(f"{len(new_items)} new item(s) from {config.url}")
+
+                channel = self.bot.get_channel(config.channel_id)
+                if new_items and not channel:
+                    if config.channel_id not in self._warned_channels:
+                        self._warned_channels.add(config.channel_id)
+                        self.logger.warning(
+                            f"Channel {config.channel_id} not found, skipping its items"
+                        )
 
                 for item in new_items:
-                    channel = self.bot.get_channel(config.channel_id)
                     if not channel:
-                        self.logger.warning(
-                            f"Channel {config.channel_id} not found, skipping"
-                        )
                         continue
                     await self.post_item(feed.feed.title, item, channel)
 
