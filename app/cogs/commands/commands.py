@@ -120,7 +120,7 @@ class CommandModal(ui.Modal, title="Command Info"):
 
         config, created = CustomCommands.get_or_create(
             guild_id=interaction.guild_id,
-            command_name=self.command_name.value.lower(),
+            command_name=self.command_name.value.strip().lower(),
         )
 
         config.command_response = format_message_response(self.command_response.value)
@@ -191,7 +191,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     ):
         command = CustomCommands.get_or_none(
             guild_id=interaction.guild_id,
-            command_name=command_name.lower(),
+            command_name=command_name.strip().lower(),
         )
         if not command:
             embed = discord.Embed(
@@ -215,7 +215,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     @is_bot_owner_or_admin()
     async def edit(self, interaction: discord.Interaction, command_name: str):
         command = CustomCommands.get_or_none(
-            guild_id=interaction.guild_id, command_name=command_name.lower()
+            guild_id=interaction.guild_id, command_name=command_name.strip().lower()
         )
 
         if not command:
@@ -301,7 +301,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
         prefix = self.bot.get_guild_prefix(message.guild)
         if message.content.startswith(prefix):
-            command_name = message.content[len(prefix) :]
+            command_name = message.content[len(prefix) :].strip()
             command = CustomCommands.get_or_none(
                 guild_id=message.guild.id, command_name=command_name.lower()
             )
