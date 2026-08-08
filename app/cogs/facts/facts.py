@@ -1,10 +1,10 @@
 import datetime
+import random
 
 import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
-from peewee import fn
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import Fact
@@ -26,7 +26,7 @@ class FactModal(discord.ui.Modal, title="Fact Info"):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         edit = self.fact is not None
         if not edit:
-            fact, created = Fact.get_or_create(
+            fact, created = await Fact.get_or_create(
                 author_id=interaction.user.id,
                 guild_id=interaction.guild.id,
                 fact=self.fact_input.value,
@@ -36,7 +36,7 @@ class FactModal(discord.ui.Modal, title="Fact Info"):
 
         self.fact.fact = self.fact_input.value
         self.fact.last_modified = datetime.datetime.utcnow()
-        self.fact.save()
+        await self.fact.save()
 
         await interaction.response.send_message(
             "Fact added" if not edit else "Fact updated"
@@ -52,22 +52,19 @@ class Facts(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([Fact])
 
-    def get_random_fact(self, guild_id: int = None) -> Fact:
-        fact = (
-            Fact.select()
-            .where(Fact.guild_id == guild_id)
-            .order_by(fn.Random())
-            .limit(1)
-            .first()
-        )
-        return fact
+    async def get_random_fact(self, guild_id: int = None) -> Fact:
+        # Tortoise has no portable random ordering, so pick a random offset.
+        query = Fact.filter(guild_id=guild_id)
+        total = await query.count()
+        if not total:
+            return None
+        return await query.offset(random.randrange(total)).limit(1).first()
 
     @fact_group.command(name="add", description="Add a fact")
     @is_bot_owner_or_admin()
     async def add_fact(self, interaction: discord.Interaction, fact_id: int = None):
-        fact = Fact.get_or_none(id=fact_id)
+        fact = await Fact.get_or_none(id=fact_id)
 
         if fact and fact.author_id != interaction.user.id:
             await interaction.response.send_message(
@@ -80,7 +77,7 @@ class Facts(
 
     @commands.command(name="fact", description="Get a random fact")
     async def fact(self, ctx: commands.Context):
-        fact = self.get_random_fact(ctx.guild.id)
+        fact = await self.get_random_fact(ctx.guild.id)
 
         embed = discord.Embed(title="Random Fact")
         if not fact:

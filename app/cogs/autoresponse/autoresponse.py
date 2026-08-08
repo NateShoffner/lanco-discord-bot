@@ -19,17 +19,16 @@ class AutoResponse(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([AutoResponseConfig])
 
     @g.command(name="add", description="Set an auto-response")
     @is_bot_owner_or_admin()
     async def set_auto_response(
         self, interaction: discord.Interaction, phrase: str, response: str
     ):
-        config, created = AutoResponseConfig.get_or_create(
+        config, created = await AutoResponseConfig.get_or_create(
             guild_id=interaction.guild.id, phrase=phrase, response=response
         )
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             "Auto-response phrase set", ephemeral=True
         )
@@ -48,13 +47,13 @@ class AutoResponse(
             )
             return
 
-        config, created = AutoResponseConfig.get_or_create(
+        config, created = await AutoResponseConfig.get_or_create(
             guild_id=interaction.guild.id,
             phrase=pattern,
             response=response,
             is_regex=True,
         )
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             "Auto-response phrase set", ephemeral=True
         )
@@ -65,11 +64,11 @@ class AutoResponse(
         self, interaction: discord.Interaction, phrase: str, response: str = None
     ):
         if response:
-            config = AutoResponseConfig.get_or_none(
+            config = await AutoResponseConfig.get_or_none(
                 guild_id=interaction.guild.id, phrase=phrase, response=response
             )
         else:
-            config = AutoResponseConfig.get_or_none(
+            config = await AutoResponseConfig.get_or_none(
                 guild_id=interaction.guild.id, phrase=phrase
             )
 
@@ -79,7 +78,7 @@ class AutoResponse(
             )
             return
 
-        config.delete_instance()
+        await config.delete()
         await interaction.response.send_message(
             "Auto-response phrase removed", ephemeral=True
         )
@@ -89,7 +88,7 @@ class AutoResponse(
         if message.author.bot:
             return
 
-        config = AutoResponseConfig.get_or_none(guild_id=message.guild.id)
+        config = await AutoResponseConfig.get_or_none(guild_id=message.guild.id)
         if not config:
             return
 

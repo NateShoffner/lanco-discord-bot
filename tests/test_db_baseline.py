@@ -50,31 +50,46 @@ from tortoise import Tortoise, fields
 COGS_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "cogs")
 
 
-def _import_all_models():
-    """Import every cogs/*/models.py plus the shared utils.config module so
-    every Peewee model in the codebase is registered as a BaseModel subclass
-    before we walk the class tree.
+# Model modules that don't follow the cogs/<name>/models.py convention.
+# Without these the walk below silently misses them, which is how
+# TrackedMessage and both Geoguesser models went uncovered.
+_EXTRA_MODEL_MODULES = (
+    "utils.config",
+    "utils.tracked_message",
+    "utils.roundgame.dbmodels",
+)
 
-    Each models.py is loaded directly by file path (not via
+# Per-cog model files that aren't named models.py.
+_EXTRA_COG_MODEL_FILES = ("dbmodels.py",)
+
+
+def _import_all_models():
+    """Import every cog model module plus the shared utils ones, so every
+    Peewee model in the codebase is registered as a BaseModel subclass before
+    we walk the class tree.
+
+    Each per-cog file is loaded directly by file path (not via
     `cogs.<name>.models`), because a dotted import runs the cog package's
     __init__.py first, which pulls in the full cog module (e.g. filefixer's
     __init__ imports cairosvg, which needs a native cairo lib that isn't
-    installed on dev machines). models.py files only import from db/peewee/
+    installed on dev machines). Model files only import from db/peewee/
     utils/other cogs' models, none of which touch optional runtime deps, so
     this sidesteps that entirely.
     """
-    importlib.import_module("utils.config")
+    for name in _EXTRA_MODEL_MODULES:
+        importlib.import_module(name)
     for entry in sorted(os.scandir(COGS_DIR), key=lambda e: e.name):
         if not entry.is_dir():
             continue
-        models_path = os.path.join(entry.path, "models.py")
-        if not os.path.isfile(models_path):
-            continue
-        module_name = f"_baseline_models_{entry.name}"
-        spec = importlib.util.spec_from_file_location(module_name, models_path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
+        for filename in ("models.py",) + _EXTRA_COG_MODEL_FILES:
+            path = os.path.join(entry.path, filename)
+            if not os.path.isfile(path):
+                continue
+            module_name = f"_baseline_models_{entry.name}_{filename[:-3]}"
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
 
 
 def _leaf_subclasses(cls):

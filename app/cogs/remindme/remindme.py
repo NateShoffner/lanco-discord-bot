@@ -21,14 +21,13 @@ class RemindMe(
         self.issue_reminders.cancel()
 
     async def cog_load(self):
-        self.bot.database.create_tables([Reminder])
         await self._load_reminders()
         self.load_daily_reminders.start()
         self.issue_reminders.start()
 
     async def _load_reminders(self):
         """Load all pending (unissued) reminders into memory."""
-        reminders = list(Reminder.select().where(Reminder.issued == False))
+        reminders = await Reminder.filter(issued=False)
         self.reminders = reminders
         self.logger.info(f"Loaded {len(reminders)} pending reminders")
 
@@ -54,7 +53,7 @@ class RemindMe(
                 )
 
             reminder.issued = True
-            reminder.save()
+            await reminder.save()
             self.logger.info(f"Reminder issued: {reminder.message}")
 
         if due:
@@ -86,7 +85,7 @@ class RemindMe(
             )
             return
 
-        r = Reminder.create(
+        r = await Reminder.create(
             user_id=ctx.author.id,
             channel_id=ctx.channel.id,
             guild_id=ctx.guild.id,

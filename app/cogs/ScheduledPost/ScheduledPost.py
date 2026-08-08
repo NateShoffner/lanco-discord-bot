@@ -31,16 +31,12 @@ class ScheduledPost(
         self.check_posts.cancel()
 
     async def cog_load(self):
-        self.bot.database.create_tables([ScheduledPostModel])
         self.check_posts.start()
 
     @tasks.loop(seconds=30)
     async def check_posts(self):
         now = datetime.datetime.now()
-        due = ScheduledPostModel.select().where(
-            ScheduledPostModel.next_run_at <= now,
-            ScheduledPostModel.is_active == True,
-        )
+        due = await ScheduledPostModel.filter(next_run_at__lte=now, is_active=True)
 
         for post in due:
             await self._send_post(post)
@@ -52,7 +48,7 @@ class ScheduledPost(
                 post.is_active = False
 
             post.last_run_at = now
-            post.save()
+            await post.save()
 
     async def _send_post(self, post: ScheduledPostModel):
         channel = self.bot.get_channel(post.channel_id)
@@ -139,7 +135,7 @@ class ScheduledPost(
                 )
                 return
 
-        ScheduledPostModel.create(
+        await ScheduledPostModel.create(
             id=uuid.uuid4(),
             guild_id=interaction.guild.id,
             channel_id=channel.id,
@@ -169,9 +165,8 @@ class ScheduledPost(
     )
     @is_bot_owner_or_admin()
     async def list_posts(self, interaction: discord.Interaction):
-        posts = ScheduledPostModel.select().where(
-            ScheduledPostModel.guild_id == interaction.guild.id,
-            ScheduledPostModel.is_active == True,
+        posts = await ScheduledPostModel.filter(
+            guild_id=interaction.guild.id, is_active=True
         )
 
         if not posts:
@@ -218,23 +213,17 @@ class ScheduledPost(
     )
     @is_bot_owner_or_admin()
     async def delete(self, interaction: discord.Interaction, post_id: str):
-        try:
-            post = (
-                ScheduledPostModel.select()
-                .where(
-                    ScheduledPostModel.guild_id == interaction.guild.id,
-                    ScheduledPostModel.id.cast("TEXT").startswith(post_id),
-                )
-                .get()
-            )
-        except ScheduledPostModel.DoesNotExist:
+        post = await ScheduledPostModel.filter(
+            guild_id=interaction.guild.id, id__startswith=post_id
+        ).first()
+        if not post:
             await interaction.response.send_message(
                 f"No scheduled post found with ID starting with `{post_id}`.",
                 ephemeral=True,
             )
             return
 
-        post.delete_instance()
+        await post.delete()
         await interaction.response.send_message(
             f"✅ Scheduled post `{post_id}` deleted.", ephemeral=True
         )
@@ -245,16 +234,10 @@ class ScheduledPost(
     )
     @is_bot_owner_or_admin()
     async def pause(self, interaction: discord.Interaction, post_id: str):
-        try:
-            post = (
-                ScheduledPostModel.select()
-                .where(
-                    ScheduledPostModel.guild_id == interaction.guild.id,
-                    ScheduledPostModel.id.cast("TEXT").startswith(post_id),
-                )
-                .get()
-            )
-        except ScheduledPostModel.DoesNotExist:
+        post = await ScheduledPostModel.filter(
+            guild_id=interaction.guild.id, id__startswith=post_id
+        ).first()
+        if not post:
             await interaction.response.send_message(
                 f"No scheduled post found with ID starting with `{post_id}`.",
                 ephemeral=True,
@@ -262,7 +245,7 @@ class ScheduledPost(
             return
 
         post.is_active = False
-        post.save()
+        await post.save()
         await interaction.response.send_message(
             f"⏸️ Scheduled post `{post_id}` paused.", ephemeral=True
         )
@@ -273,16 +256,10 @@ class ScheduledPost(
     )
     @is_bot_owner_or_admin()
     async def resume(self, interaction: discord.Interaction, post_id: str):
-        try:
-            post = (
-                ScheduledPostModel.select()
-                .where(
-                    ScheduledPostModel.guild_id == interaction.guild.id,
-                    ScheduledPostModel.id.cast("TEXT").startswith(post_id),
-                )
-                .get()
-            )
-        except ScheduledPostModel.DoesNotExist:
+        post = await ScheduledPostModel.filter(
+            guild_id=interaction.guild.id, id__startswith=post_id
+        ).first()
+        if not post:
             await interaction.response.send_message(
                 f"No scheduled post found with ID starting with `{post_id}`.",
                 ephemeral=True,
@@ -290,7 +267,7 @@ class ScheduledPost(
             return
 
         post.is_active = True
-        post.save()
+        await post.save()
         await interaction.response.send_message(
             f"▶️ Scheduled post `{post_id}` resumed.", ephemeral=True
         )

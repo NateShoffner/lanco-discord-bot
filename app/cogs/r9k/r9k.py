@@ -17,7 +17,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
-from peewee import IntegrityError
+from tortoise.exceptions import IntegrityError
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import R9KConfig, R9KMessage
@@ -40,7 +40,6 @@ class R9K(
 
     async def cog_load(self):
         await super().cog_load()
-        self.bot.database.create_tables([R9KConfig, R9KMessage])
 
     @staticmethod
     def normalize(content: str) -> str:
@@ -76,10 +75,10 @@ class R9K(
     async def set_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
-        config, _ = R9KConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await R9KConfig.get_or_create(guild_id=interaction.guild.id)
         config.channel_id = channel.id
         config.enabled = True
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"✅ {channel.mention} is now an R9K channel. Every message must be unique!",
@@ -91,16 +90,15 @@ class R9K(
     )
     @is_bot_owner_or_admin()
     async def disable(self, interaction: discord.Interaction):
-        try:
-            config = R9KConfig.get(R9KConfig.guild_id == interaction.guild.id)
-        except R9KConfig.DoesNotExist:
+        config = await R9KConfig.get_or_none(guild_id=interaction.guild.id)
+        if not config:
             await interaction.response.send_message(
                 "R9K is not configured for this server.", ephemeral=True
             )
             return
 
         config.enabled = False
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             "✅ R9K enforcement disabled.", ephemeral=True
         )
@@ -110,9 +108,8 @@ class R9K(
     )
     @is_bot_owner_or_admin()
     async def enable(self, interaction: discord.Interaction):
-        try:
-            config = R9KConfig.get(R9KConfig.guild_id == interaction.guild.id)
-        except R9KConfig.DoesNotExist:
+        config = await R9KConfig.get_or_none(guild_id=interaction.guild.id)
+        if not config:
             await interaction.response.send_message(
                 "R9K is not configured for this server. Use `/r9k set` first.",
                 ephemeral=True,
@@ -126,7 +123,7 @@ class R9K(
             return
 
         config.enabled = True
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             "✅ R9K enforcement enabled.", ephemeral=True
         )
@@ -153,9 +150,9 @@ class R9K(
             )
             return
 
-        config, _ = R9KConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await R9KConfig.get_or_create(guild_id=interaction.guild.id)
         config.timeout_seconds = seconds
-        config.save()
+        await config.save()
 
         if seconds == 0:
             await interaction.response.send_message(
@@ -185,9 +182,9 @@ class R9K(
             )
             return
 
-        config, _ = R9KConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await R9KConfig.get_or_create(guild_id=interaction.guild.id)
         config.history_ttl_seconds = seconds
-        config.save()
+        await config.save()
 
         if seconds == 0:
             await interaction.response.send_message(
@@ -207,9 +204,8 @@ class R9K(
     )
     @is_bot_owner_or_admin()
     async def reset(self, interaction: discord.Interaction):
-        try:
-            config = R9KConfig.get(R9KConfig.guild_id == interaction.guild.id)
-        except R9KConfig.DoesNotExist:
+        config = await R9KConfig.get_or_none(guild_id=interaction.guild.id)
+        if not config:
             await interaction.response.send_message(
                 "R9K is not configured for this server.", ephemeral=True
             )
@@ -221,11 +217,7 @@ class R9K(
             )
             return
 
-        deleted = (
-            R9KMessage.delete()
-            .where(R9KMessage.channel_id == config.channel_id)
-            .execute()
-        )
+        deleted = await R9KMessage.filter(channel_id=config.channel_id).delete()
         await interaction.response.send_message(
             f"✅ Cleared **{deleted}** recorded message(s). The slate is wiped clean.",
             ephemeral=True,
@@ -238,9 +230,8 @@ class R9K(
         if not message.guild:
             return
 
-        try:
-            config = R9KConfig.get(R9KConfig.guild_id == message.guild.id)
-        except R9KConfig.DoesNotExist:
+        config = await R9KConfig.get_or_none(guild_id=message.guild.id)
+        if not config:
             return
 
         if not config.enabled or config.channel_id != message.channel.id:
@@ -256,12 +247,12 @@ class R9K(
             return
 
         # Drop expired records first so stale phrases can be reused.
-        self.purge_expired(message.channel.id, config)
+        await self.purge_expired(message.channel.id, config)
 
         content_hash = self.hash_content(message.content)
 
         try:
-            R9KMessage.create(
+            await R9KMessage.create(
                 channel_id=message.channel.id,
                 content_hash=content_hash,
                 author_id=message.author.id,
@@ -319,7 +310,7 @@ class R9K(
             self.logger.warning(f"Failed to time out {member}: {e}")
         return False
 
-    def purge_expired(self, channel_id: int, config: R9KConfig) -> int:
+    async def purge_expired(self, channel_id: int, config: R9KConfig) -> int:
         """Delete recorded phrases older than the configured TTL.
 
         Returns the number of records removed. A TTL of 0 means never expire.
@@ -330,13 +321,9 @@ class R9K(
         cutoff = datetime.datetime.now() - datetime.timedelta(
             seconds=config.history_ttl_seconds
         )
-        return (
-            R9KMessage.delete()
-            .where(
-                (R9KMessage.channel_id == channel_id) & (R9KMessage.created_at < cutoff)
-            )
-            .execute()
-        )
+        return await R9KMessage.filter(
+            channel_id=channel_id, created_at__lt=cutoff
+        ).delete()
 
 
 async def setup(bot):

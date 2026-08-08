@@ -1,10 +1,11 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class WebPreviewConfig(BaseModel):
-    guild_id = IntegerField(unique=True)
-    enabled = BooleanField(default=False)
+class WebPreviewConfig(Model):
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.IntField(unique=True)
+    enabled = fields.BooleanField(default=False)
 
     class Meta:
-        table_name = "web_preview_config"
+        table = "web_preview_config"

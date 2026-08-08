@@ -16,11 +16,12 @@ class Fishbowl(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([FishbowlConfig])
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        fishbowl_config = FishbowlConfig.get_or_none(channel_id=message.channel.id)
+        fishbowl_config = await FishbowlConfig.get_or_none(
+            channel_id=message.channel.id
+        )
         if not fishbowl_config:
             return
 
@@ -37,9 +38,9 @@ class Fishbowl(
         channel: discord.TextChannel,
         delete_delay: int = 30,
     ):
-        config, created = FishbowlConfig.get_or_create(channel_id=channel.id)
+        config, created = await FishbowlConfig.get_or_create(channel_id=channel.id)
         config.ttl = delete_delay
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"Channel {channel.mention} set as fishbowl with a TTL of {delete_delay} seconds",
             ephemeral=True,
@@ -50,14 +51,14 @@ class Fishbowl(
     async def remove_fishbowl(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
-        fishbowl_config = FishbowlConfig.get_or_none(channel_id=channel.id)
+        fishbowl_config = await FishbowlConfig.get_or_none(channel_id=channel.id)
         if not fishbowl_config:
             await interaction.response.send_message(
                 f"Channel {channel.mention} is not a fishbowl", ephemeral=True
             )
             return
 
-        fishbowl_config.delete_instance()
+        await fishbowl_config.delete()
         await interaction.response.send_message(
             f"Channel {channel.mention} removed as fishbowl", ephemeral=True
         )
@@ -65,7 +66,7 @@ class Fishbowl(
     @g.command(name="list", description="List all fishbowl channels")
     @is_bot_owner_or_admin()
     async def list_fishbowls(self, interaction: discord.Interaction):
-        fishbowl_configs = FishbowlConfig.select()
+        fishbowl_configs = await FishbowlConfig.all()
         if not fishbowl_configs:
             await interaction.response.send_message(
                 "No fishbowl channels", ephemeral=True

@@ -23,9 +23,6 @@ class Counter(
     def __init__(self, bot):
         super().__init__(bot)
 
-    async def cog_load(self):
-        self.bot.database.create_tables([CounterConfig])
-
     @app_commands.command(
         name="counter", description="Set the counting channel for this server"
     )
@@ -34,11 +31,13 @@ class Counter(
     async def set_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
-        config, created = CounterConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await CounterConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         config.channel_id = channel.id
         config.current_count = 0
         config.last_user_id = None
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"✅ Counting channel set to {channel.mention}. Count starts at 1!",
@@ -55,9 +54,8 @@ class Counter(
         if not message.guild:
             return
 
-        try:
-            config = CounterConfig.get(CounterConfig.guild_id == message.guild.id)
-        except CounterConfig.DoesNotExist:
+        config = await CounterConfig.get_or_none(guild_id=message.guild.id)
+        if not config:
             return
 
         if config.channel_id != message.channel.id:
@@ -88,7 +86,7 @@ class Counter(
             config.last_user_id = message.author.id
             if number > config.high_score:
                 config.high_score = number
-            config.save()
+            await config.save()
             try:
                 await message.add_reaction("✅")
             except Exception:
@@ -101,7 +99,7 @@ class Counter(
 
             config.current_count = 0
             config.last_user_id = None
-            config.save()
+            await config.save()
 
             try:
                 await message.add_reaction("❌")

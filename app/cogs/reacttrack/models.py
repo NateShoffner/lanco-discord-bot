@@ -1,15 +1,16 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class ReactEvent(BaseModel):
-    message_id = IntegerField()
-    channel_id = IntegerField()
-    guild_id = IntegerField()
-    user_id = IntegerField()
-    emoji = CharField()
-    timestamp = DateTimeField()
-    added = BooleanField()
+class ReactEvent(Model):
+    id = fields.IntField(primary_key=True)
+    message_id = fields.IntField()
+    channel_id = fields.IntField()
+    guild_id = fields.IntField()
+    user_id = fields.IntField()
+    emoji = fields.CharField(max_length=255)
+    timestamp = fields.DatetimeField()
+    added = fields.BooleanField()
 
     class Meta:
-        table_name = "react_events"
+        table = "react_events"

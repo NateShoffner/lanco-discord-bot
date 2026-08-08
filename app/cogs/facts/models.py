@@ -1,12 +1,13 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class Fact(BaseModel):
-    guild_id = IntegerField()
-    author_id = IntegerField()
-    last_modified = DateTimeField()
-    fact = TextField()
+class Fact(Model):
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.IntField()
+    author_id = fields.IntField()
+    last_modified = fields.DatetimeField()
+    fact = fields.TextField()
 
     class Meta:
-        table_name = "facts"
+        table = "facts"

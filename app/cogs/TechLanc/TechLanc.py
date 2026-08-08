@@ -91,9 +91,6 @@ class TechLanc(
         self._rss_cache_time: dt.datetime | None = None
 
     async def cog_load(self):
-        self.bot.database.create_tables(
-            [TechLancConfig, TechLancGuildConfig, TechLancAllowedPoster]
-        )
         self.scheduled_post.start()
 
     def cog_unload(self):
@@ -102,7 +99,7 @@ class TechLanc(
     @tasks.loop(minutes=1)
     async def scheduled_post(self):
         now = dt.datetime.utcnow()
-        configs = TechLancConfig.select()
+        configs = await TechLancConfig.all()
         for config in configs:
             if (
                 now.weekday() == config.day_of_week
@@ -133,22 +130,22 @@ class TechLanc(
         hour: app_commands.Range[int, 0, 23],
         minute: app_commands.Range[int, 0, 59],
     ):
-        exists = TechLancConfig.get_or_none(
-            TechLancConfig.guild_id == interaction.guild.id,
-            TechLancConfig.channel_id == channel.id,
+        exists = await TechLancConfig.get_or_none(
+            guild_id=interaction.guild.id,
+            channel_id=channel.id,
         )
         if exists:
             exists.day_of_week = day.value
             exists.post_hour = hour
             exists.post_minute = minute
-            exists.save()
+            await exists.save()
             await interaction.response.send_message(
                 f"Updated schedule for {channel.mention}: {day.name}s at {hour:02d}:{minute:02d} UTC.",
                 ephemeral=True,
             )
             return
 
-        TechLancConfig.create(
+        await TechLancConfig.create(
             guild_id=interaction.guild.id,
             channel_id=channel.id,
             day_of_week=day.value,
@@ -169,14 +166,10 @@ class TechLanc(
     async def unset_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
-        deleted = (
-            TechLancConfig.delete()
-            .where(
-                TechLancConfig.guild_id == interaction.guild.id,
-                TechLancConfig.channel_id == channel.id,
-            )
-            .execute()
-        )
+        deleted = await TechLancConfig.filter(
+            guild_id=interaction.guild.id,
+            channel_id=channel.id,
+        ).delete()
         if deleted:
             await interaction.response.send_message(
                 f"Weekly Tech Lancaster posts disabled in {channel.mention}.",
@@ -192,9 +185,7 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def list_channels(self, interaction: discord.Interaction):
-        configs = TechLancConfig.select().where(
-            TechLancConfig.guild_id == interaction.guild.id
-        )
+        configs = await TechLancConfig.filter(guild_id=interaction.guild.id)
         if not configs:
             await interaction.response.send_message(
                 "No channels configured.", ephemeral=True
@@ -247,9 +238,11 @@ class TechLanc(
                 ephemeral=True,
             )
             return
-        config, _ = TechLancGuildConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await TechLancGuildConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         config.discord_event_url = url
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"Discord event URL set: {url}", ephemeral=True
         )
@@ -260,12 +253,10 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def clear_event_url(self, interaction: discord.Interaction):
-        config = TechLancGuildConfig.get_or_none(
-            TechLancGuildConfig.guild_id == interaction.guild.id
-        )
+        config = await TechLancGuildConfig.get_or_none(guild_id=interaction.guild.id)
         if config and config.discord_event_url:
             config.discord_event_url = None
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 "Discord event URL cleared.", ephemeral=True
             )
@@ -280,9 +271,7 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def show_event_url(self, interaction: discord.Interaction):
-        config = TechLancGuildConfig.get_or_none(
-            TechLancGuildConfig.guild_id == interaction.guild.id
-        )
+        config = await TechLancGuildConfig.get_or_none(guild_id=interaction.guild.id)
         if config and config.discord_event_url:
             await interaction.response.send_message(
                 f"Current Discord event URL: {config.discord_event_url}", ephemeral=True
@@ -299,9 +288,11 @@ class TechLanc(
     @app_commands.describe(role="Role to ping at the start of meetup posts")
     @is_bot_owner_or_admin()
     async def set_ping_role(self, interaction: discord.Interaction, role: discord.Role):
-        config, _ = TechLancGuildConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await TechLancGuildConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         config.ping_role_id = role.id
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"Ping role set to {role.mention}.", ephemeral=True
         )
@@ -312,12 +303,10 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def clear_ping_role(self, interaction: discord.Interaction):
-        config = TechLancGuildConfig.get_or_none(
-            TechLancGuildConfig.guild_id == interaction.guild.id
-        )
+        config = await TechLancGuildConfig.get_or_none(guild_id=interaction.guild.id)
         if config and config.ping_role_id:
             config.ping_role_id = None
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 "Ping role cleared.", ephemeral=True
             )
@@ -336,10 +325,12 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def set_location(self, interaction: discord.Interaction, name: str, url: str):
-        config, _ = TechLancGuildConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await TechLancGuildConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         config.location_name = name
         config.location_url = url
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"Location set to [{name}]({url}).", ephemeral=True
         )
@@ -350,10 +341,12 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def reset_location(self, interaction: discord.Interaction):
-        config, _ = TechLancGuildConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await TechLancGuildConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         config.location_name = DEFAULT_LOCATION_NAME
         config.location_url = DEFAULT_LOCATION_URL
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"Location reset to [{DEFAULT_LOCATION_NAME}]({DEFAULT_LOCATION_URL}).",
             ephemeral=True,
@@ -366,16 +359,14 @@ class TechLanc(
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def ps_command(self, ctx):
         """Post the Pub Standards meetup announcement."""
-        if not self._can_post_tlm(ctx):
+        if not await self._can_post_tlm(ctx):
             await ctx.send(
                 "You don't have permission to use this command.", delete_after=10
             )
             return
 
         guild_config = (
-            TechLancGuildConfig.get_or_none(
-                TechLancGuildConfig.guild_id == ctx.guild.id
-            )
+            await TechLancGuildConfig.get_or_none(guild_id=ctx.guild.id)
             if ctx.guild
             else None
         )
@@ -413,22 +404,22 @@ class TechLanc(
             return
 
         if user:
-            exists = TechLancAllowedPoster.get_or_none(
-                TechLancAllowedPoster.guild_id == interaction.guild.id,
-                TechLancAllowedPoster.user_id == user.id,
+            exists = await TechLancAllowedPoster.get_or_none(
+                guild_id=interaction.guild.id,
+                user_id=user.id,
             )
             if not exists:
-                TechLancAllowedPoster.create(
+                await TechLancAllowedPoster.create(
                     guild_id=interaction.guild.id, user_id=user.id
                 )
 
         if role:
-            exists = TechLancAllowedPoster.get_or_none(
-                TechLancAllowedPoster.guild_id == interaction.guild.id,
-                TechLancAllowedPoster.role_id == role.id,
+            exists = await TechLancAllowedPoster.get_or_none(
+                guild_id=interaction.guild.id,
+                role_id=role.id,
             )
             if not exists:
-                TechLancAllowedPoster.create(
+                await TechLancAllowedPoster.create(
                     guild_id=interaction.guild.id, role_id=role.id
                 )
 
@@ -461,23 +452,15 @@ class TechLanc(
 
         deleted = 0
         if user:
-            deleted += (
-                TechLancAllowedPoster.delete()
-                .where(
-                    TechLancAllowedPoster.guild_id == interaction.guild.id,
-                    TechLancAllowedPoster.user_id == user.id,
-                )
-                .execute()
-            )
+            deleted += await TechLancAllowedPoster.filter(
+                guild_id=interaction.guild.id,
+                user_id=user.id,
+            ).delete()
         if role:
-            deleted += (
-                TechLancAllowedPoster.delete()
-                .where(
-                    TechLancAllowedPoster.guild_id == interaction.guild.id,
-                    TechLancAllowedPoster.role_id == role.id,
-                )
-                .execute()
-            )
+            deleted += await TechLancAllowedPoster.filter(
+                guild_id=interaction.guild.id,
+                role_id=role.id,
+            ).delete()
 
         if deleted:
             label = " and ".join(
@@ -500,9 +483,7 @@ class TechLanc(
     )
     @is_bot_owner_or_admin()
     async def list_posters(self, interaction: discord.Interaction):
-        entries = TechLancAllowedPoster.select().where(
-            TechLancAllowedPoster.guild_id == interaction.guild.id
-        )
+        entries = await TechLancAllowedPoster.filter(guild_id=interaction.guild.id)
         if not entries:
             await interaction.response.send_message(
                 "No allowed posters configured. Only admins can use !tlm.",
@@ -529,7 +510,7 @@ class TechLanc(
         if isinstance(error, commands.CommandOnCooldown):
             return
 
-    def _can_post_tlm(self, ctx: commands.Context) -> bool:
+    async def _can_post_tlm(self, ctx: commands.Context) -> bool:
         """Returns True if the user is allowed to run !tlm."""
         # Bot owner and admins always can
         if ctx.author.guild_permissions.administrator:
@@ -537,9 +518,7 @@ class TechLanc(
         if ctx.guild is None:
             return False
 
-        allowed = TechLancAllowedPoster.select().where(
-            TechLancAllowedPoster.guild_id == ctx.guild.id
-        )
+        allowed = await TechLancAllowedPoster.filter(guild_id=ctx.guild.id)
         user_role_ids = {r.id for r in ctx.author.roles}
         for entry in allowed:
             if entry.user_id and entry.user_id == ctx.author.id:
@@ -552,7 +531,7 @@ class TechLanc(
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def tlm_command(self, ctx):
         """Post the next Tech Lancaster Meetup details including speakers."""
-        if not self._can_post_tlm(ctx):
+        if not await self._can_post_tlm(ctx):
             await ctx.send(
                 "You don't have permission to use this command.", delete_after=10
             )
@@ -566,9 +545,7 @@ class TechLanc(
             return
 
         guild_config = (
-            TechLancGuildConfig.get_or_none(
-                TechLancGuildConfig.guild_id == ctx.guild.id
-            )
+            await TechLancGuildConfig.get_or_none(guild_id=ctx.guild.id)
             if ctx.guild
             else None
         )

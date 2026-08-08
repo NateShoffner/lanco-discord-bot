@@ -33,7 +33,6 @@ class Youtube(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.google = Aiogoogle(api_key=os.getenv("YOUTUBE_API_KEY"))
-        self.bot.database.create_tables([YoutubeSubscription])
 
     async def cog_load(self):
         self.poll.start()
@@ -52,7 +51,7 @@ class Youtube(
 
     async def get_new_videos(self):
         """Get new videos from watched channels and share them to the configured channels"""
-        youtube_configs = YoutubeSubscription.select()
+        youtube_configs = await YoutubeSubscription.all()
         if not youtube_configs:
             return
 
@@ -91,7 +90,7 @@ class Youtube(
 
                     msg = await self.share_video(video, channel)
                     config.last_publish = published
-                    config.save()
+                    await config.save()
 
     async def share_video(self, video: YoutubeVideo, channel: discord.TextChannel):
         url = f"https://www.youtube.com/watch?v={video.video_id}"
@@ -109,7 +108,7 @@ class Youtube(
             )
             return
 
-        youtube_config, createad = YoutubeSubscription.get_or_create(
+        youtube_config, createad = await YoutubeSubscription.get_or_create(
             channel_id=interaction.channel_id,
             guild_id=interaction.guild_id,
             yt_channel_id=id,
@@ -117,7 +116,7 @@ class Youtube(
         youtube_config.last_publish = datetime.datetime.now(
             datetime.timezone.utc
         ).isoformat()
-        youtube_config.save()
+        await youtube_config.save()
 
         await interaction.response.send_message(f"Subscribed to channel <{channel_id}>")
 
@@ -132,7 +131,7 @@ class Youtube(
             )
             return
 
-        youtube_config = YoutubeSubscription.get_or_none(
+        youtube_config = await YoutubeSubscription.get_or_none(
             channel_id=interaction.channel.id,
             guild_id=interaction.guild_id,
             yt_channel_id=id,
@@ -145,7 +144,7 @@ class Youtube(
             )
             await interaction.response.send_message(embed=embed)
             return
-        youtube_config.delete_instance()
+        await youtube_config.delete()
 
         embed = discord.Embed(
             title=f"Unsubscribe from {channel_id}",

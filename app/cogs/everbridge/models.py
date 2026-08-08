@@ -1,11 +1,12 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class EverbridgeConfig(BaseModel):
-    channel_id = IntegerField(null=True)
-    last_event_date = DateTimeField(null=True)
-    subscription_name = CharField(null=True)
+class EverbridgeConfig(Model):
+    id = fields.IntField(primary_key=True)
+    channel_id = fields.IntField(null=True)
+    last_event_date = fields.DatetimeField(null=True)
+    subscription_name = fields.CharField(max_length=255, null=True)
 
     class Meta:
-        table_name = "everbridge_config"
+        table = "everbridge_config"

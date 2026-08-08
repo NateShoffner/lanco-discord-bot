@@ -27,7 +27,6 @@ class Verification(
 
     def __init__(self, bot):
         super().__init__(bot)
-        self.bot.database.create_tables([VerificationConfig, VerificationRequest])
 
     @g.command(name="threshold", description="Set the vote threshold.")
     @commands.has_permissions(administrator=True)
@@ -35,11 +34,11 @@ class Verification(
         """
         Set the vote threshold.
         """
-        config, created = VerificationConfig.get_or_create(
+        config, created = await VerificationConfig.get_or_create(
             guild_id=interaction.guild_id
         )
         config.vote_threshold = threshold
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"Vote threshold set to {threshold}", ephemeral=True
@@ -52,11 +51,11 @@ class Verification(
         Set the role to be given to verified users.
         """
 
-        config, created = VerificationConfig.get_or_create(
+        config, created = await VerificationConfig.get_or_create(
             guild_id=interaction.guild_id
         )
         config.verified_role_id = role.id
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"Verified role set to {role.mention}", ephemeral=True
@@ -71,11 +70,11 @@ class Verification(
         Set the mod channel.
         """
 
-        config, created = VerificationConfig.get_or_create(
+        config, created = await VerificationConfig.get_or_create(
             guild_id=interaction.guild_id
         )
         config.mod_channel_id = channel.id
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"Mod channel set to {channel.mention}", ephemeral=True
@@ -84,11 +83,13 @@ class Verification(
     async def save_votes(
         self, reaction: discord.Reaction
     ) -> tuple[VerificationConfig, VerificationRequest]:
-        config = VerificationConfig.get_or_none(guild_id=reaction.message.guild.id)
+        config = await VerificationConfig.get_or_none(
+            guild_id=reaction.message.guild.id
+        )
         if config is None:
             return None
 
-        request = VerificationRequest.get_or_none(message_id=reaction.message.id)
+        request = await VerificationRequest.get_or_none(message_id=reaction.message.id)
         if request is None:
             return None
 
@@ -103,7 +104,7 @@ class Verification(
                 request.approvals = reaction.count - 1
             elif reaction.emoji == self.DENIAL_EMOJI:
                 request.denials = reaction.count - 1
-        request.save()
+        await request.save()
 
         return (config, request)
 
@@ -140,7 +141,7 @@ class Verification(
             status = VerificationStatus.DENIED
 
         request.pending = not finalized
-        request.save()
+        await request.save()
 
         if finalized:
             user_notified = False
@@ -169,7 +170,7 @@ class Verification(
         """
         Command for users to remove verification.
         """
-        config = VerificationConfig.get_or_none(guild_id=interaction.guild_id)
+        config = await VerificationConfig.get_or_none(guild_id=interaction.guild_id)
         user = interaction.user
 
         if not await self.is_user_verified(user, config.verified_role_id):
@@ -190,7 +191,7 @@ class Verification(
         """
         Command for users to request verification.
         """
-        config = VerificationConfig.get_or_none(guild_id=interaction.guild_id)
+        config = await VerificationConfig.get_or_none(guild_id=interaction.guild_id)
 
         if config is None:
             await interaction.response.send_message(
@@ -230,7 +231,7 @@ class Verification(
         await message.add_reaction(self.APPROVAL_EMOJI)
         await message.add_reaction(self.DENIAL_EMOJI)
 
-        request = VerificationRequest.create(
+        request = await VerificationRequest.create(
             user_id=user.id, message_id=message.id, guild_id=interaction.guild_id
         )
 
@@ -291,7 +292,7 @@ class Verification(
 
     async def is_verification_pending(self, user: discord.User):
         """Check if a user has a pending verification request"""
-        request = VerificationRequest.get_or_none(user_id=user.id)
+        request = await VerificationRequest.get_or_none(user_id=user.id)
         if request is None:
             return False
         return request.pending

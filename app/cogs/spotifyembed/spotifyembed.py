@@ -31,7 +31,6 @@ class SpotifyEmbed(
             client_secret=os.getenv("SPOTIFY_SECRET"),
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
-        self.bot.database.create_tables([SpotifyEmbedConfig])
         self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
 
         bot.register_url_handler(
@@ -52,7 +51,7 @@ class SpotifyEmbed(
         if match:
             self.logger.info(f"Spotify URL detected: {match.group(0)}")
 
-            spotifyembed_config = SpotifyEmbedConfig.get_or_none(
+            spotifyembed_config = await SpotifyEmbedConfig.get_or_none(
                 guild_id=message.guild.id
             )
 
@@ -238,15 +237,15 @@ class SpotifyEmbed(
     )
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
-        config, created = SpotifyEmbedConfig.get_or_create(
+        config, created = await SpotifyEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         if created:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message("Spotify embed fixing enabled")
         else:
-            config.delete_instance()
+            await config.delete()
             await interaction.response.send_message("Spotify embed fixing disabled")
 
 

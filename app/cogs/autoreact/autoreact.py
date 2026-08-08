@@ -19,7 +19,6 @@ class AutoReact(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([AutoReactConfig])
 
     @g.command(name="add", description="Set an auto-react response")
     @is_bot_owner_or_admin()
@@ -32,10 +31,10 @@ class AutoReact(
             )
             return
 
-        config, created = AutoReactConfig.get_or_create(
+        config, created = await AutoReactConfig.get_or_create(
             guild_id=interaction.guild.id, phrase=phrase, emoji=reaction
         )
-        config.save()
+        await config.save()
         await interaction.response.send_message("Auto-react phrase set", ephemeral=True)
 
     @g.command(
@@ -57,10 +56,10 @@ class AutoReact(
             )
             return
 
-        config, created = AutoReactConfig.get_or_create(
+        config, created = await AutoReactConfig.get_or_create(
             guild_id=interaction.guild.id, phrase=pattern, emoji=reaction, is_regex=True
         )
-        config.save()
+        await config.save()
         await interaction.response.send_message("Auto-react phrase set", ephemeral=True)
 
     @g.command(name="remove", description="Remove the auto-react response")
@@ -69,11 +68,11 @@ class AutoReact(
         self, interaction: discord.Interaction, phrase: str, reaction: str = None
     ):
         if reaction:
-            config = AutoReactConfig.get_or_none(
+            config = await AutoReactConfig.get_or_none(
                 guild_id=interaction.guild.id, phrase=phrase, emoji=reaction
             )
         else:
-            config = AutoReactConfig.get_or_none(
+            config = await AutoReactConfig.get_or_none(
                 guild_id=interaction.guild.id, phrase=phrase
             )
 
@@ -83,7 +82,7 @@ class AutoReact(
             )
             return
 
-        config.delete_instance()
+        await config.delete()
         await interaction.response.send_message(
             "Auto-react phrase removed", ephemeral=True
         )
@@ -93,7 +92,7 @@ class AutoReact(
         if message.author.bot:
             return
 
-        config = AutoReactConfig.get_or_none(guild_id=message.guild.id)
+        config = await AutoReactConfig.get_or_none(guild_id=message.guild.id)
         if not config:
             return
 

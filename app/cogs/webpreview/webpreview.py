@@ -27,7 +27,6 @@ class WebPreview(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([WebPreviewConfig])
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -53,7 +52,7 @@ class WebPreview(
         if not url:
             return
 
-        config = WebPreviewConfig.get_or_none(guild_id=message.guild.id)
+        config = await WebPreviewConfig.get_or_none(guild_id=message.guild.id)
         if not config or not config.enabled:
             return
 
@@ -115,16 +114,18 @@ class WebPreview(
     @g.command(name="toggle", description="Toggle Web previews for this server")
     @is_bot_owner_or_admin()
     async def toggle(self, interaction):
-        config, created = WebPreviewConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await WebPreviewConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         if created or not config.enabled:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"Web Previews enabled for this server"
             )
         else:
             config.enabled = False
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"Web Previews disabled for this server"
             )

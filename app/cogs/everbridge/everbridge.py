@@ -38,7 +38,6 @@ class Everbridge(
             username=os.getenv("EVERBRIDGE_USERNAME"),
             password=os.getenv("EVERBRIDGE_PASSWORD"),
         )
-        self.bot.database.create_tables([EverbridgeConfig])
         self._warned_channels: set[int] = set()
 
     async def cog_load(self):
@@ -74,7 +73,7 @@ class Everbridge(
 
     async def get_new_notifications(self):
         """Get new Everbridge notifications."""
-        everbridge_configs = EverbridgeConfig.select()
+        everbridge_configs = await EverbridgeConfig.all()
         if not everbridge_configs:
             self.logger.debug("No Everbridge configurations found.")
             return
@@ -119,7 +118,7 @@ class Everbridge(
                     embed = await self.build_notification_embed(notification, config)
                     await channel.send(embed=embed)
                     config.last_event_date = notification.createdAt
-                    config.save()
+                    await config.save()
 
     @commands.command()
     async def ebtest(self, ctx):
@@ -128,7 +127,7 @@ class Everbridge(
             await ctx.send("No notifications found.")
             return
 
-        config = EverbridgeConfig.get_or_none(channel_id=ctx.channel.id)
+        config = await EverbridgeConfig.get_or_none(channel_id=ctx.channel.id)
         if not config:
             await ctx.send("No Everbridge configuration found for this channel.")
             return
@@ -146,11 +145,11 @@ class Everbridge(
         subscription_name: str = "Everbridge Subscription",
     ):
         """Subscribe to Everbridge notifications in a specific channel."""
-        everbridge_config, created = EverbridgeConfig.get_or_create(
+        everbridge_config, created = await EverbridgeConfig.get_or_create(
             channel_id=interaction.channel.id,
             subscription_name=subscription_name,
         )
-        everbridge_config.save()
+        await everbridge_config.save()
 
         embed = discord.Embed(
             title="Everbridge Subscription",
@@ -167,12 +166,12 @@ class Everbridge(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
         """Unsubscribe from Everbridge notifications in a specific channel."""
-        everbridge_config = EverbridgeConfig.get_or_none(
+        everbridge_config = await EverbridgeConfig.get_or_none(
             channel_id=interaction.channel.id
         )
 
         if everbridge_config:
-            everbridge_config.delete_instance()
+            await everbridge_config.delete()
             embed = discord.Embed(
                 title="Everbridge Unsubscription",
                 description=f"You have unsubscribed from Everbridge notifications in {channel.mention}.",

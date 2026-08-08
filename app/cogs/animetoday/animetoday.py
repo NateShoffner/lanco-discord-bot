@@ -23,7 +23,6 @@ class AnimeToday(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([AnimeTodayConfig])
         self.daily_anime_task.start()
 
     def cog_unload(self):
@@ -31,7 +30,7 @@ class AnimeToday(
 
     @tasks.loop(time=daily_announcement_time)
     async def daily_anime_task(self):
-        anime_today_configs = AnimeTodayConfig.select()
+        anime_today_configs = await AnimeTodayConfig.all()
         for config in anime_today_configs:
             channel = self.bot.get_channel(config.channel_id)
             if channel:
@@ -43,13 +42,15 @@ class AnimeToday(
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         """Toggle the anime calendar for this channel"""
-        config, created = AnimeTodayConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await AnimeTodayConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         if created:
             config.channel_id = interaction.channel.id
-            config.save()
+            await config.save()
             await interaction.response.send_message("Anime calendar enabled")
         else:
-            config.delete_instance()
+            await config.delete()
             await interaction.response.send_message("Anime calendar disabled")
 
     @commands.command(name="animetest", description="Test the anime calendar")

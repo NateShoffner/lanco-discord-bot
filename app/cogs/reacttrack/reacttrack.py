@@ -16,13 +16,12 @@ class ReactTrack(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([ReactEvent])
 
     @commands.Cog.listener()
     async def on_reaction_remove(self, reaction: Reaction, user: User):
         # self.logger.info(f"Reaction removed: {reaction.emoji}")
 
-        ReactEvent.create(
+        await ReactEvent.create(
             message_id=reaction.message.id,
             channel_id=reaction.message.channel.id,
             guild_id=reaction.message.guild.id,
@@ -36,7 +35,7 @@ class ReactTrack(
     async def on_reaction_add(self, reaction: Reaction, user: User):
         # self.logger.info(f"Reaction added: {reaction.emoji}")
 
-        ReactEvent.create(
+        await ReactEvent.create(
             message_id=reaction.message.id,
             channel_id=reaction.message.channel.id,
             guild_id=reaction.message.guild.id,
@@ -50,11 +49,11 @@ class ReactTrack(
     async def view(self, interaction, user: User):
         last_24_hours = datetime.datetime.now() - datetime.timedelta(days=1)
 
-        events = ReactEvent.select().where(
-            ReactEvent.user_id == user.id,
-            ReactEvent.added == True,
-            ReactEvent.timestamp > last_24_hours,
-            ReactEvent.guild_id == interaction.guild.id,
+        events = await ReactEvent.filter(
+            user_id=user.id,
+            added=True,
+            timestamp__gt=last_24_hours,
+            guild_id=interaction.guild.id,
         )
 
         embed = Embed(

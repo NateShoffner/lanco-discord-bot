@@ -26,20 +26,21 @@ class dadjoke(
 
     def __init__(self, bot):
         super().__init__(bot)
-        self.bot.database.create_tables([DadJokeConfig])
 
     @g.command(name="toggle", description="Toggle dad jokes")
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
-        config, created = DadJokeConfig.get_or_create(channel_id=interaction.channel.id)
+        config, created = await DadJokeConfig.get_or_create(
+            channel_id=interaction.channel.id
+        )
         if created:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 "Dad jokes enabled. Use `/dadjoke toggle` to disable."
             )
         else:
-            config.delete_instance()
+            await config.delete()
             await interaction.response.send_message(
                 "Dad jokes disabled. Use `/dadjoke toggle` to enable."
             )
@@ -86,7 +87,9 @@ class dadjoke(
         if message.author.bot or not message.guild:
             return
 
-        if not DadJokeConfig.get_or_none(channel_id=message.channel.id, enabled=True):
+        if not await DadJokeConfig.get_or_none(
+            channel_id=message.channel.id, enabled=True
+        ):
             return
 
         pattern = re.compile(r"\bI['’]?m ([^\n\r]+)", re.IGNORECASE)

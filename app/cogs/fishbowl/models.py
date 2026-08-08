@@ -1,10 +1,13 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class FishbowlConfig(BaseModel):
-    channel_id = IntegerField()
-    ttl = FloatField()
+class FishbowlConfig(Model):
+    id = fields.IntField(primary_key=True)
+    channel_id = fields.IntField()
+    # Prod's column is INTEGER, but the model has always declared a float and
+    # SQLite type affinity accepts both. Left as FloatField to match the model.
+    ttl = fields.FloatField()
 
     class Meta:
-        table_name = "fishbowl_config"
+        table = "fishbowl_config"

@@ -1,25 +1,27 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class VerificationConfig(BaseModel):
-    guild_id = IntegerField(unique=True)
-    mod_channel_id = IntegerField(null=True)
-    verified_role_id = IntegerField(null=True)
-    vote_threshold = IntegerField(default=3)
-    vote_duration = IntegerField(default=60)
-
-    class Meta:
-        table_name = "verification_config"
-
-
-class VerificationRequest(BaseModel):
-    user_id = IntegerField()
-    message_id = IntegerField()
-    guild_id = IntegerField()
-    approvals = IntegerField(default=0)
-    denials = IntegerField(default=0)
-    pending = BooleanField(default=True)
+class VerificationConfig(Model):
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.IntField(unique=True)
+    mod_channel_id = fields.IntField(null=True)
+    verified_role_id = fields.IntField(null=True)
+    vote_threshold = fields.IntField(default=3)
+    vote_duration = fields.IntField(default=60)
 
     class Meta:
-        table_name = "verification_requests"
+        table = "verification_config"
+
+
+class VerificationRequest(Model):
+    id = fields.IntField(primary_key=True)
+    user_id = fields.IntField()
+    message_id = fields.IntField()
+    guild_id = fields.IntField()
+    approvals = fields.IntField(default=0)
+    denials = fields.IntField(default=0)
+    pending = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "verification_requests"

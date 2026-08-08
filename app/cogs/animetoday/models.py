@@ -1,10 +1,11 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class AnimeTodayConfig(BaseModel):
-    guild_id = IntegerField()
-    channel_id = IntegerField(null=True)
+class AnimeTodayConfig(Model):
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.IntField()
+    channel_id = fields.IntField(null=True)
 
     class Meta:
-        table_name = "anime_today_config"
+        table = "anime_today_config"

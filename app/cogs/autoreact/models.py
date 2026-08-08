@@ -1,12 +1,13 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class AutoReactConfig(BaseModel):
-    phrase = CharField()
-    emoji = CharField()
-    is_regex = BooleanField(default=False)
-    guild_id = BigIntegerField()
+class AutoReactConfig(Model):
+    id = fields.IntField(primary_key=True)
+    phrase = fields.CharField(max_length=255)
+    emoji = fields.CharField(max_length=255)
+    is_regex = fields.BooleanField(default=False)
+    guild_id = fields.BigIntField()
 
     class Meta:
-        table_name = "auto_react"
+        table = "auto_react"

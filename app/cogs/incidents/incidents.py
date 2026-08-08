@@ -46,7 +46,6 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([IncidentsGlobalConfig, IncidentConfig])
 
         gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.geocoder = IncidentGeocoder(gmaps)
@@ -61,15 +60,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         ]
         self._client_priority = [self.arcgis_client, self.feed_client, self.web_client]
 
-        client_config = IncidentsGlobalConfig.get_or_none(
-            IncidentsGlobalConfig.name == "client"
-        )
-        if client_config:
-            self.logger.info(f"Found global config: {client_config.value}")
-            self.set_client_from_name(client_config.value)
-        else:
-            self.current_client = self.arcgis_client
-
+        # The configured client is loaded in cog_load; __init__ cannot await.
+        self.current_client = self.arcgis_client
         self.preferred_client = self.current_client
         self.auto_switched = False
         self.consecutive_failures = 0
@@ -80,6 +72,13 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     async def cog_load(self):
         await super().cog_load()
+
+        client_config = await IncidentsGlobalConfig.get_or_none(name="client")
+        if client_config:
+            self.logger.info(f"Found global config: {client_config.value}")
+            self.set_client_from_name(client_config.value)
+        self.preferred_client = self.current_client
+
         self.get_incidents_loop.change_interval(seconds=5)
         self.get_incidents_loop.start()
         self.recovery_check_loop.start()
@@ -152,9 +151,9 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
         if not isinstance(new_client, ArcGISClient):
-            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+            for config in await IncidentConfig.filter(enabled=True):
                 config.latest_incident_timestamp = now_ts
-                config.save()
+                await config.save()
 
         self.auto_switched = True
         self.consecutive_failures = 0
@@ -163,21 +162,21 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
     async def _recover_to_preferred(self, incidents):
         if isinstance(self.preferred_client, ArcGISClient) and incidents:
             max_number = max(i.number for i in incidents)
-            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+            for config in await IncidentConfig.filter(enabled=True):
                 config.last_known_incident = max_number
-                config.save()
+                await config.save()
         elif not isinstance(self.preferred_client, ArcGISClient) and incidents:
             max_ts = max(i.date.timestamp() for i in incidents)
-            for config in IncidentConfig.select().where(IncidentConfig.enabled == True):
+            for config in await IncidentConfig.filter(enabled=True):
                 config.latest_incident_timestamp = max_ts
-                config.save()
+                await config.save()
 
         self.auto_switched = False
         self.consecutive_failures = 0
         self.set_client_from_name(self.preferred_client.name)
 
     async def process_incidents(self, incidents):
-        feed_configs = IncidentConfig.select().where(IncidentConfig.enabled == True)
+        feed_configs = await IncidentConfig.filter(enabled=True)
 
         if not feed_configs:
             return
@@ -206,7 +205,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
                         feed_config.latest_incident_timestamp = (
                             incident.date.timestamp()
                         )
-                    feed_config.save()
+                    await feed_config.save()
 
     def is_using_arcgis(self) -> bool:
         return isinstance(self.current_client, ArcGISClient)
@@ -221,7 +220,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
         # if it's an ArcGIS incident, we can just check the incident number to see if it's newer
         if self.is_using_arcgis():
-            guild_config = IncidentConfig.get_or_none(
+            guild_config = await IncidentConfig.get_or_none(
                 channel_id=channel_id, enabled=True
             )
             if not guild_config:
@@ -234,7 +233,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
         # if it's a non-ArcGIS incident, we need to check the timestamp
         else:
-            guild_config = IncidentConfig.get_or_none(
+            guild_config = await IncidentConfig.get_or_none(
                 channel_id=channel_id, enabled=True
             )
             if not guild_config:
@@ -373,12 +372,12 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
     )
     @is_bot_owner_or_admin()
     async def enable(self, interaction: discord.Interaction):
-        incident_config, created = IncidentConfig.get_or_create(
+        incident_config, created = await IncidentConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         incident_config.channel_id = interaction.channel.id
         incident_config.enabled = True
-        incident_config.save()
+        await incident_config.save()
 
         await interaction.response.send_message("Incidents feed enabled")
 
@@ -387,11 +386,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
     )
     @is_bot_owner_or_admin()
     async def disable(self, interaction: discord.Interaction):
-        incident_config, created = IncidentConfig.get_or_create(
+        incident_config, created = await IncidentConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         incident_config.enabled = False
-        incident_config.save()
+        await incident_config.save()
 
         await interaction.response.send_message("Incidents feed disabled")
 
@@ -470,11 +469,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         self.auto_switched = False
         self.consecutive_failures = 0
 
-        config, created = IncidentsGlobalConfig.get_or_create(
+        config, created = await IncidentsGlobalConfig.get_or_create(
             name="client", defaults={"value": client_value}
         )
         config.value = client_value
-        config.save()
+        await config.save()
 
         await interaction.channel.typing()
         await interaction.response.send_message(f"Client set to: {client_value}")

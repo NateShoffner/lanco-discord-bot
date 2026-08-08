@@ -28,7 +28,6 @@ class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([Bar])
         self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.bar_details_cache = cachetools.TTLCache(
             maxsize=100, ttl=60 * 60 * 24
@@ -47,7 +46,7 @@ class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
 
     @barhopper_group.command(name="search", description="Search for bars")
     async def search(self, interaction: discord.Interaction, search_term: str):
-        bars = Bar.select().where(Bar.bar_name.contains(search_term)).limit(1)
+        bars = await Bar.filter(bar_name__icontains=search_term).limit(1)
 
         if bars and len(bars) > 0:
             for bar in bars:
@@ -75,7 +74,10 @@ class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
             )
             return
 
-        random_bars = Bar.select().order_by(self.bot.database.random()).limit(count)
+        # Tortoise has no portable random ordering; the bars table is small
+        # enough to shuffle in Python.
+        all_bars = await Bar.all()
+        random_bars = random.sample(all_bars, min(count, len(all_bars)))
 
         if random_bars and len(random_bars) > 0:
             for random_bar in random_bars:
@@ -185,10 +187,10 @@ class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
         return embed, map_attachment
 
     async def populate_bars(self, bars):
-        Bar.delete().execute()
+        await Bar.all().delete()
 
         for bar in bars:
-            bar_model = Bar.create(
+            bar_model = await Bar.create(
                 bar_name=bar["name"],
                 address=bar["address"],
                 latitude=bar["latitude"],
