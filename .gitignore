@@ -162,6 +162,10 @@ cython_debug/
 cache/
 logs/
 *.db
+# SQLite sidecars: these hold real data pages, so ignoring only *.db would
+# still leave database contents committable.
+*.db-wal
+*.db-shm
 config/config.json
 /data*
 .env.*

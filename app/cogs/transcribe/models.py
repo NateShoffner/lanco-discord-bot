@@ -1,10 +1,10 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class TranscribeConfig(BaseModel):
-    guild_id = BigIntegerField(primary_key=True)
-    enabled = BooleanField(default=False)
+class TranscribeConfig(Model):
+    guild_id = fields.BigIntField(primary_key=True, generated=False)
+    enabled = fields.BooleanField(default=False)
 
     class Meta:
-        table_name = "transcribe_config"
+        table = "transcribe_config"

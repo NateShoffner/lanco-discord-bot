@@ -54,16 +54,15 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot, "Paywall Bypass", _HANDLERS, PaywallBypassConfig)
-        self.bot.database.create_tables([PaywallPattern])
         self._pattern_cache: dict[int, set[str]] = {}
 
-    def _guild_patterns(self, guild_id: int) -> set[str]:
+    async def _guild_patterns(self, guild_id: int) -> set[str]:
         if guild_id not in self._pattern_cache:
-            rows = PaywallPattern.select().where(PaywallPattern.guild_id == guild_id)
+            rows = await PaywallPattern.filter(guild_id=guild_id)
             self._pattern_cache[guild_id] = {r.pattern for r in rows}
         return self._pattern_cache[guild_id]
 
-    def _is_paywalled(self, url: str, guild_id: int) -> bool:
+    async def _is_paywalled(self, url: str, guild_id: int) -> bool:
         domain = _extract_domain(url)
         if not domain:
             return False
@@ -71,7 +70,7 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
             return True
         return any(
             domain == p or domain.endswith("." + p)
-            for p in self._guild_patterns(guild_id)
+            for p in await self._guild_patterns(guild_id)
         )
 
     @commands.Cog.listener()
@@ -96,7 +95,7 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
 
         original_url = match.group(0).rstrip(".,;:!?\"')")
 
-        if not self._is_paywalled(original_url, message.guild.id):
+        if not await self._is_paywalled(original_url, message.guild.id):
             return
 
         self.logger.info(
@@ -105,7 +104,7 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
         await asyncio.sleep(self.wait_time)
 
         message = await message.channel.fetch_message(message.id)
-        config = self.config_model.get_or_none(guild_id=message.guild.id)
+        config = await self.config_model.get_or_none(guild_id=message.guild.id)
         if not config or not config.enabled:
             self.logger.info("Paywall bypass not enabled for this server")
             return
@@ -155,15 +154,14 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
         if not domain:
             await interaction.response.send_message("Invalid domain.", ephemeral=True)
             return
-        if PaywallPattern.get_or_none(
-            PaywallPattern.guild_id == interaction.guild.id,
-            PaywallPattern.pattern == domain,
+        if await PaywallPattern.get_or_none(
+            guild_id=interaction.guild.id, pattern=domain
         ):
             await interaction.response.send_message(
                 f"`{domain}` is already in the list.", ephemeral=True
             )
             return
-        PaywallPattern.create(guild_id=interaction.guild.id, pattern=domain)
+        await PaywallPattern.create(guild_id=interaction.guild.id, pattern=domain)
         self._pattern_cache.pop(interaction.guild.id, None)
         await interaction.response.send_message(
             f"Added `{domain}` to paywall patterns.", ephemeral=True
@@ -175,14 +173,9 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
     @is_bot_owner_or_admin()
     async def removepattern(self, interaction: discord.Interaction, domain: str):
         domain = _normalize_domain(domain)
-        deleted = (
-            PaywallPattern.delete()
-            .where(
-                PaywallPattern.guild_id == interaction.guild.id,
-                PaywallPattern.pattern == domain,
-            )
-            .execute()
-        )
+        deleted = await PaywallPattern.filter(
+            guild_id=interaction.guild.id, pattern=domain
+        ).delete()
         self._pattern_cache.pop(interaction.guild.id, None)
         if deleted:
             await interaction.response.send_message(
@@ -199,7 +192,7 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
     )
     @is_bot_owner_or_admin()
     async def patterns(self, interaction: discord.Interaction):
-        guild_patterns = self._guild_patterns(interaction.guild.id)
+        guild_patterns = await self._guild_patterns(interaction.guild.id)
         if not guild_patterns:
             await interaction.response.send_message(
                 "No custom patterns configured. Only the built-in known-paywalls list is active.",

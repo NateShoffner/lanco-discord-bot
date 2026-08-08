@@ -4,10 +4,11 @@ import re
 import discord
 from cachetools import LRUCache
 from cogs.lancocog import LancoCog
-from db import BaseModel
 from discord import app_commands
 from discord.ext import commands
-from peewee import *
+from tortoise import fields
+from tortoise.exceptions import IntegrityError
+from tortoise.models import Model
 
 
 class _HandlerSelect(discord.ui.Select):
@@ -30,11 +31,15 @@ class _HandlerSelect(discord.ui.Select):
         handler = next(h for h in self._cog.handlers if h.id == handler_id)
 
         try:
-            config, _ = self._cog.config_model.get_or_create(guild_id=self._guild_id)
+            config, _ = await self._cog.config_model.get_or_create(
+                guild_id=self._guild_id
+            )
         except IntegrityError:
-            config = self._cog.config_model.get_or_none(guild_id=self._guild_id)
+            # Kept post-Tortoise: get_or_create is still a non-atomic
+            # SELECT-then-INSERT, so two concurrent invocations can still race.
+            config = await self._cog.config_model.get_or_none(guild_id=self._guild_id)
         config.handler_id = handler_id
-        config.save()
+        await config.save()
 
         await interaction.response.edit_message(
             content=f"Handler set to **{handler.name}** — {handler.description}.",
@@ -60,10 +65,50 @@ class _HandlerSelectView(discord.ui.View):
         return True
 
 
-class EmbedFixConfigBase(BaseModel):
-    guild_id = BigIntegerField(primary_key=True)
-    enabled = BooleanField(default=False)
-    handler_id = CharField(default="")
+class EmbedFixConfigBase(Model):
+    """Columns shared by every embed-fix config table.
+
+    handler_id is VARCHAR(255) to match what already exists in the database
+    (Peewee's bare CharField); widening or narrowing it would only produce a
+    pointless ALTER against live tables.
+    """
+
+    enabled = fields.BooleanField(default=False)
+    handler_id = fields.CharField(max_length=255, default="")
+
+    class Meta:
+        abstract = True
+
+
+class GuildPkEmbedFixConfig(EmbedFixConfigBase):
+    """Tables whose primary key IS the guild id."""
+
+    guild_id = fields.BigIntField(primary_key=True, generated=False)
+
+    class Meta:
+        abstract = True
+
+
+class SurrogatePkEmbedFixConfig(EmbedFixConfigBase):
+    """Tables carrying a surrogate `id` PK with guild_id merely UNIQUE.
+
+    Not a design choice -- it is what instaembed/tiktokembed/twitterembed
+    actually look like in the live database. They predate the switch to
+    guild-id-as-primary-key and were renamed (migrations 001-003) rather than
+    rebuilt, and Peewee's CREATE TABLE IF NOT EXISTS never reshapes an existing
+    table, so the model and the table have simply disagreed ever since.
+
+    Behaviourally identical for this cog's purposes: guild_id carries a UNIQUE
+    index, and every query here addresses rows by guild_id, never by pk.
+    Modelling the table as it really is keeps the Aerich baseline honest
+    instead of provoking a table rebuild for no functional gain.
+    """
+
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.BigIntField(unique=True)
+
+    class Meta:
+        abstract = True
 
 
 class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix cog"):
@@ -131,7 +176,7 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         bot: commands.Bot,
         name: str,
         handlers: list,
-        config_model: Model,
+        config_model: type[Model],
         skip_if_handled_by_discord: bool = False,
         wait_time: float = 2.5,
     ):
@@ -141,7 +186,9 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         self.config_model = config_model
         self.skip_if_handled_by_discord = skip_if_handled_by_discord
         self.wait_time = wait_time
-        self.bot.database.create_tables([self.config_model])
+        # No create_tables() here: Tortoise generates the schema centrally at
+        # startup (see main.init_tortoise), so every model must be registered
+        # in app/models.py rather than created ad hoc per cog.
         self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
 
     def _active_handler(self, config) -> "EmbedFixCog.Handler":
@@ -154,28 +201,29 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
 
     async def toggle(self, interaction: discord.Interaction):
         try:
-            config, created = self.config_model.get_or_create(
+            config, created = await self.config_model.get_or_create(
                 guild_id=interaction.guild.id
             )
         except IntegrityError:
-            config = self.config_model.get_or_none(guild_id=interaction.guild.id)
+            # Kept post-Tortoise: see _HandlerSelect.callback above.
+            config = await self.config_model.get_or_none(guild_id=interaction.guild.id)
             created = False
 
         if created or not config.enabled:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"{self.name} enabled for this server"
             )
         else:
             config.enabled = False
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"{self.name} disabled for this server"
             )
 
     async def _show_handler_select(self, interaction: discord.Interaction):
-        config = self.config_model.get_or_none(guild_id=interaction.guild.id)
+        config = await self.config_model.get_or_none(guild_id=interaction.guild.id)
         active = self._active_handler(config)
 
         if len(self.handlers) == 1:
@@ -239,7 +287,7 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
             self.logger.info("Discord embedded the link, no need to fix it")
             return
 
-        embed_config = self.config_model.get_or_none(guild_id=message.guild.id)
+        embed_config = await self.config_model.get_or_none(guild_id=message.guild.id)
         if not embed_config or not embed_config.enabled:
             self.logger.info("Embed fix not enabled for this server")
             return

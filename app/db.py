@@ -33,11 +33,13 @@ class BaseModel(Model):
 
 TORTOISE_APP_LABEL = "models"
 
-# Dotted module paths carrying Tortoise models. Appended to as cogs are
-# ported off Peewee. Order doesn't matter: there are no ForeignKeys anywhere
-# in this codebase, so there's no model-registration ordering to get right.
+# Dotted module paths carrying Tortoise models. app/models.py is the single
+# registry: it re-exports every ported model, loading each cog's models.py by
+# file path so DB init never depends on cog packages importing cleanly. See
+# that module's docstring. Order doesn't matter: there are no ForeignKeys
+# anywhere in this codebase, so there's no registration ordering to get right.
 TORTOISE_MODEL_MODULES: list[str] = [
-    "models",  # app/models.py -- BlacklistedUser
+    "models",
 ]
 
 

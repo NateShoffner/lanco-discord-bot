@@ -45,7 +45,6 @@ class TruthSocial(
             username=os.getenv("TRUTH_SOCIAL_USERNAME"),
             password=os.getenv("TRUTH_SOCIAL_PASSWORD"),
         )
-        self.bot.database.create_tables([TruthSocialEmbedConfig])
         self.avatar_cache_dir = os.path.join(
             self.get_cog_data_directory(), "AvatarCache"
         )
@@ -58,7 +57,7 @@ class TruthSocial(
         if message.author.bot:
             return
 
-        config = TruthSocialEmbedConfig.get_or_none(guild_id=message.guild.id)
+        config = await TruthSocialEmbedConfig.get_or_none(guild_id=message.guild.id)
         if not config or not config.enabled:
             return
 
@@ -160,18 +159,18 @@ class TruthSocial(
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         """Enable or disable TruthSocial embeds in this server"""
-        config, created = TruthSocialEmbedConfig.get_or_create(
+        config, created = await TruthSocialEmbedConfig.get_or_create(
             guild_id=interaction.guild.id
         )
         if created or not config.enabled:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"TruthSocial embeds enabled for this server"
             )
         else:
             config.enabled = False
-            config.save()
+            await config.save()
             await interaction.response.send_message(
                 f"TruthSocial embeds disabled for this server"
             )

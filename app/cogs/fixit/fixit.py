@@ -19,7 +19,6 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([FixItConfig])
         self.client = SeeClickFixClient()
 
     async def cog_load(self):
@@ -39,7 +38,7 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
 
     async def get_new_issues(self):
         """Get new issues and share them to the configured channels"""
-        fixit_configs = FixItConfig().select()
+        fixit_configs = await FixItConfig.all()
         if not fixit_configs:
             return
 
@@ -65,7 +64,7 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
                 self.logger.info(f"New FixIt issue: {issue.id} - {issue.summary}")
 
                 fixit_config.last_known_issue = issue.id
-                fixit_config.save()
+                await fixit_config.save()
 
                 channel = self.bot.get_channel(fixit_config.channel_id)
                 await self.share_issue(issue, channel)
@@ -76,10 +75,10 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
     )
     @is_bot_owner_or_admin()
     async def subscribe(self, interaction: discord.Interaction):
-        fixit_config, created = FixItConfig.get_or_create(
+        fixit_config, created = await FixItConfig.get_or_create(
             guild_id=interaction.guild.id, channel_id=interaction.channel.id
         )
-        fixit_config.save()
+        await fixit_config.save()
 
         await interaction.response.send_message("Subscribed to new FixIt issues")
 
@@ -89,7 +88,7 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
     )
     @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction):
-        fixit_config = FixItConfig.get_or_none(
+        fixit_config = await FixItConfig.get_or_none(
             guild_id=interaction.guild.id,
             channel_id=interaction.channel.id,
         )
@@ -97,7 +96,7 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
         if not fixit_config:
             await interaction.response.send_message("Not subscribed to FixIt issues")
             return
-        fixit_config.delete_instance()
+        await fixit_config.delete()
 
         await interaction.response.send_message("Unsubscribed from FixIt issues")
 

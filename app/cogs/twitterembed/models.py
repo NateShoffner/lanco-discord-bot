@@ -1,7 +1,6 @@
-from cogs.common.embedfixcog import EmbedFixConfigBase
-from peewee import *
+from cogs.common.embedfixcog import SurrogatePkEmbedFixConfig
 
 
-class TwitterEmbedConfig(EmbedFixConfigBase):
+class TwitterEmbedConfig(SurrogatePkEmbedFixConfig):
     class Meta:
-        table_name = "twitterembed_config"
+        table = "twitterembed_config"

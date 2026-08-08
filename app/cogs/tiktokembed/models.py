@@ -1,7 +1,6 @@
-from cogs.common.embedfixcog import EmbedFixConfigBase
-from peewee import *
+from cogs.common.embedfixcog import SurrogatePkEmbedFixConfig
 
 
-class TikTokEmbedConfig(EmbedFixConfigBase):
+class TikTokEmbedConfig(SurrogatePkEmbedFixConfig):
     class Meta:
-        table_name = "tiktokembed_config"
+        table = "tiktokembed_config"

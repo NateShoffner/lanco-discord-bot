@@ -1,6 +1,6 @@
-from cogs.common.embedfixcog import EmbedFixConfigBase
+from cogs.common.embedfixcog import SurrogatePkEmbedFixConfig
 
 
-class InstaEmbedConfig(EmbedFixConfigBase):
+class InstaEmbedConfig(SurrogatePkEmbedFixConfig):
     class Meta:
-        table_name = "instaembed_config"
+        table = "instaembed_config"

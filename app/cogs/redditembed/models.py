@@ -1,6 +1,6 @@
-from cogs.common.embedfixcog import EmbedFixConfigBase
+from cogs.common.embedfixcog import GuildPkEmbedFixConfig
 
 
-class RedditEmbedConfig(EmbedFixConfigBase):
+class RedditEmbedConfig(GuildPkEmbedFixConfig):
     class Meta:
-        table_name = "redditembed_config"
+        table = "redditembed_config"

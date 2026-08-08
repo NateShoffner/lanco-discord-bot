@@ -1,11 +1,11 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class FixItConfig(BaseModel):
-    guild_id = BigIntegerField(primary_key=True)
-    channel_id = BigIntegerField()
-    last_known_issue = IntegerField(null=True)
+class FixItConfig(Model):
+    guild_id = fields.BigIntField(primary_key=True, generated=False)
+    channel_id = fields.BigIntField()
+    last_known_issue = fields.IntField(null=True)
 
     class Meta:
-        table_name = "fixit_config"
+        table = "fixit_config"

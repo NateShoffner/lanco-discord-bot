@@ -22,7 +22,6 @@ class Transcribe(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
-        self.bot.database.create_tables([TranscribeConfig])
         self.model = whisper.load_model("base", device="cpu")
         self.register_context_menu(
             name="Transcribe", callback=self.ctx_menu, errback=self.ctx_menu_error
@@ -54,13 +53,15 @@ class Transcribe(
     )
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
-        config, created = TranscribeConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await TranscribeConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         if created:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message("Transcription services enabled")
         else:
-            config.delete_instance()
+            await config.delete()
             await interaction.response.send_message("Transcription services disabled")
 
     @commands.Cog.listener()
@@ -73,7 +74,7 @@ class Transcribe(
             await message.reply(f"✨ Transcription: {transcription}")
 
     async def transcribe(self, message: discord.Message):
-        config = TranscribeConfig.get_or_none(guild_id=message.guild.id)
+        config = await TranscribeConfig.get_or_none(guild_id=message.guild.id)
         if not config or not config.enabled:
             return
 

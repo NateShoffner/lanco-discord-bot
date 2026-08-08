@@ -1,10 +1,17 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class TruthSocialEmbedConfig(BaseModel):
-    guild_id = BigIntegerField(primary_key=True)
-    enabled = BooleanField(default=False)
+class TruthSocialEmbedConfig(Model):
+    guild_id = fields.BigIntField(primary_key=True, generated=False)
+    enabled = fields.BooleanField(default=False)
+
+    class Meta:
+        # Pinned explicitly to the name the live table already has. The Peewee
+        # model declared no Meta at all, so the table was created under
+        # Peewee's implicit default; Tortoise's implicit name differs, and
+        # letting it apply would orphan the existing table.
+        table = "truthsocialembedconfig"
 
 
 from datetime import datetime

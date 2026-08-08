@@ -173,7 +173,7 @@ class FacebookEmbed(
     async def toggle(self, interaction):
         await super().toggle(interaction)
 
-    def _matched_url(self, message: discord.Message, pattern: re.Pattern):
+    async def _matched_url(self, message: discord.Message, pattern: re.Pattern):
         """Return the URL a native handler should act on, or None to skip.
 
         Applies the shared guards (bot author, embed permission, angle-bracket
@@ -192,7 +192,7 @@ class FacebookEmbed(
         if self._is_within_spoiler_tags(message.content, match):
             return None
 
-        config = self.config_model.get_or_none(guild_id=message.guild.id)
+        config = await self.config_model.get_or_none(guild_id=message.guild.id)
         if not config or not config.enabled:
             return None
 
@@ -208,7 +208,7 @@ class FacebookEmbed(
     @commands.Cog.listener("on_message")
     async def handle_events(self, message: discord.Message):
         """Native embed for event links (facebed only returns a login card)."""
-        url = self._matched_url(message, EVENT_PATTERN)
+        url = await self._matched_url(message, EVENT_PATTERN)
         if not url:
             return
 
@@ -237,7 +237,7 @@ class FacebookEmbed(
         text comes from Facebook's own og:description. Falls back to the facebed
         link if neither source yields anything usable.
         """
-        url = self._matched_url(message, POST_PATTERN)
+        url = await self._matched_url(message, POST_PATTERN)
         if not url:
             return
 
@@ -271,7 +271,7 @@ class FacebookEmbed(
 
         Stays silent if nothing usable is scraped, rather than posting that card.
         """
-        url = self._matched_url(message, PAGE_PATTERN)
+        url = await self._matched_url(message, PAGE_PATTERN)
         if not url:
             return
 

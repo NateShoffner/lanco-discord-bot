@@ -20,7 +20,6 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
-        self.bot.database.create_tables([FileFixerConfig])
         self.file_downloader = FileDownloader()
 
     @g.command(
@@ -28,13 +27,15 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
     )
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
-        config, created = FileFixerConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await FileFixerConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         if created:
             config.enabled = True
-            config.save()
+            await config.save()
             await interaction.response.send_message("FileFixer enabled for this server")
         else:
-            config.delete_instance()
+            await config.delete()
             await interaction.response.send_message(
                 "FileFixer disabled for this server"
             )
@@ -45,7 +46,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
             return
 
         if message.attachments:
-            config = FileFixerConfig.get_or_none(guild_id=message.guild.id)
+            config = await FileFixerConfig.get_or_none(guild_id=message.guild.id)
             if not config or not config.enabled:
                 return
 

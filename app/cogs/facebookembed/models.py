@@ -1,6 +1,6 @@
-from cogs.common.embedfixcog import EmbedFixConfigBase
+from cogs.common.embedfixcog import GuildPkEmbedFixConfig
 
 
-class FacebookEmbedConfig(EmbedFixConfigBase):
+class FacebookEmbedConfig(GuildPkEmbedFixConfig):
     class Meta:
-        table_name = "facebookembed_config"
+        table = "facebookembed_config"
