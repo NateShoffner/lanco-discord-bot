@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 import discord
 import discord.ext.test as dpytest
 from db import database_proxy
-from peewee import SqliteDatabase
+from tortoise.exceptions import DoesNotExist, IntegrityError
 
 COGS_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "cogs")
 
@@ -34,23 +34,18 @@ COGS_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "cogs")
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def test_db():
-    """Fresh in-memory SQLite DB bound to the proxy for every test."""
-    db = SqliteDatabase(":memory:")
-    database_proxy.initialize(db)
-    db.connect()
-    yield db
-    db.close()
-
-
 @pytest_asyncio.fixture
-async def bot(test_db):
-    """A real LancoBot instance configured for testing."""
+async def bot(test_db, tortoise_db):
+    """A real LancoBot instance configured for testing.
+
+    Depends on tortoise_db so models already ported off Peewee (issue #149)
+    are queryable by cogs and by main.py's global_block_check.
+    """
     from main import LancoBot
 
     # Re-bind the proxy to test_db in case main.py's module-level init_db()
     # re-initialized it to a different :memory: connection on first import.
+    # Only the Peewee side needs this; tortoise_db builds an isolated context.
     database_proxy.initialize(test_db)
 
     intents = discord.Intents.default()
@@ -454,39 +449,38 @@ async def test_cog_predicate_is_the_arbiter(bot, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_blacklisted_user_create_and_query(test_db):
+async def test_blacklisted_user_create_and_query(tortoise_db):
     """BlacklistedUser records should persist and be queryable."""
-    from db import BaseModel
-    from peewee import BigIntegerField, TextField
+    from models import BlacklistedUser
 
-    class BlacklistedUser(BaseModel):
-        user_id = BigIntegerField(primary_key=True)
-        reason = TextField(null=True)
+    await BlacklistedUser.create(user_id=123456, reason="spamming")
 
-        class Meta:
-            table_name = "blacklisted_users"
-
-    test_db.create_tables([BlacklistedUser])
-    BlacklistedUser.create(user_id=123456, reason="spamming")
-
-    record = BlacklistedUser.get_by_id(123456)
+    record = await BlacklistedUser.get(user_id=123456)
     assert record.user_id == 123456
     assert record.reason == "spamming"
 
 
-def test_blacklisted_user_not_found(test_db):
+async def test_blacklisted_user_not_found(tortoise_db):
     """Querying a non-existent blacklisted user should raise DoesNotExist."""
-    from db import BaseModel
-    from peewee import BigIntegerField, TextField
+    from models import BlacklistedUser
 
-    class BlacklistedUser(BaseModel):
-        user_id = BigIntegerField(primary_key=True)
-        reason = TextField(null=True)
+    with pytest.raises(DoesNotExist):
+        await BlacklistedUser.get(user_id=999999)
 
-        class Meta:
-            table_name = "blacklisted_users"
+    assert await BlacklistedUser.get_or_none(user_id=999999) is None
 
-    test_db.create_tables([BlacklistedUser])
 
-    with pytest.raises(BlacklistedUser.DoesNotExist):
-        BlacklistedUser.get_by_id(999999)
+async def test_blacklisted_user_id_is_not_autoincrement(tortoise_db):
+    """user_id is an application-supplied Discord snowflake, not a generated
+    sequence. Tortoise's default for a PK int field is generated=True, which
+    would emit AUTOINCREMENT, silently truncate BIGINT to INTEGER, and let a
+    create() that forgot the id succeed as user_id=1 instead of raising.
+    """
+    from models import BlacklistedUser
+
+    snowflake = 1234567890123456789
+    await BlacklistedUser.create(user_id=snowflake, reason="snowflake")
+    assert (await BlacklistedUser.get(user_id=snowflake)).user_id == snowflake
+
+    with pytest.raises(IntegrityError):
+        await BlacklistedUser.create(reason="no user_id supplied")

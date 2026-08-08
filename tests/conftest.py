@@ -6,3 +6,40 @@ os.environ.setdefault("DB_TYPE", "sqlite")
 os.environ.setdefault("SQLITE_DB", ":memory:")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
+
+import pytest
+import pytest_asyncio
+from db import TORTOISE_MODEL_MODULES, database_proxy
+from peewee import SqliteDatabase
+from tortoise.contrib.test import tortoise_test_context
+
+
+@pytest.fixture(autouse=True)
+def test_db():
+    """Fresh in-memory SQLite DB bound to the proxy for every test.
+
+    Peewee side. Stays autouse (and stays put) until every model has been
+    ported to Tortoise -- see the migration plan for issue #149. Both ORMs are
+    live at once during the cutover, which is safe: they open independent
+    connections to the same database.
+    """
+    db = SqliteDatabase(":memory:")
+    database_proxy.initialize(db)
+    db.connect()
+    yield db
+    db.close()
+
+
+@pytest_asyncio.fixture
+async def tortoise_db():
+    """Fresh in-memory Tortoise DB with all ported models, per test.
+
+    Deliberately NOT autouse: it is an async fixture, and the suite still has
+    sync tests that would receive an un-awaited async generator. Tests (and the
+    `bot` fixture) opt in by requesting it.
+
+    use_tz=False mirrors production: Peewee wrote naive datetimes, so every
+    existing row is naive and Tortoise must not start writing aware ones.
+    """
+    async with tortoise_test_context(list(TORTOISE_MODEL_MODULES), use_tz=False) as ctx:
+        yield ctx
