@@ -13,9 +13,8 @@ Caveat: this harness does not bind to the production SqliteQueueDatabase that
 app/main.py's init_db() used. The write-queue race issue #149 is about only
 manifested through that background write thread, so these tests do not attempt
 to reproduce it (doing so under a real queue is timing-dependent and would be
-flaky in CI). They establish correctness of ordinary CRUD, not concurrency
-safety; the concurrent get_or_create regression test lands with the
-race-workaround reconciliation.
+flaky in CI). They establish correctness of ordinary CRUD plus the specific
+get_or_create race behaviour documented on the two tests at the bottom.
 """
 
 import os
@@ -123,3 +122,67 @@ async def test_tortoise_get_or_create_is_idempotent(tortoise_db):
     assert created2 is False
     assert user1.pk == user2.pk
     assert await BlacklistedUser.filter(user_id=777).count() == 1
+
+
+async def test_concurrent_get_or_create_does_not_duplicate(tortoise_db):
+    """Eight simultaneous get_or_create() calls on one key yield exactly one row.
+
+    Worth stating what this does and does not prove. Measured on Tortoise's
+    SQLite backend, this does NOT reproduce the facebookembed race from issue
+    #149: all eight calls resolve to one create and seven fetches, and zero
+    IntegrityErrors are raised even with no fallback in place. The single
+    connection behind an asyncio.Lock plus aiosqlite's speed means the
+    SELECT-then-INSERT pair does not interleave in practice here.
+
+    So this is a coarse smoke test, not the real guard. The deterministic one is
+    below. Kept because it is the shape the cogs actually call, and a future
+    change to Tortoise's connection handling (a pool, a different backend)
+    could start making it interleave.
+    """
+    import asyncio
+
+    from models import BlacklistedUser
+
+    results = await asyncio.gather(
+        *(BlacklistedUser.get_or_create(user_id=4242) for _ in range(8))
+    )
+
+    assert await BlacklistedUser.filter(user_id=4242).count() == 1
+    assert all(row is not None for row, _ in results)
+    assert sum(1 for _, created in results if created) == 1
+
+
+async def test_integrity_error_fallback_recovers_the_row(tortoise_db):
+    """The try/except IntegrityError fallback in embedfixcog, pinboard and r9k
+    must actually work when the race it guards does occur.
+
+    Rather than hoping the scheduler interleaves, this forces the exact losing
+    sequence by hand: both callers observe no row, then both insert. The second
+    insert violates the primary key, which is what the cogs catch. Without a
+    unique constraint on the key this would silently create a duplicate instead
+    of raising, so this also pins that the constraint exists.
+
+    Delete the fallback in those cogs and this test still passes; its job is to
+    prove the fallback is correct, and to document why the pattern is there so
+    it does not get tidied away as redundant.
+    """
+    from models import BlacklistedUser
+    from tortoise.exceptions import IntegrityError
+
+    key = 5150
+
+    # Both callers look, both miss. This is the state the race produces.
+    assert await BlacklistedUser.get_or_none(user_id=key) is None
+    assert await BlacklistedUser.get_or_none(user_id=key) is None
+
+    winner = await BlacklistedUser.create(user_id=key, reason="first writer")
+
+    with pytest.raises(IntegrityError):
+        await BlacklistedUser.create(user_id=key, reason="second writer")
+
+    # The loser's fallback path: re-read instead of propagating the error.
+    recovered = await BlacklistedUser.get_or_none(user_id=key)
+    assert recovered is not None
+    assert recovered.pk == winner.pk
+    assert recovered.reason == "first writer"
+    assert await BlacklistedUser.filter(user_id=key).count() == 1
