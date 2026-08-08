@@ -484,3 +484,90 @@ async def test_blacklisted_user_id_is_not_autoincrement(tortoise_db):
 
     with pytest.raises(IntegrityError):
         await BlacklistedUser.create(reason="no user_id supplied")
+
+
+# ---------------------------------------------------------------------------
+# Model registration
+# ---------------------------------------------------------------------------
+
+
+async def test_every_tortoise_model_module_is_registered(tortoise_db):
+    """Every module defining a concrete Tortoise model must be reachable from
+    db.discover_model_modules().
+
+    This exists because a missing one fails in the worst possible way: it does
+    not break imports and it does not break the rest of the suite, because
+    nothing outside the running bot ever queries it. app/utils/config.py was
+    unregistered for several commits and only surfaced on a real boot, as
+    "default_connection for the model GuildConfig cannot be None" the first
+    time a guild prefix was read.
+
+    Modules are found by parsing rather than importing, so a cog with a heavy or
+    missing optional dependency is still inspected.
+    """
+    import ast
+
+    from db import discover_model_modules
+
+    app_dir = os.path.join(os.path.dirname(__file__), "..", "app")
+
+    def declares_concrete_model(path: str) -> bool:
+        try:
+            tree = ast.parse(open(path, encoding="utf-8").read())
+        except SyntaxError:
+            return False
+        # Track the local name(s) Tortoise's Model is bound to. app/db.py
+        # imports it as TortoiseModel precisely so it does not collide with
+        # Peewee's Model, so matching on the bare name would misfire there.
+        model_aliases = {
+            a.asname or a.name
+            for n in ast.walk(tree)
+            if isinstance(n, ast.ImportFrom) and n.module and "tortoise" in n.module
+            for a in n.names
+            if a.name == "Model"
+        }
+        if not model_aliases:
+            return False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            bases = {
+                getattr(b, "id", None) or getattr(b, "attr", None) for b in node.bases
+            }
+            if not (bases & model_aliases):
+                continue
+            # Abstract bases are never queried directly and need no connection.
+            meta = next(
+                (
+                    n
+                    for n in node.body
+                    if isinstance(n, ast.ClassDef) and n.name == "Meta"
+                ),
+                None,
+            )
+            if meta and any(
+                isinstance(s, ast.Assign)
+                and any(getattr(t, "id", None) == "abstract" for t in s.targets)
+                for s in meta.body
+            ):
+                continue
+            return True
+        return False
+
+    defining = set()
+    for root, dirs, files in os.walk(app_dir):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for name in files:
+            if name.endswith(".py") and declares_concrete_model(
+                os.path.join(root, name)
+            ):
+                rel = os.path.relpath(os.path.join(root, name), app_dir)
+                defining.add(rel.replace(os.sep, ".")[:-3])
+
+    registered = set(discover_model_modules())
+    missing = defining - registered
+    assert not missing, (
+        "these modules define Tortoise models but are not registered, so their "
+        "models will have no connection at runtime; add them to "
+        f"db.APP_MODEL_MODULES: {sorted(missing)}"
+    )

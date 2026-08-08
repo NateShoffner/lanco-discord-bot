@@ -41,9 +41,20 @@ class BaseModel(Model):
 
 TORTOISE_APP_LABEL = "models"
 
-# App-level model modules, imported normally (they have no cog package around
-# them). Cog models are found by discover_model_modules() below.
-APP_MODEL_MODULES: tuple[str, ...] = ("models",)
+# Model modules that live outside app/cogs and so are not found by the scan in
+# discover_model_modules(). Anything added here must be importable normally.
+#
+# The utils entries are easy to forget: nothing references them from a cog's
+# models.py, so a missing one does not fail at import or in the unit tests. It
+# surfaces only when the bot actually runs, as "default_connection for the
+# model ... cannot be None" the first time that model is queried. There is a
+# test guarding this (see tests/test_bot.py).
+APP_MODEL_MODULES: tuple[str, ...] = (
+    "models",
+    "utils.config",
+    "utils.tracked_message",
+    "utils.roundgame.dbmodels",
+)
 
 # Model files to look for inside each cog. geoguesser keeps its Peewee models
 # in dbmodels.py rather than models.py, so both names are scanned.
