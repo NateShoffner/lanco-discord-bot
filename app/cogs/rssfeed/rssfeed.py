@@ -23,7 +23,6 @@ class RssFeed(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([RSSFeedConfig])
         self._warned_channels: set[int] = set()
 
     async def cog_load(self):
@@ -55,7 +54,7 @@ class RssFeed(
             await response_msg.edit(embed=embed)
             return
 
-        config, created = RSSFeedConfig.get_or_create(
+        config, created = await RSSFeedConfig.get_or_create(
             channel_id=interaction.channel.id, url=url
         )
 
@@ -77,10 +76,12 @@ class RssFeed(
     )
     @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction, url: str):
-        config = RSSFeedConfig.get_or_none(channel_id=interaction.channel.id, url=url)
+        config = await RSSFeedConfig.get_or_none(
+            channel_id=interaction.channel.id, url=url
+        )
 
         if config:
-            config.delete_instance()
+            await config.delete()
             self.logger.info(f"Unsubscribed from {config.url}")
 
             embed = discord.Embed(
@@ -91,7 +92,7 @@ class RssFeed(
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
         """Poll for new RSS feed items"""
-        for config in RSSFeedConfig.select():
+        for config in await RSSFeedConfig.all():
             try:
                 self.logger.debug(f"Checking feed: {config.url}")
                 feed = await self.get_feed(config.url)
@@ -115,7 +116,7 @@ class RssFeed(
                     await self.post_item(feed.feed.title, item, channel)
 
                 config.last_checked = datetime.datetime.now()
-                config.save()
+                await config.save()
 
             except Exception as e:
                 self.logger.error(e)

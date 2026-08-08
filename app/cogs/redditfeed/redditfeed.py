@@ -50,7 +50,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([RedditFeedConfig, RedditPost])
         self.reddit = asyncpraw.Reddit(
             client_id=os.getenv("REDDIT_ID"),
             client_secret=os.getenv("REDDIT_SECRET"),
@@ -109,7 +108,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
     async def get_new_posts(self):
         """Get new posts from watched subreddits and share them to the configured channels"""
-        reddit_configs = RedditFeedConfig.select()
+        reddit_configs = await RedditFeedConfig.all()
         if not reddit_configs:
             return
 
@@ -136,10 +135,9 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             # updated in-process so write-queue latency can't cause re-posts.
             if sr not in self._seen_ids_loaded:
                 self._seen_ids[sr] = set(
-                    row[0]
-                    for row in RedditPost.select(RedditPost.post_id)
-                    .where(RedditPost.subreddit == sr.lower())
-                    .tuples()
+                    await RedditPost.filter(subreddit=sr.lower()).values_list(
+                        "post_id", flat=True
+                    )
                 )
                 self._seen_ids_loaded.add(sr)
             seen_ids = self._seen_ids.setdefault(sr, set())
@@ -166,7 +164,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 if newest_ts is not None:
                     for config in configs:
                         config.last_known_post_creation = newest_ts
-                        config.save()
+                        await config.save()
                 continue
 
             for submission in submissions:
@@ -215,7 +213,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                     )
 
                     now = datetime.datetime.now(datetime.timezone.utc)
-                    RedditPost.create(
+                    await RedditPost.create(
                         post_id=submission.id,
                         subreddit=submission.subreddit.display_name.lower(),
                         channel_id=config.channel_id,
@@ -235,7 +233,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         message_id=msg.id,
                     )
                     config.last_known_post_creation = submission.created_utc
-                    config.save()
+                    await config.save()
 
                 # Mark as seen
                 seen_ids.add(submission.id)
@@ -250,18 +248,18 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         # Only check posts for subreddits that still have active configs
         active_subreddits = set(
-            row[0].lower()
-            for row in RedditFeedConfig.select(RedditFeedConfig.subreddit).tuples()
+            subreddit.lower()
+            for subreddit in await RedditFeedConfig.all().values_list(
+                "subreddit", flat=True
+            )
         )
 
-        recent_posts = list(
-            RedditPost.select().where(
-                RedditPost.created >= cutoff_ts,
-                RedditPost.subreddit << active_subreddits,
-                RedditPost.deleted == False,
-                RedditPost.removed == False,
-                RedditPost.removed_by_reddit == False,
-            )
+        recent_posts = await RedditPost.filter(
+            created__gte=cutoff_ts,
+            subreddit__in=list(active_subreddits),
+            deleted=False,
+            removed=False,
+            removed_by_reddit=False,
         )
 
         if not recent_posts:
@@ -312,7 +310,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 post.comment_count = submission.num_comments
                 post.score = submission.score
                 post.last_updated = datetime.datetime.now(datetime.timezone.utc)
-                post.save()
+                await post.save()
 
                 channel = self.bot.get_channel(post.channel_id)
                 if channel:
@@ -329,14 +327,14 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     @is_bot_owner_or_admin()
     async def subscribe(self, interaction: discord.Interaction, subreddit_name: str):
         subreddit_name = subreddit_name.lstrip("/r/").lower()
-        reddit_config, created = RedditFeedConfig.get_or_create(
+        reddit_config, created = await RedditFeedConfig.get_or_create(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
         )
         reddit_config.last_known_post_creation = datetime.datetime.now(
             datetime.timezone.utc
         ).timestamp()
-        reddit_config.save()
+        await reddit_config.save()
 
         subreddit_url = f"https://reddit.com/r/{subreddit_name}"
         embed = discord.Embed(
@@ -353,7 +351,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction, subreddit_name: str):
         subreddit_name = subreddit_name.lstrip("/r/").lower()
-        reddit_config = RedditFeedConfig.get_or_none(
+        reddit_config = await RedditFeedConfig.get_or_none(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
         )
@@ -368,7 +366,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             )
             await interaction.response.send_message(embed=embed)
             return
-        reddit_config.delete_instance()
+        await reddit_config.delete()
 
         embed = discord.Embed(
             title=f"Unsubscribe from /r/{subreddit_name}",

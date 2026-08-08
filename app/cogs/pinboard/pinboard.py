@@ -1,8 +1,8 @@
 import discord
-import peewee
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from tortoise.exceptions import IntegrityError
 
 from .models import PinboardPost
 
@@ -19,20 +19,14 @@ class Pinboard(
         self.register_context_menu(
             name="Pin Message", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
-        self.bot.database.create_tables([PinboardPost])
 
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
         # check pinned count for user/guild
-        pinned_count = (
-            PinboardPost.select()
-            .where(
-                PinboardPost.pin_owner_id == interaction.user.id
-                and PinboardPost.guild_id == interaction.guild.id
-            )
-            .count()
-        )
+        pinned_count = await PinboardPost.filter(
+            pin_owner_id=interaction.user.id, guild_id=interaction.guild.id
+        ).count()
         if pinned_count >= self.MAX_PINNED_MESSAGES:
             await interaction.response.send_message(
                 "You have reached the maximum number of pinned messages", ephemeral=True
@@ -40,7 +34,7 @@ class Pinboard(
             return
 
         try:
-            config, create = PinboardPost.get_or_create(
+            config, create = await PinboardPost.get_or_create(
                 message_id=message.id,
                 guild_id=interaction.guild.id,
                 pin_owner_id=interaction.user.id,
@@ -49,7 +43,7 @@ class Pinboard(
                 created_at=message.created_at,
                 pinned_at=discord.utils.utcnow(),
             )
-        except peewee.IntegrityError as exc:
+        except IntegrityError:
             await interaction.response.send_message(
                 "Message already pinned", ephemeral=True
             )
@@ -113,13 +107,15 @@ class Pinboard(
             return
 
         pinned_message = pinned_message_ids[message_number - 1]
-        PinboardPost.delete().where(PinboardPost.message_id == pinned_message).execute()
+        await PinboardPost.filter(
+            pin_owner_id=interaction.user.id, message_id=pinned_message
+        ).delete()
 
         await interaction.response.send_message("Message unpinned", ephemeral=True)
 
     async def get_pinned_message_ids(self, user: discord.User, guild: discord.Guild):
-        pinned_messages = PinboardPost.select().where(
-            PinboardPost.pin_owner_id == user.id and PinboardPost.guild_id == guild.id
+        pinned_messages = await PinboardPost.filter(
+            pin_owner_id=user.id, guild_id=guild.id
         )
         if not pinned_messages:
             return None
@@ -127,8 +123,8 @@ class Pinboard(
         return [pinned_message.message_id for pinned_message in pinned_messages]
 
     async def get_pinned_messages(self, user: discord.User, guild: discord.Guild):
-        pinned_messages = PinboardPost.select().where(
-            PinboardPost.pin_owner_id == user.id and PinboardPost.guild_id == guild.id
+        pinned_messages = await PinboardPost.filter(
+            pin_owner_id=user.id, guild_id=guild.id
         )
         if not pinned_messages:
             return None

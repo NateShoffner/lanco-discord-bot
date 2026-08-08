@@ -46,7 +46,7 @@ class PromptModal(discord.ui.Modal, title="Prompt Info"):
         edit = self.config is not None
         name = self.name_input.value
         if not edit:
-            config, created = AIPromptConfig.get_or_create(
+            config, created = await AIPromptConfig.get_or_create(
                 guild_id=interaction.guild.id,
                 name=name,
                 prompt=self.prompt_input.value,
@@ -54,7 +54,7 @@ class PromptModal(discord.ui.Modal, title="Prompt Info"):
             self.config = config
 
         self.config.prompt = self.prompt_input.value
-        self.config.save()
+        await self.config.save()
 
         await interaction.response.send_message(
             f"AI Prompt added: {name}" if not edit else f"AI Prompt updated: {name}"
@@ -73,7 +73,6 @@ class OpenAIPrompts(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.bot.database.create_tables([AIPromptConfig])
         self.custom_agents: dict[int, Agent] = {}  # AI ID -> Agent
 
     def get_agent(self, AIpromptConfig: AIPromptConfig) -> Agent:
@@ -107,15 +106,15 @@ class OpenAIPrompts(
     @g.command(name="edit", description="Edit an AI prompt")
     @is_bot_owner_or_admin()
     async def add_prompt(self, interaction: discord.Interaction, name: str):
-        prompt = AIPromptConfig.get_or_none(guild_id=interaction.guild.id, name=name)
+        prompt = await AIPromptConfig.get_or_none(
+            guild_id=interaction.guild.id, name=name
+        )
         modal = PromptModal(prompt)
         await interaction.response.send_modal(modal)
 
     @g.command(name="list", description="List all AI prompts")
     async def list_prompts(self, interaction: discord.Interaction):
-        prompts = AIPromptConfig.select().where(
-            AIPromptConfig.guild_id == interaction.guild.id
-        )
+        prompts = await AIPromptConfig.filter(guild_id=interaction.guild.id)
 
         if not prompts:
             await interaction.response.send_message("No prompts found", ephemeral=True)
@@ -144,12 +143,14 @@ class OpenAIPrompts(
     @g.command(name="remove", description="Remove an AI prompt")
     @is_bot_owner_or_admin()
     async def remove_prompt(self, interaction: discord.Interaction, name: str):
-        prompt = AIPromptConfig.get_or_none(guild_id=interaction.guild.id, name=name)
+        prompt = await AIPromptConfig.get_or_none(
+            guild_id=interaction.guild.id, name=name
+        )
         if not prompt:
             await interaction.response.send_message("Prompt not found", ephemeral=True)
             return
 
-        prompt.delete_instance()
+        await prompt.delete()
         await interaction.response.send_message("Prompt removed", ephemeral=True)
 
     @commands.Cog.listener()
@@ -166,7 +167,7 @@ class OpenAIPrompts(
             command_name, *args = message.content.split(" ")
             command_name = command_name[len(prefix) :]
 
-            prompt_config = AIPromptConfig.get_or_none(
+            prompt_config = await AIPromptConfig.get_or_none(
                 guild_id=message.guild.id, name=command_name.lower()
             )
 

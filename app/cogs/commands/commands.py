@@ -118,7 +118,7 @@ class CommandModal(ui.Modal, title="Command Info"):
             response = message.replace("\\n", "\n")
             return response
 
-        config, created = CustomCommands.get_or_create(
+        config, created = await CustomCommands.get_or_create(
             guild_id=interaction.guild_id,
             command_name=self.command_name.value.strip().lower(),
         )
@@ -138,7 +138,7 @@ class CommandModal(ui.Modal, title="Command Info"):
 
         config.last_updated = discord.utils.utcnow()
         config.author = interaction.user.id
-        config.save()
+        await config.save()
 
         embed_title = "Command Edited" if edit else "Command Created"
         embed = discord.Embed(title=embed_title, color=discord.Color.blue())
@@ -169,7 +169,6 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([CustomCommands])
         self.agent = Agent(
             model="openai:gpt-5-nano",
             system_prompt="Generate a concise and relevant response based on the user's command prompt.",
@@ -189,7 +188,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         interaction: discord.Interaction,
         command_name: str,
     ):
-        command = CustomCommands.get_or_none(
+        command = await CustomCommands.get_or_none(
             guild_id=interaction.guild_id,
             command_name=command_name.strip().lower(),
         )
@@ -201,7 +200,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        command.delete_instance()
+        await command.delete()
 
         embed = discord.Embed(
             title="Command deleted",
@@ -214,7 +213,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     @commands_group.command(name="edit", description="Edit a custom command")
     @is_bot_owner_or_admin()
     async def edit(self, interaction: discord.Interaction, command_name: str):
-        command = CustomCommands.get_or_none(
+        command = await CustomCommands.get_or_none(
             guild_id=interaction.guild_id, command_name=command_name.strip().lower()
         )
 
@@ -232,9 +231,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
     @commands_group.command(name="list", description="List all custom commands")
     async def list(self, interaction: discord.Interaction):
-        commands = CustomCommands.select().where(
-            CustomCommands.guild_id == interaction.guild_id
-        )
+        commands = await CustomCommands.filter(guild_id=interaction.guild_id)
 
         if not commands:
             embed = discord.Embed(
@@ -249,7 +246,6 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         menu = ReactionMenu(interaction, menu_type=ReactionMenu.TypeEmbed)
 
         COMMANDS_PER_PAGE = 8
-        commands = list(commands)
         commands.sort(key=lambda x: x.command_name)
 
         prefix = self.bot.get_guild_prefix(interaction.guild)
@@ -302,7 +298,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
         prefix = self.bot.get_guild_prefix(message.guild)
         if message.content.startswith(prefix):
             command_name = message.content[len(prefix) :].strip()
-            command = CustomCommands.get_or_none(
+            command = await CustomCommands.get_or_none(
                 guild_id=message.guild.id, command_name=command_name.lower()
             )
 
@@ -353,7 +349,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
                         msg = await message.channel.send(command.command_response)
 
                 command.last_used = discord.utils.utcnow()
-                command.save()
+                await command.save()
 
                 return msg
 

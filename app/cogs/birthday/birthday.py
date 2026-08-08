@@ -33,11 +33,11 @@ class BirthdayModal(discord.ui.Modal, title="Set your birthday"):
             )
             return
 
-        user, created = BirthdayUser.get_or_create(
+        user, created = await BirthdayUser.get_or_create(
             guild_id=interaction.guild.id, user_id=interaction.user.id
         )
         user.date = date.date()
-        user.save()
+        await user.save()
 
         date_str = date.strftime("%B %d")
         await interaction.response.send_message(
@@ -53,24 +53,32 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([BirthdayUser, BirthdayAnnouncementConfig])
         self.daily_bday_task.start()
 
-    def get_todays_birthday_users(self):
-        return BirthdayUser.select().where(
-            BirthdayUser.date.month == datetime.datetime.now().month,
-            BirthdayUser.date.day == datetime.datetime.now().day,
-        )
+    async def get_birthday_users_for_month(self, month: int) -> list[BirthdayUser]:
+        # Month/day matching is done in Python rather than in SQL: Tortoise's
+        # `date__month` / `date__day` filters render as EXTRACT(... FROM ...),
+        # which SQLite does not support. The table is small enough that
+        # filtering client-side is cheap and backend-agnostic.
+        users = await BirthdayUser.filter(date__isnull=False)
+        return [u for u in users if u.date.month == month]
+
+    async def get_todays_birthday_users(self) -> list[BirthdayUser]:
+        today = datetime.datetime.now()
+        users = await self.get_birthday_users_for_month(today.month)
+        return [u for u in users if u.date.day == today.day]
 
     @tasks.loop(time=daily_announcement_time)
     async def daily_bday_task(self):
-        birthday_users = self.get_todays_birthday_users()
+        birthday_users = await self.get_todays_birthday_users()
 
         if not birthday_users:
             return
 
         for user in birthday_users:
-            config = BirthdayAnnouncementConfig.get_or_none(guild_id=user.guild_id)
+            config = await BirthdayAnnouncementConfig.get_or_none(
+                guild_id=user.guild_id
+            )
             if not config:
                 continue
 
@@ -87,7 +95,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
 
     @bday_group.command(name="remove", description="Remove your birthday")
     async def remove_birthday(self, interaction: discord.Interaction):
-        user = BirthdayUser.get_or_none(
+        user = await BirthdayUser.get_or_none(
             guild_id=interaction.guild.id, user_id=interaction.user.id
         )
         if not user:
@@ -96,7 +104,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
             )
             return
 
-        user.delete_instance()
+        await user.delete()
         await interaction.response.send_message(
             "Your birthday has been removed", ephemeral=True
         )
@@ -108,7 +116,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
     async def set_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
-        config, created = BirthdayAnnouncementConfig.get_or_create(
+        config, created = await BirthdayAnnouncementConfig.get_or_create(
             guild_id=interaction.guild.id, channel_id=channel.id
         )
 
@@ -132,7 +140,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
         else:
             month = datetime.datetime.now().month
 
-        birthday_users = BirthdayUser.select().where(BirthdayUser.date.month == month)
+        birthday_users = await self.get_birthday_users_for_month(month)
 
         if not birthday_users:
             await interaction.response.send_message(

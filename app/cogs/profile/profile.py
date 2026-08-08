@@ -46,7 +46,7 @@ class ProfileModal(discord.ui.Modal, title="Profile Details"):
         edit = self.profile is not None
 
         if not edit:
-            profile, created = UserProfile.get_or_create(
+            profile, created = await UserProfile.get_or_create(
                 user_id=interaction.user.id, name=self.name_input.value
             )
             if not created:
@@ -59,7 +59,7 @@ class ProfileModal(discord.ui.Modal, title="Profile Details"):
         self.profile.name = self.name_input.value
         self.profile.description = self.description_input.value
         self.profile.is_nsfw = self.nsfw_input.value.lower() == "y"
-        self.profile.save()
+        await self.profile.save()
 
         await interaction.response.send_message(
             f"{'Updated' if edit else 'Created'} profile {self.profile.name}",
@@ -72,7 +72,6 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([UserProfile, ProfileLink, UserProfilesConfig])
 
     @profiles_group.command(
         name="toggle", description="Toggle user profiles for this server"
@@ -80,9 +79,9 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
-        config, created = UserProfilesConfig.get_or_create(guild_id=guild_id)
+        config, created = await UserProfilesConfig.get_or_create(guild_id=guild_id)
         config.enabled = not config.enabled
-        config.save()
+        await config.save()
 
         await interaction.response.send_message(
             f"User profiles are now {'enabled' if config.enabled else 'disabled'}"
@@ -93,7 +92,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = self.get_profile_by_name(user.id, name)
+        profile = await self.get_profile_by_name(user.id, name)
         if not profile:
             await interaction.response.send_message(
                 f"{user.name} does not have a profile with the name {name}",
@@ -116,7 +115,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = UserProfile.get_or_none(user_id=interaction.user.id, name=name)
+        profile = await UserProfile.get_or_none(user_id=interaction.user.id, name=name)
         if not profile:
             await interaction.response.send_message(
                 "You do not have a profile to edit", ephemeral=True
@@ -131,9 +130,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profiles = UserProfile.select().where(
-            UserProfile.user_id == interaction.user.id
-        )
+        profiles = await UserProfile.filter(user_id=interaction.user.id)
         if not profiles:
             await interaction.response.send_message("You do not have any profiles")
             return
@@ -152,7 +149,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = self.get_profile_by_name(interaction.user.id, name)
+        profile = await self.get_profile_by_name(interaction.user.id, name)
         if not profile:
             await interaction.response.send_message(
                 f"You do not have a profile with the name {name}", ephemeral=True
@@ -160,7 +157,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
             return
 
         profile.is_default = True
-        profile.save()
+        await profile.save()
 
         await interaction.response.send_message(
             f"{profile.name} is now your default profile"
@@ -171,7 +168,9 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = UserProfile.get_or_none(user_id=interaction.user.id, is_default=True)
+        profile = await UserProfile.get_or_none(
+            user_id=interaction.user.id, is_default=True
+        )
         if not profile:
             await interaction.response.send_message(
                 "You do not have a default profile", ephemeral=True
@@ -185,14 +184,14 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = self.get_profile_by_name(interaction.user.id, name)
+        profile = await self.get_profile_by_name(interaction.user.id, name)
         if not profile:
             await interaction.response.send_message(
                 f"You do not have a profile with the name {name}", ephemeral=True
             )
             return
 
-        profile.delete_instance()
+        await profile.delete()
         await interaction.response.send_message("Profile deleted", ephemeral=True)
 
     @profiles_group.command(
@@ -204,7 +203,7 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         if not await self.prompt_profiles_enabled(interaction):
             return
 
-        profile = self.get_profile_by_name(interaction.user.id, profile)
+        profile = await self.get_profile_by_name(interaction.user.id, profile)
         if not profile:
             await interaction.response.send_message(
                 f"You do not have a profile with the name {profile}", ephemeral=True
@@ -217,15 +216,15 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
             await interaction.response.send_message("Invalid URL", ephemeral=True)
             return
 
-        link, created = ProfileLink.get_or_create(
+        link, created = await ProfileLink.get_or_create(
             user_id=interaction.user.id, service=name, url=url
         )
         if not created:
             link.url = url
-            link.save()
+            await link.save()
 
         profile.links = link
-        profile.save()
+        await profile.save()
 
         await interaction.response.send_message(f"Linked {name}")
 
@@ -249,19 +248,19 @@ class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profi
         embed.timestamp = profile.last_updated
         await interaction.response.send_message(embed=embed)
 
-    def get_profile_by_name(self, user_id: int, name: str) -> UserProfile:
-        return UserProfile.get_or_none(user_id=user_id, name=name)
+    async def get_profile_by_name(self, user_id: int, name: str) -> UserProfile:
+        return await UserProfile.get_or_none(user_id=user_id, name=name)
 
     async def prompt_profiles_enabled(self, interaction: discord.Interaction):
-        if not self.profiles_enabled(interaction.guild.id):
+        if not await self.profiles_enabled(interaction.guild.id):
             await interaction.response.send_message(
                 "User profiles are not enabled for this server", ephemeral=True
             )
             return False
         return True
 
-    def profiles_enabled(self, guild_id: int) -> bool:
-        config = UserProfilesConfig.get_or_none(guild_id=guild_id)
+    async def profiles_enabled(self, guild_id: int) -> bool:
+        config = await UserProfilesConfig.get_or_none(guild_id=guild_id)
         return config and config.enabled
 
 

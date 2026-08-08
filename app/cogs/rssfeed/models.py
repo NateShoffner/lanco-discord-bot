@@ -1,12 +1,13 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class RSSFeedConfig(BaseModel):
-    channel_id = IntegerField(null=True)
-    url = CharField(null=True)
-    last_checked = DateTimeField(null=True)
+class RSSFeedConfig(Model):
+    id = fields.IntField(primary_key=True)
+    channel_id = fields.IntField(null=True)
+    url = fields.CharField(max_length=255, null=True)
+    last_checked = fields.DatetimeField(null=True)
 
     class Meta:
-        table_name = "rss_feed_config"
-        primary_key = CompositeKey("channel_id", "url")
+        table = "rss_feed_config"
+        unique_together = (("channel_id", "url"),)

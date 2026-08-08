@@ -1,12 +1,13 @@
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class AIPromptConfig(BaseModel):
-    guild_id = IntegerField()
-    name = CharField()
-    prompt = CharField()
+class AIPromptConfig(Model):
+    id = fields.IntField(primary_key=True)
+    guild_id = fields.IntField()
+    name = fields.CharField(max_length=255)
+    prompt = fields.CharField(max_length=255)
 
     class Meta:
-        table_name = "ai_prompt_config"
-        primary_key = CompositeKey("guild_id", "name")
+        table = "ai_prompt_config"
+        unique_together = (("guild_id", "name"),)

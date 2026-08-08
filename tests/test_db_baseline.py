@@ -165,7 +165,9 @@ def _fetch(model, obj):
 # reading each model's own code, not guessed: don't add an entry here just
 # to silence a failure without checking why the field diverged first.
 _COMPUTED_ON_SAVE = {
-    "UserProfile": {"last_updated"},  # save() stamps utcnow(), see profile/models.py
+    # Empty since UserProfile moved to Tortoise: its save() override was
+    # replaced by an auto_now field, and the Tortoise suite skips auto_now /
+    # auto_now_add fields directly rather than needing an allowlist.
 }
 
 
