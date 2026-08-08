@@ -161,6 +161,7 @@ cython_debug/
 
 cache/
 logs/
+JOURNAL.md
 *.db
 # SQLite sidecars: these hold real data pages, so ignoring only *.db would
 # still leave database contents committable.
