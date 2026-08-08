@@ -245,9 +245,9 @@ class ChatBot(
         if not is_mention and not is_reply:
             return
 
-        from main import BlacklistedUser
+        from models import BlacklistedUser
 
-        if BlacklistedUser.get_or_none(user_id=message.author.id):
+        if await BlacklistedUser.get_or_none(user_id=message.author.id):
             return
 
         if self._is_rate_limited(message.author.id):

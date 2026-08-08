@@ -287,9 +287,9 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
     async def block(
         self, interaction: discord.Interaction, user: discord.User, reason: str
     ):
-        from main import BlacklistedUser
+        from models import BlacklistedUser
 
-        BlacklistedUser.create(user_id=user.id, reason=reason)
+        await BlacklistedUser.create(user_id=user.id, reason=reason)
         await interaction.response.send_message(
             f"Blocked {user.mention} for {reason}", ephemeral=True
         )
@@ -297,15 +297,15 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
     @discord.app_commands.command(name="unblock", description="Unblock a user")
     @commands.is_owner()
     async def unblock(self, interaction: discord.Interaction, user: discord.User):
-        from main import BlacklistedUser
+        from models import BlacklistedUser
 
-        u = BlacklistedUser.get_or_none(user_id=user.id)
+        u = await BlacklistedUser.get_or_none(user_id=user.id)
         if not u:
             await interaction.response.send_message(
                 f"{user.mention} is not blocked", ephemeral=True
             )
             return
-        u.delete_instance()
+        await u.delete()
         await interaction.response.send_message(
             f"Unblocked {user.mention}", ephemeral=True
         )

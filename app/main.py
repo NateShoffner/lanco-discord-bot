@@ -12,12 +12,14 @@ from typing import Optional
 import discord
 import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
-from db import BaseModel, DatabaseType, database_proxy
+from db import DatabaseType, build_tortoise_config, database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
+from models import BlacklistedUser
 from peewee import *
 from playhouse.sqliteq import SqliteQueueDatabase
+from tortoise import Tortoise
 from utils.command_utils import is_bot_owner
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
@@ -340,16 +342,15 @@ def init_db() -> Database:
 database = init_db()
 
 
-class BlacklistedUser(BaseModel):
-    user_id = BigIntegerField(primary_key=True)
-    reason = TextField(null=True)
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "blacklisted_users"
-
-
-database.create_tables([BlacklistedUser])
+async def init_tortoise() -> None:
+    """Initialize the Tortoise-ORM connection (issue #149 cutover), for
+    models that have been ported off Peewee. Called explicitly before
+    bot.load_cogs() so any ported model is queryable as soon as cogs load,
+    and exposed as a standalone coroutine so tests can call it without going
+    through main().
+    """
+    await Tortoise.init(config=build_tortoise_config())
+    await Tortoise.generate_schemas(safe=True)
 
 
 class CogStatus(Enum):
@@ -781,7 +782,7 @@ async def devmode(interaction: discord.Interaction):
 
 @bot.check
 async def global_block_check(ctx):
-    if BlacklistedUser.get_or_none(user_id=ctx.author.id):
+    if await BlacklistedUser.get_or_none(user_id=ctx.author.id):
         return False
     return True
 
@@ -791,6 +792,7 @@ async def main():
     from utils.db_backup import DatabaseBackup
 
     init_apm()
+    await init_tortoise()
     database.create_tables([GuildConfig])
     for config in GuildConfig.select():
         if config.prefix:
@@ -798,10 +800,13 @@ async def main():
 
     db_backup = DatabaseBackup(database=database)
     await bot.load_cogs()
-    async with bot:
-        db_backup.start()
-        await bot.start(os.getenv("DISCORD_TOKEN"))
-        db_backup.stop()
+    try:
+        async with bot:
+            db_backup.start()
+            await bot.start(os.getenv("DISCORD_TOKEN"))
+            db_backup.stop()
+    finally:
+        await Tortoise.close_connections()
 
 
 if __name__ == "__main__":
