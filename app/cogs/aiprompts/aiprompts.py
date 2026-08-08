@@ -162,7 +162,7 @@ class OpenAIPrompts(
         if isinstance(message.channel, discord.DMChannel):
             return
 
-        prefix = self.bot.get_guild_prefix(message.guild)
+        prefix = await self.bot.get_guild_prefix(message.guild)
         if message.content.startswith(prefix):
             command_name, *args = message.content.split(" ")
             command_name = command_name[len(prefix) :]

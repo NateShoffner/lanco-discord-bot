@@ -28,7 +28,6 @@ class PDFPreview(
         self.virus_check = VirusCheck(os.getenv("VIRUS_TOTAL_API_KEY"))
         if not os.path.exists(self.previews_path):
             os.makedirs(self.previews_path)
-        self.bot.database.create_tables([PDFPreviewConfig])
 
     async def cog_load(self):
         await super().cog_load()
@@ -42,14 +41,20 @@ class PDFPreview(
         )
 
     def wants_pdf(self, candidate, message: discord.Message) -> bool:
+        # Stays synchronous on purpose: the router calls this as
+        # bool(intent.cheap_predicate(...)) without awaiting, so an async
+        # version would hand it a coroutine, which is always truthy - the gate
+        # would silently pass everything. The per-guild enabled check moved to
+        # pdf_confidence, which is awaited, and which is where I/O belongs
+        # anyway given this hook is meant to be cheap.
         if not message.guild:
             return False
-        if candidate.extension != "pdf":
-            return False
-        config = PDFPreviewConfig.get_or_none(guild_id=message.guild.id)
-        return bool(config and config.enabled)
+        return candidate.extension == "pdf"
 
     async def pdf_confidence(self, ctx: FileContext) -> float:
+        config = await PDFPreviewConfig.get_or_none(guild_id=ctx.message.guild.id)
+        if not (config and config.enabled):
+            return 0.0
         return 1.0
 
     async def post_preview(self, ctx: FileContext) -> None:
@@ -58,7 +63,7 @@ class PDFPreview(
         if not pdf_filename:
             return
 
-        config = PDFPreviewConfig.get_or_none(guild_id=ctx.message.guild.id)
+        config = await PDFPreviewConfig.get_or_none(guild_id=ctx.message.guild.id)
         preview_pages = max(1, config.preview_pages if config else 1)
 
         file_size = os.path.getsize(pdf_filename)
@@ -162,11 +167,13 @@ class PDFPreview(
     )
     @is_bot_owner_or_admin()
     async def toggle(self, interaction: discord.Interaction):
-        config, created = PDFPreviewConfig.get_or_create(guild_id=interaction.guild.id)
+        config, created = await PDFPreviewConfig.get_or_create(
+            guild_id=interaction.guild.id
+        )
         # Toggle the enabled flag without dropping the row so per-guild
         # settings (e.g. preview_pages) persist across toggles.
         config.enabled = created or not config.enabled
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             "PDF Preview enabled" if config.enabled else "PDF Preview disabled"
         )
@@ -185,9 +192,9 @@ class PDFPreview(
             )
             return
 
-        config, _ = PDFPreviewConfig.get_or_create(guild_id=interaction.guild.id)
+        config, _ = await PDFPreviewConfig.get_or_create(guild_id=interaction.guild.id)
         config.preview_pages = pages
-        config.save()
+        await config.save()
         await interaction.response.send_message(
             f"PDF previews will now show the first {pages} page(s)."
         )

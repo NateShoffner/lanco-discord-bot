@@ -399,13 +399,13 @@ class LancoBot(commands.Bot):
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
 
-    def get_guild_prefix(self, guild: Optional[discord.Guild] = None) -> str:
+    async def get_guild_prefix(self, guild: Optional[discord.Guild] = None) -> str:
         if guild:
             if guild.id in _prefix_cache:
                 return _prefix_cache[guild.id]
             from utils.config import GuildConfig
 
-            config = GuildConfig.get_or_none(guild_id=guild.id)
+            config = await GuildConfig.get_or_none(guild_id=guild.id)
             prefix = config.prefix if config and config.prefix else DEFAULT_PREFIX
             _prefix_cache[guild.id] = prefix
             return prefix

@@ -7,6 +7,7 @@ from cogs.lancocog import RoundGameCog
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import Select, View
+from tortoise.transactions import in_transaction
 from utils.roundgame.dbmodels import RoundGameResult
 
 from .captcha_gen import generate_captcha
@@ -48,7 +49,6 @@ class CaptchaCog(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self._ready_at: float = 0.0
-        self.bot.database.create_tables([RoundGameResult])
 
     async def cog_load(self):
         await super().cog_load()
@@ -186,9 +186,9 @@ class CaptchaCog(
 
     async def on_game_end(self, session: CaptchaSession):
         if len(session.members) > 1:
-            with self.bot.database.atomic():
+            async with in_transaction():
                 for user_id, score in session.members.items():
-                    RoundGameResult.create(
+                    await RoundGameResult.create(
                         game_name=self.GAME_NAME,
                         game_id=session.game_id,
                         guild_id=session.channel.guild.id,
@@ -431,26 +431,26 @@ class CaptchaCog(
         import datetime
 
         guild_id = interaction.guild.id
-        query = RoundGameResult.select().where(
-            RoundGameResult.game_name == self.GAME_NAME,
-            RoundGameResult.guild_id == guild_id,
-            RoundGameResult.scoring_version == self.SCORING_VERSION,
+        query = RoundGameResult.filter(
+            game_name=self.GAME_NAME,
+            guild_id=guild_id,
+            scoring_version=self.SCORING_VERSION,
         )
 
         now = datetime.datetime.utcnow()
         if period == "today":
             cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            query = query.where(RoundGameResult.played_at >= cutoff)
+            query = query.filter(played_at__gte=cutoff)
             period_label = "Today"
         elif period == "week":
             cutoff = now - datetime.timedelta(days=7)
-            query = query.where(RoundGameResult.played_at >= cutoff)
+            query = query.filter(played_at__gte=cutoff)
             period_label = "This Week"
         else:
             period_label = "All Time"
 
         totals: dict[int, float] = {}
-        for row in query:
+        for row in await query:
             totals[row.user_id] = totals.get(row.user_id, 0) + row.score
 
         if not totals:

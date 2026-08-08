@@ -1,8 +1,8 @@
 import datetime
 from uuid import uuid4
 
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 SCORING_VERSION = 4
 # Version history:
@@ -12,29 +12,31 @@ SCORING_VERSION = 4
 # 4 - separate score_radius from generation radius (city=2km, county=20km)
 
 
-class GeoguesserLocation(BaseModel):
-    id = UUIDField(primary_key=True, default=uuid4)
-    mode = CharField()
-    initial_lat = FloatField()
-    initial_lng = FloatField()
-    road_lat = FloatField()
-    road_lng = FloatField()
-    label = CharField(null=True)
+class GeoguesserLocation(Model):
+    id = fields.UUIDField(primary_key=True, default=uuid4)
+    mode = fields.CharField(max_length=255)
+    initial_lat = fields.FloatField()
+    initial_lng = fields.FloatField()
+    road_lat = fields.FloatField()
+    road_lng = fields.FloatField()
+    label = fields.CharField(max_length=255, null=True)
 
     class Meta:
-        table_name = "geoguesser_locations"
+        table = "geoguesser_locations"
 
 
-class GeoguesserGameResult(BaseModel):
-    id = AutoField()
-    game_id = UUIDField()
-    guild_id = BigIntegerField()
-    user_id = BigIntegerField()
-    mode = CharField()
-    score = FloatField()
-    rounds_played = IntegerField()
-    scoring_version = IntegerField(default=SCORING_VERSION)
-    played_at = DateTimeField(default=datetime.datetime.utcnow)
+class GeoguesserGameResult(Model):
+    id = fields.IntField(primary_key=True)
+    game_id = fields.UUIDField()
+    guild_id = fields.BigIntField()
+    user_id = fields.BigIntField()
+    # TEXT in the live table rather than VARCHAR; both are TEXT affinity in
+    # SQLite, and max_length only constrains the ORM side.
+    mode = fields.CharField(max_length=255)
+    score = fields.FloatField()
+    rounds_played = fields.IntField()
+    scoring_version = fields.IntField(default=SCORING_VERSION)
+    played_at = fields.DatetimeField(default=datetime.datetime.utcnow)
 
     class Meta:
-        table_name = "geoguesser_game_results"
+        table = "geoguesser_game_results"

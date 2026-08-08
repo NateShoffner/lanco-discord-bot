@@ -1,26 +1,23 @@
 from functools import wraps
 
 import discord
-from db import BaseModel
-from peewee import *
+from tortoise import fields
+from tortoise.models import Model
 
 
-class TrackedMessage(BaseModel):
-    message_id = IntegerField(primary_key=True)
+class TrackedMessage(Model):
+    # A Discord message snowflake, supplied by the caller. generated=False keeps
+    # Tortoise from emitting AUTOINCREMENT (which would also silently accept a
+    # create() with no message_id and assign it 1).
+    message_id = fields.BigIntField(primary_key=True, generated=False)
 
     class Meta:
-        table_name = "tracked_messages"
+        table = "tracked_messages"
 
 
-def create_tables():
-    """Create the tables"""
-    BaseModel._meta.database.create_tables([TrackedMessage])
-
-
-def is_message_tracked(message_id: int) -> bool:
+async def is_message_tracked(message_id: int) -> bool:
     """Check if a message is tracked"""
-    create_tables()
-    return TrackedMessage.get_or_none(message_id=message_id)
+    return await TrackedMessage.get_or_none(message_id=message_id)
 
 
 def track_message_ids():
@@ -29,14 +26,12 @@ def track_message_ids():
     def decorator(func):
         @wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
-            create_tables()
-
             # Call the original command
             result = await func(self, ctx, *args, **kwargs)
 
             # After the command execution, track the message ID
             if result and isinstance(result, discord.Message):
-                TrackedMessage.create(message_id=result.id)
+                await TrackedMessage.create(message_id=result.id)
 
             return result
 
@@ -67,7 +62,7 @@ def ignore_if_referenced_message_is_tracked():
 
             if msg.reference:
                 referenced_message_id = msg.reference.message_id
-                if is_message_tracked(referenced_message_id):
+                if await is_message_tracked(referenced_message_id):
                     return
 
             # Call the original command

@@ -51,12 +51,12 @@ class R9K(
         normalized = cls.normalize(content)
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
-    def is_command(self, message: discord.Message) -> bool:
+    async def is_command(self, message: discord.Message) -> bool:
         """True if the message looks like a bot command and should be ignored."""
         content = message.content
 
         # This bot's own prefix commands (the prefix alone is not a command).
-        guild_prefix = self.bot.get_guild_prefix(message.guild)
+        guild_prefix = await self.bot.get_guild_prefix(message.guild)
         if content.startswith(guild_prefix) and len(content) > len(guild_prefix):
             return True
 
@@ -243,7 +243,7 @@ class R9K(
 
         # Don't treat bot commands as chat content. Slash commands never reach
         # on_message, but prefix commands do, so skip anything addressed to a bot.
-        if self.is_command(message):
+        if await self.is_command(message):
             return
 
         # Drop expired records first so stale phrases can be reused.

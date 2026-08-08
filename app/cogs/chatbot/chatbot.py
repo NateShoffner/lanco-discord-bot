@@ -222,7 +222,7 @@ class ChatBot(
         if message.webhook_id:
             return
 
-        if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
+        if message.content.startswith(await self.bot.get_guild_prefix(message.guild)):
             return
 
         is_reply = False
@@ -232,7 +232,7 @@ class ChatBot(
                 message.reference.message_id
             )
             if referenced_msg.author.id == self.bot.user.id:
-                if is_message_tracked(referenced_msg.id):
+                if await is_message_tracked(referenced_msg.id):
                     return
                 is_reply = True
             elif referenced_msg.author.bot:
@@ -357,7 +357,7 @@ class ChatBot(
         sender_ctx = ", ".join(sender_parts)
 
         if message.guild:
-            guild_config = get_guild_config(message.guild.id)
+            guild_config = await get_guild_config(message.guild.id)
             guild_tz = (
                 guild_config.get_pytz_timezone()
                 if guild_config

@@ -32,7 +32,7 @@ class WebPreview(
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
+        if message.content.startswith(await self.bot.get_guild_prefix(message.guild)):
             return
         if not message.channel.permissions_for(message.guild.me).embed_links:
             return

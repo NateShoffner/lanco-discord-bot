@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import re
 import time
 from math import floor
@@ -12,6 +13,7 @@ from cogs.lancocog import RoundGameCog
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import Select, View
+from tortoise.transactions import in_transaction
 from utils.command_utils import is_bot_owner
 from utils.roundgame.dbmodels import RoundGameResult
 
@@ -66,7 +68,6 @@ class GeoGuesser(
         self.gmaps = None
         self.location_utils = None
         self._ready_at: float = 0.0
-        self.bot.database.create_tables([LocationModel, RoundGameResult])
         _sessions_starting.clear()
 
     async def cog_load(self):
@@ -220,9 +221,9 @@ class GeoGuesser(
 
     async def on_game_end(self, session: GameSession):
         if len(session.members) > 1:
-            with self.bot.database.atomic():
+            async with in_transaction():
                 for user_id, score in session.members.items():
-                    RoundGameResult.create(
+                    await RoundGameResult.create(
                         game_name=self.GAME_NAME,
                         game_id=session.game_id,
                         guild_id=session.channel.guild.id,
@@ -276,12 +277,13 @@ class GeoGuesser(
     async def load_locations_from_db(
         self, mode: Mode, count: int
     ) -> list[GeoGuesserLocation]:
-        db_locations = (
-            LocationModel.select()
-            .where(LocationModel.mode == mode.name)
-            .order_by(self.bot.database.random())
-            .limit(count)
-        )
+        # Peewee ordered by the backend's RANDOM() here. Tortoise has no
+        # portable random-order expression, and the pool is small (a populate
+        # run caps a mode at 100 rows), so the sample is drawn in Python. Same
+        # semantics as ORDER BY RANDOM() LIMIT n: `count` distinct rows, chosen
+        # uniformly.
+        rows = await LocationModel.filter(mode=mode.name)
+        db_locations = random.sample(rows, min(count, len(rows)))
         locations = []
         for location in db_locations:
             locations.append(
@@ -316,9 +318,7 @@ class GeoGuesser(
             interaction.channel_id
         )
 
-        available = (
-            LocationModel.select().where(LocationModel.mode == mode.name).count()
-        )
+        available = await LocationModel.filter(mode=mode.name).count()
         if available == 0:
             await interaction.response.edit_message(
                 content=f"No locations available for **{mode.name}**. A bot owner needs to run `/geoguesser populate` first.",
@@ -577,13 +577,27 @@ class GeoGuesser(
         import datetime
 
         guild_id = interaction.guild.id
+        query = RoundGameResult.filter(
+            game_name=self.GAME_NAME,
+            guild_id=guild_id,
+            scoring_version=self.SCORING_VERSION,
+        )
+
+        now = datetime.datetime.utcnow()
+        if period == "today":
+            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            query = query.filter(played_at__gte=cutoff)
+            period_label = "Today"
+        elif period == "week":
+            cutoff = now - datetime.timedelta(days=7)
+            query = query.filter(played_at__gte=cutoff)
+            period_label = "This Week"
+        else:
+            period_label = "All Time"
+
+        # the queryset is lazy, so the whole thing executes once, here
         try:
-            query = RoundGameResult.select().where(
-                RoundGameResult.game_name == self.GAME_NAME,
-                RoundGameResult.guild_id == guild_id,
-                RoundGameResult.scoring_version == self.SCORING_VERSION,
-            )
-            list(query)
+            rows = await query
         except Exception as e:
             self.logger.error(f"Leaderboard query failed: {e}")
             await interaction.response.send_message(
@@ -592,20 +606,8 @@ class GeoGuesser(
             )
             return
 
-        now = datetime.datetime.utcnow()
-        if period == "today":
-            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            query = query.where(RoundGameResult.played_at >= cutoff)
-            period_label = "Today"
-        elif period == "week":
-            cutoff = now - datetime.timedelta(days=7)
-            query = query.where(RoundGameResult.played_at >= cutoff)
-            period_label = "This Week"
-        else:
-            period_label = "All Time"
-
         totals: dict[int, float] = {}
-        for row in query:
+        for row in rows:
             totals[row.user_id] = totals.get(row.user_id, 0) + row.score
 
         if not totals:
@@ -652,9 +654,7 @@ class GeoGuesser(
         async def wipe_callback(i: discord.Interaction):
             mode_value = i.data["values"][0]
             mode = next((m for m in self.modes if m.name == mode_value), None)
-            deleted = (
-                LocationModel.delete().where(LocationModel.mode == mode.name).execute()
-            )
+            deleted = await LocationModel.filter(mode=mode.name).delete()
             self.logger.info(
                 f"{i.user} wiped {deleted} locations for mode '{mode.name}'"
             )
@@ -693,26 +693,18 @@ class GeoGuesser(
     async def stats(self, interaction: discord.Interaction):
         lines = []
         for mode in self.modes:
-            count = (
-                LocationModel.select().where(LocationModel.mode == mode.name).count()
-            )
-            labeled = (
-                LocationModel.select()
-                .where(
-                    LocationModel.mode == mode.name, LocationModel.label.is_null(False)
-                )
-                .count()
-            )
+            count = await LocationModel.filter(mode=mode.name).count()
+            labeled = await LocationModel.filter(
+                mode=mode.name, label__isnull=False
+            ).count()
             lines.append(
                 f"{mode.icon} **{mode.name}**: {count} locations ({labeled} labeled)"
             )
 
-        games = (
-            RoundGameResult.select(RoundGameResult.game_id)
-            .where(RoundGameResult.game_name == self.GAME_NAME)
-            .distinct()
-            .count()
+        game_ids = await RoundGameResult.filter(game_name=self.GAME_NAME).values_list(
+            "game_id", flat=True
         )
+        games = len(set(game_ids))
         lines.append(f"\nGames recorded: **{games}**")
 
         embed = discord.Embed(
@@ -735,9 +727,9 @@ class GeoGuesser(
             return
 
         game_id = uuid.uuid4()
-        with self.bot.database.atomic():
+        async with in_transaction():
             for member in members:
-                RoundGameResult.create(
+                await RoundGameResult.create(
                     game_name=self.GAME_NAME,
                     game_id=game_id,
                     guild_id=interaction.guild.id,
@@ -782,11 +774,15 @@ class GeoGuesser(
             completed = {"count": 0, "last_label": ""}
             completed_lock = threading.Lock()
 
-            def generate_and_save():
+            def generate_locations():
+                """Runs on a worker thread. Generation only, no database access.
+
+                The persist step happens on the event loop once this returns,
+                so the ORM is only ever touched from the loop's own connection.
+                """
                 import concurrent.futures
 
                 import googlemaps
-                from peewee import SqliteDatabase
 
                 api_key = os.getenv("GMAPS_API_KEY")
                 workers = min(count, 5)
@@ -807,30 +803,9 @@ class GeoGuesser(
                     return loc
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                    locations = list(pool.map(generate_one, range(count)))
+                    return list(pool.map(generate_one, range(count)))
 
-                thread_db = SqliteDatabase(os.getenv("SQLITE_DB"))
-                thread_db.connect()
-                try:
-                    with LocationModel.bind_ctx(thread_db):
-                        with thread_db.atomic():
-                            LocationModel.delete().where(
-                                LocationModel.mode == mode.name
-                            ).execute()
-                            for location in locations:
-                                LocationModel.create(
-                                    mode=mode.name,
-                                    initial_lat=location.initial_location.lat,
-                                    initial_lng=location.initial_location.lng,
-                                    road_lat=location.road_coords.lat,
-                                    road_lng=location.road_coords.lng,
-                                    label=location.label,
-                                )
-                    return locations
-                finally:
-                    thread_db.close()
-
-            task = asyncio.create_task(asyncio.to_thread(generate_and_save))
+            task = asyncio.create_task(asyncio.to_thread(generate_locations))
 
             while not task.done():
                 await asyncio.sleep(5)
@@ -846,10 +821,26 @@ class GeoGuesser(
                         pass
 
             collected = await task
+
+            # persist on the event loop, over the one shared connection
+            async with in_transaction():
+                await LocationModel.filter(mode=mode.name).delete()
+                await LocationModel.bulk_create(
+                    [
+                        LocationModel(
+                            mode=mode.name,
+                            initial_lat=location.initial_location.lat,
+                            initial_lng=location.initial_location.lng,
+                            road_lat=location.road_coords.lat,
+                            road_lng=location.road_coords.lng,
+                            label=location.label,
+                        )
+                        for location in collected
+                    ]
+                )
+
             labeled_count = sum(1 for l in collected if l.label)
-            total = (
-                LocationModel.select().where(LocationModel.mode == mode.name).count()
-            )
+            total = await LocationModel.filter(mode=mode.name).count()
             self.logger.info(
                 f"Populate complete for '{mode.name}': {len(collected)} added ({labeled_count} labeled), {total} total"
             )

@@ -77,9 +77,9 @@ class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
             return
 
         guild_id = interaction.guild.id
-        config, _ = GuildConfig.get_or_create(guild_id=guild_id)
+        config, _ = await GuildConfig.get_or_create(guild_id=guild_id)
         config.prefix = prefix
-        config.save()
+        await config.save()
         main._prefix_cache[guild_id] = prefix
         await interaction.response.send_message(
             f"Prefix set to `{prefix}`", ephemeral=True
