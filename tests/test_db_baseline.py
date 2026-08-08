@@ -8,7 +8,7 @@ have something concrete to diff against:
 - get_or_create() is idempotent under sequential calls
 
 Models are discovered per ORM, so a model moves from the Peewee list to the
-Tortoise list the moment it is ported and added to db.TORTOISE_MODEL_MODULES.
+Tortoise list the moment its models.py is converted; discovery is automatic.
 Both parametrized suites stay green throughout; the counts shifting between
 them is the migration's progress bar.
 
@@ -227,7 +227,7 @@ def _tortoise_models():
     """Every model registered in the Tortoise app registry.
 
     Unlike the Peewee side there is no subclass walking: Tortoise requires
-    models be declared up front via db.TORTOISE_MODEL_MODULES, and its registry
+    models be declared up front (see db.discover_model_modules), and its registry
     already excludes abstract bases, so the registry IS the model list. Reading
     it requires an initialized Tortoise, so this runs inside the fixture rather
     than at import time (which is why the Tortoise suite is parametrized
@@ -280,7 +280,7 @@ async def test_tortoise_models_crud_roundtrip(tortoise_db):
     which is too late for collection-time parametrization.
     """
     models = _tortoise_models()
-    assert models, "no Tortoise models registered -- check TORTOISE_MODEL_MODULES"
+    assert models, "no Tortoise models registered -- check discover_model_modules()"
 
     for i, model in enumerate(models):
         kwargs = _tortoise_sample_kwargs(model, i)

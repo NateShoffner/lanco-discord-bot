@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 import pytest
 import pytest_asyncio
-from db import TORTOISE_MODEL_MODULES, database_proxy
+from db import database_proxy, discover_model_modules
 from peewee import SqliteDatabase
 from tortoise.contrib.test import tortoise_test_context
 
@@ -41,5 +41,5 @@ async def tortoise_db():
     use_tz=False mirrors production: Peewee wrote naive datetimes, so every
     existing row is naive and Tortoise must not start writing aware ones.
     """
-    async with tortoise_test_context(list(TORTOISE_MODEL_MODULES), use_tz=False) as ctx:
+    async with tortoise_test_context(discover_model_modules(), use_tz=False) as ctx:
         yield ctx
