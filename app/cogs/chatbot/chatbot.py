@@ -232,7 +232,7 @@ class ChatBot(
                 message.reference.message_id
             )
             if referenced_msg.author.id == self.bot.user.id:
-                if is_message_tracked(referenced_msg.id):
+                if referenced_msg.embeds or is_message_tracked(referenced_msg.id):
                     return
                 is_reply = True
             elif referenced_msg.author.bot:
