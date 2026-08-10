@@ -818,8 +818,8 @@ class GeoGuesser(
 
                 # Write through the shared database rather than a second connection,
                 # so these writes are serialized with the rest of the bot instead of
-                # contending for the file lock. insert_many keeps it to two statements
-                # since SqliteQueueDatabase does not support atomic().
+                # contending for the file lock. insert_many keeps the replacement to
+                # two statements instead of one per location.
                 LocationModel.delete().where(LocationModel.mode == mode.name).execute()
                 LocationModel.insert_many(
                     [

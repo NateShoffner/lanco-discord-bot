@@ -17,7 +17,6 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
-from playhouse.sqliteq import SqliteQueueDatabase
 from utils.command_utils import is_bot_owner
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
@@ -309,15 +308,18 @@ def init_db() -> Database:
         db_dir = os.path.dirname(sqlite_path)
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir)
-        db = SqliteQueueDatabase(
+        # WAL plus a busy timeout is what serializes SQLite writers. A write
+        # queue is not used: it executes BEGIN on its writer thread's connection
+        # while COMMIT runs on the caller's, so transactions (including the one
+        # inside get_or_create) never commit and leak the write lock.
+        db = SqliteDatabase(
             sqlite_path,
             pragmas={
                 "journal_mode": "wal",
                 "cache_size": -1024 * 32,
                 "foreign_keys": 1,
+                "busy_timeout": 5000,
             },
-            thread_safe=True,
-            timeout=5,
         )
 
     elif db_type == DatabaseType.MYSQL:

@@ -61,8 +61,8 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         )  # 24 hours
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
-        # In-memory seen set so SqliteQueueDatabase write-queue latency can't
-        # cause re-posts between poll cycles. Seeded from DB on first poll.
+        # In-memory seen set guarding against re-posts between poll cycles.
+        # Seeded from DB on first poll.
         self._seen_ids: dict[str, set[str]] = {}  # subreddit -> set of post_ids
         self._seen_ids_loaded: set[str] = set()  # subreddits whose DB rows are loaded
 
