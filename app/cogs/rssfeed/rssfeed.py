@@ -194,7 +194,11 @@ class RssFeed(
                         f"to channel {config.channel_id} as message {msg.id}"
                     )
 
-                config.last_checked = datetime.datetime.now()
+                # feedparser normalises entry timestamps to UTC, so the watermark
+                # must be UTC too. Using local time here made every item published
+                # within the UTC offset compare as new on every poll, re-posting
+                # it until it aged out of the feed.
+                config.last_checked = datetime.datetime.utcnow()
                 config.save()
 
             except Exception:
@@ -243,7 +247,9 @@ class RssFeed(
             title=item.title,
             url=item.link,
             description=item.description,
-            timestamp=datetime.datetime(*item.published_parsed[:6]),
+            timestamp=datetime.datetime(
+                *item.published_parsed[:6], tzinfo=datetime.timezone.utc
+            ),
         )
         embed.set_author(name=source_name)
         return await channel.send(embed=embed)
@@ -252,7 +258,7 @@ class RssFeed(
     @is_bot_owner_or_admin()
     async def test(self, ctx: commands.Context):
         feed = await self.get_feed("https://www.cityoflancasterpa.gov/feed/")
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=3)
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=3)
         new_items = await self.get_new_items(feed, yesterday)
         first_item = new_items[0]
 
