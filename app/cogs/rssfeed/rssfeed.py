@@ -117,8 +117,8 @@ class RssFeed(
                 config.last_checked = datetime.datetime.now()
                 config.save()
 
-            except Exception as e:
-                self.logger.error(e)
+            except Exception:
+                self.logger.exception(f"Error polling feed: {config.url}")
 
     async def get_feed(self, url: str) -> FeedParserDict:
         """Get the feed"""
