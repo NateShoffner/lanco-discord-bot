@@ -118,9 +118,11 @@ class CommandModal(ui.Modal, title="Command Info"):
             response = message.replace("\\n", "\n")
             return response
 
+        command_name = self.command_name.value.strip().lower()
+
         config, created = CustomCommands.get_or_create(
             guild_id=interaction.guild_id,
-            command_name=self.command_name.value.strip().lower(),
+            command_name=command_name,
         )
 
         config.command_response = format_message_response(self.command_response.value)
@@ -140,23 +142,33 @@ class CommandModal(ui.Modal, title="Command Info"):
         config.author = interaction.user.id
         config.save()
 
+        prefix = interaction.client.get_guild_prefix(interaction.guild)
+
         embed_title = "Command Edited" if edit else "Command Created"
         embed = discord.Embed(title=embed_title, color=discord.Color.blue())
-        embed.add_field(name="Command Name", value=self.command_name.value)
         embed.add_field(
-            name="Command Response/Prompt", value=self.command_response.value
+            name="Command Name", value=f"{prefix}{command_name}", inline=False
         )
         embed.add_field(
-            name="Command Type", value=self.type_selection.component.values[0]
+            name="Command Response/Prompt",
+            value=self.command_response.value,
+            inline=False,
+        )
+        embed.add_field(
+            name="Command Type",
+            value=self.type_selection.component.values[0],
+            inline=False,
         )
 
         if self.channel_selection.component.values:
             channel_mention = self.channel_selection.component.values[0].mention
-            embed.add_field(name="Channel", value=channel_mention)
+            embed.add_field(name="Channel", value=channel_mention, inline=False)
 
         if self.cooldown_selection.component.values:
             cooldown_value = self.cooldown_selection.component.values[0]
-            embed.add_field(name="Cooldown (seconds)", value=cooldown_value)
+            embed.add_field(
+                name="Cooldown (seconds)", value=cooldown_value, inline=False
+            )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
