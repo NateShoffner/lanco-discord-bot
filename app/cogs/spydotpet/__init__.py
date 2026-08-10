@@ -1,1 +1,0 @@
-from .spydotpet import setup

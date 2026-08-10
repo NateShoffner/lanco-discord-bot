@@ -5842,17 +5842,6 @@ multidict = ">=4.0"
 propcache = ">=0.2.1"
 
 [[package]]
-name = "zalgo-text"
-version = "0.6"
-description = "̖̘A ̩̼͜͡ś̛̺̦̃m̡̥̫a̛̳̹l̵̷͐ͪl ̶̫l̞̆̇i͈̫br̮̗͘a͇͗̌r̝ͨ͜͜y ̼̃ͅṯ̴̯́͒ͩo ̷̘ćͫr͕̎͆é͋a̛̳͈͗͜tͫͮe ̵̳͗̍͡z̴͇̗a̮̹ͬl̛͒̐ģ̏o ́͡ͅs̜͗̂t̙̬͟͢ý̶̹l̪ȩ͍͓̄̾͠d ̵̷̠̌t̸͈̖́̎͢e̸̓̓x̮ͮt."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "zalgo_text-0.6.tar.gz", hash = "sha256:4917b5053a014e3251e95e2f6fd32ed29770ccc2d89921dcab147eb8fc6be224"},
-]
-
-[[package]]
 name = "zipp"
 version = "3.23.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -5875,4 +5864,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "364556a0ccc6d23bd4a0dc4ee695545e4da43c7c404fd8cdfe653cd42a55645a"
+content-hash = "d30d7b5a09db85105f0105fa29afa5cf87e4fbf190666c118cd2ac275135a619"
