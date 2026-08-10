@@ -786,7 +786,6 @@ class GeoGuesser(
                 import concurrent.futures
 
                 import googlemaps
-                from peewee import SqliteDatabase
 
                 api_key = os.getenv("GMAPS_API_KEY")
                 workers = min(count, 5)
@@ -809,26 +808,25 @@ class GeoGuesser(
                 with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
                     locations = list(pool.map(generate_one, range(count)))
 
-                thread_db = SqliteDatabase(os.getenv("SQLITE_DB"))
-                thread_db.connect()
-                try:
-                    with LocationModel.bind_ctx(thread_db):
-                        with thread_db.atomic():
-                            LocationModel.delete().where(
-                                LocationModel.mode == mode.name
-                            ).execute()
-                            for location in locations:
-                                LocationModel.create(
-                                    mode=mode.name,
-                                    initial_lat=location.initial_location.lat,
-                                    initial_lng=location.initial_location.lng,
-                                    road_lat=location.road_coords.lat,
-                                    road_lng=location.road_coords.lng,
-                                    label=location.label,
-                                )
-                    return locations
-                finally:
-                    thread_db.close()
+                # Write through the shared database rather than a second connection,
+                # so these writes are serialized with the rest of the bot instead of
+                # contending for the file lock. insert_many keeps it to two statements
+                # since SqliteQueueDatabase does not support atomic().
+                LocationModel.delete().where(LocationModel.mode == mode.name).execute()
+                LocationModel.insert_many(
+                    [
+                        {
+                            "mode": mode.name,
+                            "initial_lat": location.initial_location.lat,
+                            "initial_lng": location.initial_location.lng,
+                            "road_lat": location.road_coords.lat,
+                            "road_lng": location.road_coords.lng,
+                            "label": location.label,
+                        }
+                        for location in locations
+                    ]
+                ).execute()
+                return locations
 
             task = asyncio.create_task(asyncio.to_thread(generate_and_save))
 
