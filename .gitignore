@@ -169,3 +169,9 @@ config/config.json
 /.claude
 tools/
 COG_AUDIT.md
+*.db-wal
+*.db-shm
+
+# local scratch notes, not part of the repo
+JOURNAL.md
+STATUS.md
