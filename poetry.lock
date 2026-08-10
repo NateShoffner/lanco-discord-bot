@@ -967,18 +967,6 @@ files = [
 ]
 
 [[package]]
-name = "confusables"
-version = "1.2.0"
-description = "A python package providing functionality for matching words that can be confused for eachother, but contain different characters"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "confusables-1.2.0-py3-none-any.whl", hash = "sha256:0c3e4a8ef8a6179f222e8cb6ea65ac5a71fa5c70d2de21950d14e99f933ecf52"},
-    {file = "confusables-1.2.0.tar.gz", hash = "sha256:429caad05333832e1edabb80815704cd26530514369430f913002b2ba548c38e"},
-]
-
-[[package]]
 name = "croniter"
 version = "6.2.2"
 description = "croniter provides iteration for datetime object with cron like format"
@@ -1309,51 +1297,6 @@ opentracing = ["opentracing (>=2.0.0)"]
 sanic = ["sanic"]
 starlette = ["starlette"]
 tornado = ["tornado"]
-
-[[package]]
-name = "elastic-transport"
-version = "9.1.0"
-description = "Transport classes and utilities shared among Python Elastic client libraries"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "elastic_transport-9.1.0-py3-none-any.whl", hash = "sha256:369fa56874c74daae4ea10cbf40636d139f38f42bec0e006b9cd45a168ee7fce"},
-    {file = "elastic_transport-9.1.0.tar.gz", hash = "sha256:1590e44a25b0fe208107d5e8d7dea15c070525f3ac9baafbe4cb659cd14f073d"},
-]
-
-[package.dependencies]
-certifi = "*"
-urllib3 = ">=1.26.2,<3"
-
-[package.extras]
-develop = ["aiohttp", "furo", "httpx", "opentelemetry-api", "opentelemetry-sdk", "orjson", "pytest", "pytest-asyncio", "pytest-cov", "pytest-httpbin", "pytest-httpserver", "pytest-mock", "requests", "respx", "sphinx (>2)", "sphinx-autodoc-typehints", "trustme"]
-
-[[package]]
-name = "elasticsearch"
-version = "9.1.0"
-description = "Python client for Elasticsearch"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "elasticsearch-9.1.0-py3-none-any.whl", hash = "sha256:96bb473dc70dbd94c37c4b05a0d2511af95d1b2db1657796f42546ef631cbbe4"},
-    {file = "elasticsearch-9.1.0.tar.gz", hash = "sha256:764d2f724eac94f6bf9903e4feae07112643a9efcfdc5c868c1b69bd48c52e09"},
-]
-
-[package.dependencies]
-elastic-transport = ">=9.1.0,<10"
-python-dateutil = "*"
-typing-extensions = "*"
-
-[package.extras]
-async = ["aiohttp (>=3,<4)"]
-dev = ["aiohttp", "black", "build", "coverage", "isort", "jinja2", "mapbox-vector-tile", "mypy", "nltk", "nox", "numpy", "orjson", "pandas", "pyarrow", "pyright", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock", "python-dateutil", "pyyaml (>=5.4)", "requests (>=2,<3)", "sentence-transformers", "simsimd", "tqdm", "twine", "types-python-dateutil", "types-tqdm", "unasync"]
-docs = ["sphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme (>=2.0)"]
-orjson = ["orjson (>=3)"]
-pyarrow = ["pyarrow (>=1)"]
-requests = ["requests (>=2.4.0,!=2.32.2,<3.0.0)"]
-vectorstore-mmr = ["numpy (>=1)", "simsimd (>=3)"]
 
 [[package]]
 name = "email-validator"
@@ -2714,18 +2657,6 @@ files = [
 ]
 
 [[package]]
-name = "nest-asyncio"
-version = "1.6.0"
-description = "Patch asyncio to allow nested event loops"
-optional = false
-python-versions = ">=3.5"
-groups = ["main"]
-files = [
-    {file = "nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c"},
-    {file = "nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe"},
-]
-
-[[package]]
 name = "nodeenv"
 version = "1.9.1"
 description = "Node.js virtual environment builder"
@@ -4036,24 +3967,6 @@ docs = ["sphinx (>=5.3)", "sphinx-rtd-theme (>=1)", "sphinx-tabs (>=3.5)"]
 testing = ["coverage (>=6.2)", "hypothesis (>=5.7.1)"]
 
 [[package]]
-name = "pytest-mock"
-version = "3.15.1"
-description = "Thin-wrapper around the mock package for easier use with pytest"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-files = [
-    {file = "pytest_mock-3.15.1-py3-none-any.whl", hash = "sha256:0a25e2eb88fe5168d535041d09a4529a188176ae608a6d249ee65abc0949630d"},
-    {file = "pytest_mock-3.15.1.tar.gz", hash = "sha256:1849a238f6f396da19762269de72cb1814ab44416fa73a8686deac10b0d87a0f"},
-]
-
-[package.dependencies]
-pytest = ">=6.2.5"
-
-[package.extras]
-dev = ["pre-commit", "pytest-asyncio", "tox"]
-
-[[package]]
 name = "python-dateutil"
 version = "2.9.0"
 description = "Extensions to the standard Python datetime module"
@@ -4685,27 +4598,6 @@ files = [
 [package.dependencies]
 aiohttp = ">=3.9.1"
 pydantic = ">=2.11.5,<3.0.0"
-
-[[package]]
-name = "setuptools"
-version = "80.9.0"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"},
-    {file = "setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c"},
-]
-
-[package.extras]
-check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\"", "ruff (>=0.8.0) ; sys_platform != \"cygwin\""]
-core = ["importlib_metadata (>=6) ; python_version < \"3.10\"", "jaraco.functools (>=4)", "jaraco.text (>=3.7)", "more_itertools", "more_itertools (>=8.8)", "packaging (>=24.2)", "platformdirs (>=4.2.2)", "tomli (>=2.0.1) ; python_version < \"3.11\"", "wheel (>=0.43.0)"]
-cover = ["pytest-cov"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier", "towncrier (<24.7)"]
-enabler = ["pytest-enabler (>=2.2)"]
-test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21) ; python_version >= \"3.9\" and sys_platform != \"cygwin\"", "jaraco.envs (>=2.2)", "jaraco.path (>=3.7.2)", "jaraco.test (>=5.5)", "packaging (>=24.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-home (>=0.5)", "pytest-perf ; sys_platform != \"cygwin\"", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel (>=0.44.0)"]
-type = ["importlib_metadata (>=7.0.2) ; python_version < \"3.10\"", "jaraco.develop (>=7.21) ; sys_platform != \"cygwin\"", "mypy (==1.14.*)", "pytest-mypy"]
 
 [[package]]
 name = "sgmllib3k"
@@ -5864,4 +5756,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "d30d7b5a09db85105f0105fa29afa5cf87e4fbf190666c118cd2ac275135a619"
+content-hash = "039acd5bfd122c10b9b5e7400c8dfd17f0c3a170e660d216a2ec0dd9b240047b"
