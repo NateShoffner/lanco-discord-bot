@@ -220,18 +220,21 @@ class GeoGuesser(
 
     async def on_game_end(self, session: GameSession):
         if len(session.members) > 1:
-            with self.bot.database.atomic():
-                for user_id, score in session.members.items():
-                    RoundGameResult.create(
-                        game_name=self.GAME_NAME,
-                        game_id=session.game_id,
-                        guild_id=session.channel.guild.id,
-                        user_id=user_id,
-                        mode=session.mode.name,
-                        score=score,
-                        rounds_played=len(session.rounds),
-                        scoring_version=self.SCORING_VERSION,
-                    )
+            RoundGameResult.insert_many(
+                [
+                    {
+                        "game_name": self.GAME_NAME,
+                        "game_id": session.game_id,
+                        "guild_id": session.channel.guild.id,
+                        "user_id": user_id,
+                        "mode": session.mode.name,
+                        "score": score,
+                        "rounds_played": len(session.rounds),
+                        "scoring_version": self.SCORING_VERSION,
+                    }
+                    for user_id, score in session.members.items()
+                ]
+            ).execute()
             self.logger.info(
                 f"Recorded results for game {session.game_id} — {len(session.members)} players"
             )
@@ -725,9 +728,10 @@ class GeoGuesser(
     )
     @is_bot_owner()
     async def seedleaderboard(self, interaction: discord.Interaction):
-        import datetime
         import random
         import uuid
+
+        from peewee import chunked
 
         members = [m for m in interaction.guild.members if not m.bot]
         if not members:
@@ -735,18 +739,22 @@ class GeoGuesser(
             return
 
         game_id = uuid.uuid4()
-        with self.bot.database.atomic():
-            for member in members:
-                RoundGameResult.create(
-                    game_name=self.GAME_NAME,
-                    game_id=game_id,
-                    guild_id=interaction.guild.id,
-                    user_id=member.id,
-                    mode=self.city_mode.name,
-                    score=round(random.uniform(10, 500), 1),
-                    rounds_played=10,
-                    scoring_version=self.SCORING_VERSION,
-                )
+        rows = [
+            {
+                "game_name": self.GAME_NAME,
+                "game_id": game_id,
+                "guild_id": interaction.guild.id,
+                "user_id": member.id,
+                "mode": self.city_mode.name,
+                "score": round(random.uniform(10, 500), 1),
+                "rounds_played": 10,
+                "scoring_version": self.SCORING_VERSION,
+            }
+            for member in members
+        ]
+        # chunked so a large guild cannot blow past SQLite's bound-parameter limit
+        for batch in chunked(rows, 100):
+            RoundGameResult.insert_many(batch).execute()
 
         await interaction.response.send_message(
             f"Seeded dummy results for {len(members)} members.", ephemeral=True
