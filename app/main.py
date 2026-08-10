@@ -792,9 +792,10 @@ async def main():
     from utils.db_backup import DatabaseBackup
 
     init_apm()
+    # Creates any missing tables for every registered model, GuildConfig
+    # included, so no per-model create_tables call is needed here.
     await init_tortoise()
-    database.create_tables([GuildConfig])
-    for config in GuildConfig.select():
+    for config in await GuildConfig.all():
         if config.prefix:
             _prefix_cache[config.guild_id] = config.prefix
 
