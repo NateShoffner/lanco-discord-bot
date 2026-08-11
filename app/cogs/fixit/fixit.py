@@ -62,13 +62,19 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
                 ):
                     continue
 
+                channel = self.bot.get_channel(fixit_config.channel_id)
+                if channel is None:
+                    self.logger.warning(
+                        f"Channel {fixit_config.channel_id} not found, skipping issue {issue.id}"
+                    )
+                    continue
+
                 self.logger.info(f"New FixIt issue: {issue.id} - {issue.summary}")
+
+                await self.share_issue(issue, channel)
 
                 fixit_config.last_known_issue = issue.id
                 fixit_config.save()
-
-                channel = self.bot.get_channel(fixit_config.channel_id)
-                await self.share_issue(issue, channel)
 
     @g.command(
         name="subscribe",
