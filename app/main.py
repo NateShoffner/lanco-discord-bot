@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import shutil
+import signal
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -788,6 +789,33 @@ async def global_block_check(ctx):
     return True
 
 
+def _install_shutdown_handlers() -> None:
+    """Close the bot on SIGTERM so `docker stop` is a graceful shutdown.
+
+    Without this, Python's default disposition kills the process outright: the
+    gateway connection is never closed, and an in-flight database backup is
+    abandoned partway through. Closing the bot instead returns from
+    `bot.start()` and unwinds normally.
+
+    `add_signal_handler` is POSIX only, so on Windows this is a no-op and dev
+    keeps relying on KeyboardInterrupt.
+    """
+    loop = asyncio.get_running_loop()
+
+    def shutdown(signame: str) -> None:
+        logger.info(f"Received {signame}, shutting down")
+        asyncio.create_task(bot.close())
+
+    for signame in ("SIGTERM", "SIGINT"):
+        sig = getattr(signal, signame, None)
+        if sig is None:
+            continue
+        try:
+            loop.add_signal_handler(sig, shutdown, signame)
+        except NotImplementedError:
+            logger.debug(f"{signame} handler unavailable on this platform")
+
+
 async def main():
     from utils.config import GuildConfig
     from utils.db_backup import DatabaseBackup
@@ -801,9 +829,12 @@ async def main():
     db_backup = DatabaseBackup()
     await bot.load_cogs()
     async with bot:
+        _install_shutdown_handlers()
         db_backup.start()
-        await bot.start(os.getenv("DISCORD_TOKEN"))
-        db_backup.stop()
+        try:
+            await bot.start(os.getenv("DISCORD_TOKEN"))
+        finally:
+            db_backup.stop()
 
 
 if __name__ == "__main__":
