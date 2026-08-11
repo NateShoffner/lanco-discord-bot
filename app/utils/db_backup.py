@@ -2,14 +2,13 @@ import asyncio
 import datetime
 import logging
 import os
-import shutil
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseBackup:
-    def __init__(self, database=None):
-        self.database = database
+    def __init__(self):
         self.backup_dir = os.getenv("DATABASE_BACKUP_DIRECTORY", "db_backups")
         self.backup_filename = os.getenv("DATABASE_BACKUP_FILENAME", "db_backup_{}.db")
         self.backup_interval = int(os.getenv("DATABASE_BACKUP_INTERVAL", 86400))
@@ -49,13 +48,33 @@ class DatabaseBackup:
 
         logger.info(f"Backing up database to {dest}")
         try:
-            if self.database:
-                self.database.execute_sql("PRAGMA wal_checkpoint(TRUNCATE)")
-            await asyncio.to_thread(shutil.copy2, self.database_path, dest)
-            logger.info(f"Database backed up to {dest}")
+            await asyncio.to_thread(self._snapshot, dest)
+            size = os.path.getsize(dest)
+            logger.info(f"Database backed up to {dest} ({size} bytes)")
             await asyncio.to_thread(self._prune_old_backups)
-        except Exception as e:
-            logger.error(f"Database backup failed: {e}")
+        except Exception:
+            logger.exception("Database backup failed")
+
+    def _snapshot(self, dest: str) -> None:
+        """Copy the database using SQLite's online backup API.
+
+        A plain file copy is not safe in WAL mode: recent commits live in the
+        -wal sidecar, which is not copied. The previous approach checkpointed
+        first, but ignored the result, and a checkpoint that reports busy leaves
+        those commits only in the WAL, producing a backup that silently misses
+        them. The backup API snapshots the database consistently, including
+        whatever is still in the WAL, without having to block writers.
+        """
+        source = sqlite3.connect(f"file:{self.database_path}?mode=ro", uri=True)
+        try:
+            target = sqlite3.connect(dest)
+            try:
+                with target:
+                    source.backup(target)
+            finally:
+                target.close()
+        finally:
+            source.close()
 
     def _prune_old_backups(self):
         backups = sorted(

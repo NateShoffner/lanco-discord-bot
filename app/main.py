@@ -798,7 +798,7 @@ async def main():
         if config.prefix:
             _prefix_cache[config.guild_id] = config.prefix
 
-    db_backup = DatabaseBackup(database=database)
+    db_backup = DatabaseBackup()
     await bot.load_cogs()
     async with bot:
         db_backup.start()
