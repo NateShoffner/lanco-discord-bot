@@ -1,13 +1,8 @@
-import os
+"""Record which handler each embed fix config uses."""
 
-from dotenv import load_dotenv
-from playhouse.migrate import *
+from peewee import CharField
 
-load_dotenv()
-
-db = SqliteDatabase(os.getenv("SQLITE_DB"))
-
-migrator = SqliteMigrator(db)
+from migrations.helpers import MigrationContext
 
 TABLES = [
     "twitterembed_config",
@@ -18,15 +13,6 @@ TABLES = [
 ]
 
 
-def run():
-    existing_tables = db.get_tables()
+def upgrade(ctx: MigrationContext) -> None:
     for table in TABLES:
-        if table not in existing_tables:
-            print(f"Table '{table}' does not exist, skipping.")
-            continue
-        existing_columns = [col.name for col in db.get_columns(table)]
-        if "handler_id" not in existing_columns:
-            migrate(migrator.add_column(table, "handler_id", CharField(default="")))
-            print(f"Added 'handler_id' column to {table}.")
-        else:
-            print(f"Column 'handler_id' already exists in {table}. No changes made.")
+        ctx.add_columns(table, handler_id=CharField(default=""))

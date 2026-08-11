@@ -67,7 +67,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-migrate = "migrate:run_migrations"
+migrate = "migrate:main"
 bot = "app.run:prod"
 dev = "app.run:dev"
 prod = "app.run:prod"

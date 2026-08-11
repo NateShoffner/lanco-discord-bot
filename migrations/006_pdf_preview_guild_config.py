@@ -1,28 +1,13 @@
-# 006_pdf_preview_guild_config.py
+"""Add page count and virus check options to the PDF preview config."""
 
-import os
+from peewee import BooleanField, IntegerField
 
-from dotenv import load_dotenv
-from playhouse.migrate import *
-
-load_dotenv()
-
-table_name = "pdf_preview_config"
-
-db = SqliteDatabase(os.getenv("SQLITE_DB"))
-
-migrator = SqliteMigrator(db)
-
-new_columns = {
-    "preview_pages": IntegerField(default=1),
-    "virus_check": BooleanField(default=True),
-}
+from migrations.helpers import MigrationContext
 
 
-def run():
-    existing_columns = db.get_columns(table_name)
-    for column_name, field in new_columns.items():
-        if column_name not in [col.name for col in existing_columns]:
-            migrate(migrator.add_column(table_name, column_name, field))
-        else:
-            print(f"Column '{column_name}' already exists. No changes made.")
+def upgrade(ctx: MigrationContext) -> None:
+    ctx.add_columns(
+        "pdf_preview_config",
+        preview_pages=IntegerField(default=1),
+        virus_check=BooleanField(default=True),
+    )

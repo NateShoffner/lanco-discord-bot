@@ -39,4 +39,7 @@ COPY migrate.py .
 COPY migrations/ migrations/
 COPY pyproject.toml .
 
-CMD ["sh", "-c", "python migrate.py && python app/main.py"]
+# exec replaces the shell, so the bot is PID 1 and receives SIGTERM from
+# `docker stop`. Without it the shell stays PID 1, never forwards the signal,
+# and the bot is SIGKILLed after the grace period.
+CMD ["sh", "-c", "python migrate.py && exec python app/main.py"]

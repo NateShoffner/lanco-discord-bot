@@ -47,7 +47,7 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 **`app/utils/command_utils.py`** — Permission decorators (`is_bot_owner_or_admin`, etc.) used across cogs.
 
-**`migrations/`** — Sequential numbered migration scripts run via `poetry run migrate`. Use Peewee's `SqliteMigrator` / `MySQLMigrator` depending on `DB_TYPE`.
+**`migrations/`** — Sequential numbered migration scripts run via `poetry run migrate`. Each file exposes a single `upgrade(ctx)` function and makes every change through the idempotent helpers on the `MigrationContext` in `migrations/helpers.py`, which owns the connection and picks `SqliteMigrator` / `MySQLMigrator` based on `DB_TYPE`. Applied filenames are tracked in `schema_migrations`. See `migrations/README.md` for the contract.
 
 **`tests/`** — Core bot test suite using pytest + dpytest. Run with `poetry run test`.
 
