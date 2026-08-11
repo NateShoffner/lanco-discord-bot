@@ -191,7 +191,11 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
                         f"New incident: {incident.number} for {feed_config.channel_id}"
                     )
 
-                    embed, map_attachment = await self.build_incident_embed(incident)
+                    built = await self.build_incident_embed(incident)
+                    if built is None:
+                        continue
+                    embed, map_attachment = built
+
                     channel = self.bot.get_channel(feed_config.channel_id)
                     if channel is None:
                         self.logger.warning(
@@ -210,6 +214,20 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     def is_using_arcgis(self) -> bool:
         return isinstance(self.current_client, ArcGISClient)
+
+    async def get_coordinates(self, incident: Incident) -> tuple[float, float]:
+        """Resolves an incident's coordinates, geocoding when the feed has none
+
+        ArcGIS rows the service has not geocoded arrive with coordinates of None.
+
+        :param incident: The incident to locate
+        :return: A (latitude, longitude) pair, or None if it could not be located
+        """
+        coordinates = getattr(incident, "coordinates", None)
+        if coordinates:
+            return (coordinates.latitude, coordinates.longitude)
+
+        return await asyncio.to_thread(self.geocoder.get_coordinates, incident)
 
     async def is_new_incident(self, incident: Incident, channel_id: int) -> bool:
         """Determines if the given incident is new for the given guild
@@ -267,17 +285,18 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
             IncidentCategory.UNKNOWN: "❓",
         }
 
+        coords = await self.get_coordinates(incident)
+        if not coords:
+            self.logger.warning(
+                f"Unable to locate incident {getattr(incident, 'number', incident.date)}, skipping"
+            )
+            return None
+        lat, lng = coords
+
         map_image = await self.get_map(incident)
         map_attachment = discord.File(map_image, filename="map.png")
 
-        if isinstance(incident, ArcGISIncident):
-            maps_url = f"https://www.google.com/maps/search/?api=1&query={incident.coordinates.latitude},{incident.coordinates.longitude}"
-        else:
-            coords = await asyncio.to_thread(self.geocoder.get_coordinates, incident)
-            if not coords:
-                return None
-            lat, lng = coords
-            maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
         incident_time = incident.date.astimezone(self.est)
 
@@ -323,14 +342,10 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         map_width = 400
         map_height = 300
 
-        if self.is_using_arcgis():
-            lat = incident.coordinates.latitude
-            lng = incident.coordinates.longitude
-        else:
-            coords = await asyncio.to_thread(self.geocoder.get_coordinates, incident)
-            if not coords:
-                return None
-            lat, lng = coords
+        coords = await self.get_coordinates(incident)
+        if not coords:
+            return None
+        lat, lng = coords
 
         url_params = {
             "center": f"{lat},{lng}",
