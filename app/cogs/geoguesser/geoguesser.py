@@ -220,18 +220,21 @@ class GeoGuesser(
 
     async def on_game_end(self, session: GameSession):
         if len(session.members) > 1:
-            with self.bot.database.atomic():
-                for user_id, score in session.members.items():
-                    RoundGameResult.create(
-                        game_name=self.GAME_NAME,
-                        game_id=session.game_id,
-                        guild_id=session.channel.guild.id,
-                        user_id=user_id,
-                        mode=session.mode.name,
-                        score=score,
-                        rounds_played=len(session.rounds),
-                        scoring_version=self.SCORING_VERSION,
-                    )
+            RoundGameResult.insert_many(
+                [
+                    {
+                        RoundGameResult.game_name: self.GAME_NAME,
+                        RoundGameResult.game_id: session.game_id,
+                        RoundGameResult.guild_id: session.channel.guild.id,
+                        RoundGameResult.user_id: user_id,
+                        RoundGameResult.mode: session.mode.name,
+                        RoundGameResult.score: score,
+                        RoundGameResult.rounds_played: len(session.rounds),
+                        RoundGameResult.scoring_version: self.SCORING_VERSION,
+                    }
+                    for user_id, score in session.members.items()
+                ]
+            ).execute()
             self.logger.info(
                 f"Recorded results for game {session.game_id} — {len(session.members)} players"
             )
@@ -725,9 +728,10 @@ class GeoGuesser(
     )
     @is_bot_owner()
     async def seedleaderboard(self, interaction: discord.Interaction):
-        import datetime
         import random
         import uuid
+
+        from peewee import chunked
 
         members = [m for m in interaction.guild.members if not m.bot]
         if not members:
@@ -735,18 +739,22 @@ class GeoGuesser(
             return
 
         game_id = uuid.uuid4()
-        with self.bot.database.atomic():
-            for member in members:
-                RoundGameResult.create(
-                    game_name=self.GAME_NAME,
-                    game_id=game_id,
-                    guild_id=interaction.guild.id,
-                    user_id=member.id,
-                    mode=self.city_mode.name,
-                    score=round(random.uniform(10, 500), 1),
-                    rounds_played=10,
-                    scoring_version=self.SCORING_VERSION,
-                )
+        rows = [
+            {
+                RoundGameResult.game_name: self.GAME_NAME,
+                RoundGameResult.game_id: game_id,
+                RoundGameResult.guild_id: interaction.guild.id,
+                RoundGameResult.user_id: member.id,
+                RoundGameResult.mode: self.city_mode.name,
+                RoundGameResult.score: round(random.uniform(10, 500), 1),
+                RoundGameResult.rounds_played: 10,
+                RoundGameResult.scoring_version: self.SCORING_VERSION,
+            }
+            for member in members
+        ]
+        # chunked so a large guild cannot blow past SQLite's bound-parameter limit
+        for batch in chunked(rows, 100):
+            RoundGameResult.insert_many(batch).execute()
 
         await interaction.response.send_message(
             f"Seeded dummy results for {len(members)} members.", ephemeral=True
@@ -786,7 +794,6 @@ class GeoGuesser(
                 import concurrent.futures
 
                 import googlemaps
-                from peewee import SqliteDatabase
 
                 api_key = os.getenv("GMAPS_API_KEY")
                 workers = min(count, 5)
@@ -809,26 +816,25 @@ class GeoGuesser(
                 with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
                     locations = list(pool.map(generate_one, range(count)))
 
-                thread_db = SqliteDatabase(os.getenv("SQLITE_DB"))
-                thread_db.connect()
-                try:
-                    with LocationModel.bind_ctx(thread_db):
-                        with thread_db.atomic():
-                            LocationModel.delete().where(
-                                LocationModel.mode == mode.name
-                            ).execute()
-                            for location in locations:
-                                LocationModel.create(
-                                    mode=mode.name,
-                                    initial_lat=location.initial_location.lat,
-                                    initial_lng=location.initial_location.lng,
-                                    road_lat=location.road_coords.lat,
-                                    road_lng=location.road_coords.lng,
-                                    label=location.label,
-                                )
-                    return locations
-                finally:
-                    thread_db.close()
+                # Write through the shared database rather than a second connection,
+                # so these writes are serialized with the rest of the bot instead of
+                # contending for the file lock. insert_many keeps the replacement to
+                # two statements instead of one per location.
+                LocationModel.delete().where(LocationModel.mode == mode.name).execute()
+                LocationModel.insert_many(
+                    [
+                        {
+                            LocationModel.mode: mode.name,
+                            LocationModel.initial_lat: location.initial_location.lat,
+                            LocationModel.initial_lng: location.initial_location.lng,
+                            LocationModel.road_lat: location.road_coords.lat,
+                            LocationModel.road_lng: location.road_coords.lng,
+                            LocationModel.label: location.label,
+                        }
+                        for location in locations
+                    ]
+                ).execute()
+                return locations
 
             task = asyncio.create_task(asyncio.to_thread(generate_and_save))
 
