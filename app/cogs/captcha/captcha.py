@@ -189,14 +189,14 @@ class CaptchaCog(
             RoundGameResult.insert_many(
                 [
                     {
-                        "game_name": self.GAME_NAME,
-                        "game_id": session.game_id,
-                        "guild_id": session.channel.guild.id,
-                        "user_id": user_id,
-                        "mode": session.mode.name,
-                        "score": score,
-                        "rounds_played": len(session.rounds),
-                        "scoring_version": self.SCORING_VERSION,
+                        RoundGameResult.game_name: self.GAME_NAME,
+                        RoundGameResult.game_id: session.game_id,
+                        RoundGameResult.guild_id: session.channel.guild.id,
+                        RoundGameResult.user_id: user_id,
+                        RoundGameResult.mode: session.mode.name,
+                        RoundGameResult.score: score,
+                        RoundGameResult.rounds_played: len(session.rounds),
+                        RoundGameResult.scoring_version: self.SCORING_VERSION,
                     }
                     for user_id, score in session.members.items()
                 ]

@@ -223,14 +223,14 @@ class GeoGuesser(
             RoundGameResult.insert_many(
                 [
                     {
-                        "game_name": self.GAME_NAME,
-                        "game_id": session.game_id,
-                        "guild_id": session.channel.guild.id,
-                        "user_id": user_id,
-                        "mode": session.mode.name,
-                        "score": score,
-                        "rounds_played": len(session.rounds),
-                        "scoring_version": self.SCORING_VERSION,
+                        RoundGameResult.game_name: self.GAME_NAME,
+                        RoundGameResult.game_id: session.game_id,
+                        RoundGameResult.guild_id: session.channel.guild.id,
+                        RoundGameResult.user_id: user_id,
+                        RoundGameResult.mode: session.mode.name,
+                        RoundGameResult.score: score,
+                        RoundGameResult.rounds_played: len(session.rounds),
+                        RoundGameResult.scoring_version: self.SCORING_VERSION,
                     }
                     for user_id, score in session.members.items()
                 ]
@@ -741,14 +741,14 @@ class GeoGuesser(
         game_id = uuid.uuid4()
         rows = [
             {
-                "game_name": self.GAME_NAME,
-                "game_id": game_id,
-                "guild_id": interaction.guild.id,
-                "user_id": member.id,
-                "mode": self.city_mode.name,
-                "score": round(random.uniform(10, 500), 1),
-                "rounds_played": 10,
-                "scoring_version": self.SCORING_VERSION,
+                RoundGameResult.game_name: self.GAME_NAME,
+                RoundGameResult.game_id: game_id,
+                RoundGameResult.guild_id: interaction.guild.id,
+                RoundGameResult.user_id: member.id,
+                RoundGameResult.mode: self.city_mode.name,
+                RoundGameResult.score: round(random.uniform(10, 500), 1),
+                RoundGameResult.rounds_played: 10,
+                RoundGameResult.scoring_version: self.SCORING_VERSION,
             }
             for member in members
         ]
@@ -824,12 +824,12 @@ class GeoGuesser(
                 LocationModel.insert_many(
                     [
                         {
-                            "mode": mode.name,
-                            "initial_lat": location.initial_location.lat,
-                            "initial_lng": location.initial_location.lng,
-                            "road_lat": location.road_coords.lat,
-                            "road_lng": location.road_coords.lng,
-                            "label": location.label,
+                            LocationModel.mode: mode.name,
+                            LocationModel.initial_lat: location.initial_location.lat,
+                            LocationModel.initial_lng: location.initial_location.lng,
+                            LocationModel.road_lat: location.road_coords.lat,
+                            LocationModel.road_lng: location.road_coords.lng,
+                            LocationModel.label: location.label,
                         }
                         for location in locations
                     ]
