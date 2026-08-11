@@ -48,7 +48,7 @@ Pieces a cog author touches:
 
 **`app/utils/command_utils.py`** - Permission decorators (`is_bot_owner_or_admin`, etc.) used across cogs.
 
-**`migrations/`** - Sequential numbered migration scripts run via `poetry run migrate`. Needed only when changing an existing model's schema; new tables are created by the cog itself.
+**`migrations/`** - Sequential numbered migration scripts run via `poetry run migrate`. Needed only when changing an existing model's schema; new tables are created by the cog itself. Each exposes an `upgrade(ctx)` function and makes its changes through the shared helpers in `migrations/helpers.py`; see `migrations/README.md`.
 
 **`tests/`** - Core bot test suite using pytest + dpytest. Run with `poetry run test`.
 

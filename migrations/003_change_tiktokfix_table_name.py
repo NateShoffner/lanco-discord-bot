@@ -1,25 +1,7 @@
-# 003_change_tiktokfix_table_name.py
+"""Rename tiktokfix_config to tiktokembed_config."""
 
-import os
-
-from dotenv import load_dotenv
-from playhouse.migrate import *
-
-load_dotenv()
-
-old_table_name = "tiktokfix_config"
-new_table_name = "tiktokembed_config"
-
-db = SqliteDatabase(os.getenv("SQLITE_DB"))
-
-migrator = SqliteMigrator(db)
+from migrations.helpers import MigrationContext
 
 
-def run():
-    # check if the old and new tables exists
-    if old_table_name in db.get_tables() and new_table_name not in db.get_tables():
-        migrate(
-            migrator.rename_table(old_table_name, new_table_name),
-        )
-    else:
-        print(f"Table '{old_table_name}' does not exist. No changes made.")
+def upgrade(ctx: MigrationContext) -> None:
+    ctx.rename_table("tiktokfix_config", "tiktokembed_config")

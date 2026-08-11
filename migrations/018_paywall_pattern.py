@@ -1,26 +1,19 @@
-import os
+"""Add per-guild paywall URL patterns."""
 
-from dotenv import load_dotenv
-from playhouse.migrate import *
+from peewee import AutoField, BigIntegerField, CharField, Model
 
-load_dotenv()
-
-db = SqliteDatabase(os.getenv("SQLITE_DB"))
-
-TABLE = "paywall_pattern"
+from migrations.helpers import MigrationContext
 
 
-def run():
-    existing_tables = db.get_tables()
-    if TABLE not in existing_tables:
-        db.execute_sql(f"""
-            CREATE TABLE {TABLE} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                guild_id BIGINT NOT NULL,
-                pattern VARCHAR(255) NOT NULL
-            )
-            """)
-        db.execute_sql(f"CREATE INDEX idx_{TABLE}_guild_id ON {TABLE} (guild_id)")
-        print(f"Created table '{TABLE}'.")
-    else:
-        print(f"Table '{TABLE}' already exists. No changes made.")
+class PaywallPattern(Model):
+    id = AutoField()
+    guild_id = BigIntegerField()
+    pattern = CharField()
+
+    class Meta:
+        table_name = "paywall_pattern"
+
+
+def upgrade(ctx: MigrationContext) -> None:
+    ctx.create_table(PaywallPattern)
+    ctx.create_index("paywall_pattern", "idx_paywall_pattern_guild_id", ["guild_id"])
