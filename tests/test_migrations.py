@@ -134,6 +134,54 @@ def test_rerunning_from_scratch_is_a_no_op(legacy_db):
     assert schema_of(legacy_db) == before
 
 
+def test_backs_up_before_applying(legacy_db, tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_BACKUP_DIRECTORY", str(tmp_path / "backups"))
+
+    migrate.run_migrations()
+
+    backups = list((tmp_path / "backups" / migrate.BACKUP_SUBDIR).glob("*.db"))
+    assert len(backups) == 1
+
+    # the snapshot predates the migrations, so it still has the old table names
+    restored = {row[1] for row in schema_of(backups[0]) if row[0] == "table"}
+    assert "instafix_config" in restored
+    assert "instaembed_config" not in restored
+
+
+def test_backup_is_skipped_when_nothing_is_pending(legacy_db, tmp_path, monkeypatch):
+    """Every container start runs the migrator; only real work earns a backup."""
+    monkeypatch.setenv("DATABASE_BACKUP_DIRECTORY", str(tmp_path / "backups"))
+    migrate.run_migrations()
+
+    migrate.run_migrations()
+
+    backups = list((tmp_path / "backups" / migrate.BACKUP_SUBDIR).glob("*.db"))
+    assert len(backups) == 1
+
+
+def test_backup_failure_aborts_the_run(legacy_db, tmp_path, monkeypatch):
+    """No restore point means no migration."""
+    monkeypatch.setenv("DATABASE_BACKUP_DIRECTORY", str(tmp_path / "backups"))
+
+    def explode(source, dest):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(migrate, "snapshot", explode)
+
+    with pytest.raises(OSError):
+        migrate.run_migrations()
+
+    tables = {row[1] for row in schema_of(legacy_db) if row[0] == "table"}
+    assert "instafix_config" in tables  # 001 never ran
+    assert "instaembed_config" not in tables
+
+    conn = sqlite3.connect(legacy_db)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
 def test_failed_migration_leaves_no_trace(legacy_db, monkeypatch):
     migrate.run_migrations()
     before = schema_of(legacy_db)

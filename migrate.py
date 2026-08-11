@@ -19,19 +19,25 @@ import os
 import re
 import sys
 
-from peewee import CharField, DateTimeField, Model
+from peewee import CharField, DateTimeField, Model, SqliteDatabase
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Migrations import migrations.helpers by name, so the project root has to be
-# importable no matter which directory this was invoked from.
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+# importable no matter which directory this was invoked from. app/ goes on the
+# path for the same reason app/run.py puts it there: its modules import each
+# other by bare name.
+for _path in (ROOT, os.path.join(ROOT, "app")):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
+from utils.db_backup import prune, snapshot  # noqa: E402
 
 from migrations.helpers import MigrationContext, create_database  # noqa: E402
 
 MIGRATIONS_DIR = os.path.join(ROOT, "migrations")
 MIGRATION_PATTERN = re.compile(r"^\d{3}_\w+\.py$")
+BACKUP_SUBDIR = "pre_migration"
 
 logger = logging.getLogger("migrate")
 
@@ -68,6 +74,37 @@ def _summary(module) -> str:
     return f": {doc[0]}" if doc else ""
 
 
+def _backup(db) -> None:
+    """Snapshot the database before anything is applied.
+
+    Migrations run unattended on every deploy and some of them delete rows, so
+    a run that is about to change something takes a restore point first. A
+    failure here aborts the run: the whole point is not to migrate without one.
+    Set DATABASE_BACKUP_DIRECTORY empty to opt out, as DatabaseBackup does.
+    """
+    if not isinstance(db, SqliteDatabase):
+        logger.info("Skipping pre-migration backup: only supported for SQLite.")
+        return
+
+    backup_dir = os.getenv("DATABASE_BACKUP_DIRECTORY", "db_backups")
+    if not backup_dir:
+        logger.info("Skipping pre-migration backup: backups are disabled.")
+        return
+
+    source = db.database
+    if not os.path.exists(source):
+        return  # a database created by this run has nothing worth keeping
+
+    directory = os.path.join(backup_dir, BACKUP_SUBDIR)
+    os.makedirs(directory, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(directory, f"pre_migration_{timestamp}.db")
+
+    snapshot(source, dest)
+    logger.info("Backed up to %s (%d bytes)", dest, os.path.getsize(dest))
+    prune(directory, int(os.getenv("DATABASE_BACKUP_RETENTION", 7)))
+
+
 def _connect():
     db = create_database()
     db.connect(reuse_if_open=True)
@@ -89,6 +126,8 @@ def run_migrations() -> None:
         if not pending:
             logger.info("No pending migrations.")
             return
+
+        _backup(db)
 
         ctx = MigrationContext(db)
         for name in pending:
