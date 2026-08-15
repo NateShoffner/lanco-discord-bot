@@ -41,13 +41,13 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 **`app/cogs/lancocog.py`** — `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers.
 
-**`app/db.py`** — Peewee `DatabaseProxy` that abstracts SQLite (default) vs MySQL. All Peewee models should inherit `BaseModel` defined here; it binds to this proxy so the same model code works with either backend.
+**`app/db.py`** — Peewee `DatabaseProxy` bound to the SQLite database. All Peewee models should inherit `BaseModel` defined here, which binds to this proxy.
 
 **`app/utils/config.py`** — `GuildConfig` and `UserConfig` Peewee models used for per-guild and per-user persistent settings (prefix, timezone, opt-out, etc.).
 
 **`app/utils/command_utils.py`** — Permission decorators (`is_bot_owner_or_admin`, etc.) used across cogs.
 
-**`migrations/`** — Sequential numbered migration scripts run via `poetry run migrate`. Each file exposes a single `upgrade(ctx)` function and makes every change through the idempotent helpers on the `MigrationContext` in `migrations/helpers.py`, which owns the connection and picks `SqliteMigrator` / `MySQLMigrator` based on `DB_TYPE`. Applied filenames are tracked in `schema_migrations`. See `migrations/README.md` for the contract.
+**`migrations/`** — Sequential numbered migration scripts run via `poetry run migrate`. Each file exposes a single `upgrade(ctx)` function and makes every change through the idempotent helpers on the `MigrationContext` in `migrations/helpers.py`, which owns the connection and the migrator. Applied filenames are tracked in `schema_migrations`. See `migrations/README.md` for the contract.
 
 **`tests/`** — Core bot test suite using pytest + dpytest. Run with `poetry run test`.
 
@@ -103,7 +103,6 @@ Running `poetry run dev` loads `.env.dev` and sets `DEV_MODE=true` automatically
 
 Copy `.env.default` to `.env` and fill in values. Key variables:
 - `DISCORD_TOKEN` — required
-- `DB_TYPE` — `sqlite` (default) or `mysql`
 - `SQLITE_DB` — path to SQLite file (default `data/lancobot.db`)
 - `DEV_MODE` — set to `true` to enable hot-reload (set automatically by `poetry run dev`)
 - `COG_WHITELIST` — comma-separated list of cog directory names to load exclusively (e.g. `geoguesser,incidents`). When set, all other cogs are skipped. Useful for faster dev startup.

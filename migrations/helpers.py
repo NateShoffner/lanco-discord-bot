@@ -22,8 +22,8 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from peewee import Database, Entity, Index, Model, MySQLDatabase, SqliteDatabase
-from playhouse.migrate import MySQLMigrator, SchemaMigrator, SqliteMigrator, migrate
+from peewee import Database, Entity, Index, Model, SqliteDatabase
+from playhouse.migrate import SchemaMigrator, SqliteMigrator, migrate
 
 logger = logging.getLogger("migrate")
 
@@ -38,28 +38,20 @@ def create_database() -> Database:
     """
     load_dotenv()
     db_type = os.getenv("DB_TYPE", "sqlite").lower()
-
-    if db_type == "sqlite":
-        path = os.getenv("SQLITE_DB", "data/lancobot.db")
-        directory = os.path.dirname(path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        return SqliteDatabase(path)
-
-    if db_type == "mysql":
-        return MySQLDatabase(
-            os.getenv("MYSQL_DB"),
-            user=os.getenv("MYSQL_USER"),
-            password=os.getenv("MYSQL_PASSWORD"),
-            host=os.getenv("MYSQL_HOST"),
-            port=int(os.getenv("MYSQL_PORT", 3306)),
+    if db_type != "sqlite":
+        raise ValueError(
+            f"Unsupported database type: {db_type}. Only sqlite is supported."
         )
 
-    raise ValueError(f"Unsupported database type: {db_type}")
+    path = os.getenv("SQLITE_DB", "data/lancobot.db")
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    return SqliteDatabase(path)
 
 
 def create_migrator(db: Database) -> SchemaMigrator:
-    return MySQLMigrator(db) if isinstance(db, MySQLDatabase) else SqliteMigrator(db)
+    return SqliteMigrator(db)
 
 
 class MigrationContext:
@@ -147,8 +139,8 @@ class MigrationContext:
             logger.info("  index %s already exists, skipping", name)
             return
 
-        # safe=False: IF NOT EXISTS is not valid index syntax on MySQL, and the
-        # check above already makes this a no-op when the index is present.
+        # safe=False: the check above already makes this a no-op when the index
+        # is present.
         index = Index(
             name,
             table,

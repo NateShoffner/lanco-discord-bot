@@ -3,8 +3,7 @@
 Each migration runs exactly once. Applied names are recorded in the
 ``schema_migrations`` table, and the schema change plus that bookkeeping row
 share a transaction, so a failed migration leaves nothing behind and is
-retried on the next run. (SQLite makes DDL transactional; MySQL commits
-implicitly on DDL, so there the rollback guarantee is best effort.)
+retried on the next run, since SQLite makes DDL transactional.
 
 Usage:
     python migrate.py             apply pending migrations

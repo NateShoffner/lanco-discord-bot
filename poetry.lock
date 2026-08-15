@@ -3843,22 +3843,6 @@ files = [
 ]
 
 [[package]]
-name = "pymysql"
-version = "1.2.0"
-description = "Pure Python MySQL Driver"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "pymysql-1.2.0-py3-none-any.whl", hash = "sha256:62169ce6d5510f08e140c5e7990ee884a9764024e4a9a27b2cc11f1099322ae0"},
-    {file = "pymysql-1.2.0.tar.gz", hash = "sha256:6c7b17ca686988104d7426c27895b455cdeea3e9d3ceb1270f0c3704fead8c33"},
-]
-
-[package.extras]
-ed25519 = ["PyNaCl (>=1.6.2)"]
-rsa = ["cryptography (>=46.0.7)"]
-
-[[package]]
 name = "pyowm"
 version = "3.5.0"
 description = "A Python wrapper around OpenWeatherMap web APIs"
@@ -5738,4 +5722,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "3048a1b9d2d32934cbf755622674b15fbb3753d80b22b1855ae216337367348d"
+content-hash = "210d67711829582b6b5a94c1faee0426bd029f1e9d4b0fa5e8527ed24387d9f5"
