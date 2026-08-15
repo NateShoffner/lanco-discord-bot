@@ -6,7 +6,7 @@ from discord.ext import commands
 
 class GameStats(LancoCog, name="GameStats", description="Game stats for the server"):
     game_stats_group = app_commands.Group(
-        name="gamestats", description="Game stat commands"
+        name="gamestats", description="Game stat commands", guild_only=True
     )
 
     def __init__(self, bot: commands.Bot):

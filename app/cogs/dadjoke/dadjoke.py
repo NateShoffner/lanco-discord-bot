@@ -22,7 +22,9 @@ class dadjoke(
     name="dadjoke",
     description="dadjoke cog",
 ):
-    g = app_commands.Group(name="dadjoke", description="Dad joke commands")
+    g = app_commands.Group(
+        name="dadjoke", description="Dad joke commands", guild_only=True
+    )
 
     def __init__(self, bot):
         super().__init__(bot)

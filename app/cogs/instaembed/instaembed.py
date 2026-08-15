@@ -10,7 +10,9 @@ from .models import InstaEmbedConfig
 
 
 class InstaEmbed(EmbedFixCog, name="InstaEmbed", description="Instagram embed fix"):
-    g = app_commands.Group(name="instaembed", description="InstaEmbed commands")
+    g = app_commands.Group(
+        name="instaembed", description="InstaEmbed commands", guild_only=True
+    )
 
     insta_pattern = re.compile(
         r"https?://(?:www\.)?instagram\.com/(?:p|reel|reels)/[a-zA-Z0-9_-]+/?"

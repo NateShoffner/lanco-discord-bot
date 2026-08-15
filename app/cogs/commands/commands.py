@@ -177,6 +177,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     commands_group = app_commands.Group(
         name="commands",
         description="Custom commands commands so you can command commands with commands",
+        guild_only=True,
     )
 
     def __init__(self, bot: commands.Bot):

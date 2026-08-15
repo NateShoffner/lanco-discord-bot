@@ -75,7 +75,7 @@ class TechLanc(
     description="Tech Lancaster updates",
 ):
     techlanc_group = app_commands.Group(
-        name="techlanc", description="Tech Lancaster commands"
+        name="techlanc", description="Tech Lancaster commands", guild_only=True
     )
 
     def __init__(self, bot):
@@ -363,6 +363,7 @@ class TechLanc(
 
     # TODO: replace with a custom command once the CustomCommands cog supports dynamic date formatting
     @commands.command(name="ps")
+    @commands.guild_only()
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def ps_command(self, ctx):
         """Post the Pub Standards meetup announcement."""
@@ -549,6 +550,7 @@ class TechLanc(
         return False
 
     @commands.command(name="tlm")
+    @commands.guild_only()
     @commands.cooldown(1, 30, commands.BucketType.guild)
     async def tlm_command(self, ctx):
         """Post the next Tech Lancaster Meetup details including speakers."""

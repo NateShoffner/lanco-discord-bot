@@ -17,7 +17,7 @@ class SpotifyEmbed(
     LancoCog, name="Spotify Embed Fix", description="Fix Spotify embeds"
 ):
     embed_group = app_commands.Group(
-        name="spotifyembed", description="SpotifyEmbed commands"
+        name="spotifyembed", description="SpotifyEmbed commands", guild_only=True
     )
 
     spotify_url_pattern = re.compile(

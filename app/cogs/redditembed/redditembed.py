@@ -12,7 +12,9 @@ from .models import RedditEmbedConfig
 class RedditEmbed(
     EmbedFixCog, name="RedditEmbed", description="Fix Reddit embed previews in Discord"
 ):
-    g = app_commands.Group(name="redditembed", description="RedditEmbed commands")
+    g = app_commands.Group(
+        name="redditembed", description="RedditEmbed commands", guild_only=True
+    )
 
     reddit_pattern = re.compile(r"https?://(?:www\.)?reddit\.com/\S+")
 

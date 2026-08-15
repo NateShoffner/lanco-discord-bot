@@ -28,7 +28,7 @@ class TruthSocial(
     description="TruthSocial embed support",
 ):
     truth_social_group = app_commands.Group(
-        name="truthsocial", description="TruthSocial commands"
+        name="truthsocial", description="TruthSocial commands", guild_only=True
     )
 
     status_pattern = re.compile(

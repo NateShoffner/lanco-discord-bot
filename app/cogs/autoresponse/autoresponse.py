@@ -15,7 +15,9 @@ class AutoResponse(
     name="AutoResponse",
     description="Auto-reply to messages matching configured phrases or patterns",
 ):
-    g = app_commands.Group(name="autoresponse", description="AutoResponse commands")
+    g = app_commands.Group(
+        name="autoresponse", description="AutoResponse commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

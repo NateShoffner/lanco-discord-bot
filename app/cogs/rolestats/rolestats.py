@@ -16,7 +16,9 @@ class RoleStats(
     name="RoleStats",
     description="Show member counts and stats per role",
 ):
-    g = app_commands.Group(name="rolestats", description="RoleStats commands")
+    g = app_commands.Group(
+        name="rolestats", description="RoleStats commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

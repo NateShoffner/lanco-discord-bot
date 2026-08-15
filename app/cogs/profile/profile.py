@@ -68,7 +68,9 @@ class ProfileModal(discord.ui.Modal, title="Profile Details"):
 
 
 class UserProfiles(LancoCog, name="UserProfiles", description="Custom user profiles"):
-    profiles_group = app_commands.Group(name="profile", description="User profiles")
+    profiles_group = app_commands.Group(
+        name="profile", description="User profiles", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

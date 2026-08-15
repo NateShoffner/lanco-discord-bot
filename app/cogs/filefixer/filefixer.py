@@ -15,7 +15,9 @@ from .models import FileFixerConfig
 
 
 class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
-    g = app_commands.Group(name="filefixer", description="FileFixer commands")
+    g = app_commands.Group(
+        name="filefixer", description="FileFixer commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

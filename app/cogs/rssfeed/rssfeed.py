@@ -20,7 +20,9 @@ class RssFeed(
     description="Poll RSS feeds and post new entries to configured channels",
 ):
     UPDATE_INTERVAL = 10  # seconds
-    g = app_commands.Group(name="rssfeed", description="RSSFeed commands")
+    g = app_commands.Group(
+        name="rssfeed", description="RSSFeed commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

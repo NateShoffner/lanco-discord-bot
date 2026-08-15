@@ -17,7 +17,9 @@ class Transcribe(
     name="Transcribe",
     description="Transcription commands for audio files and voice messages",
 ):
-    g = app_commands.Group(name="transcribe", description="Transcribe commands")
+    g = app_commands.Group(
+        name="transcribe", description="Transcribe commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

@@ -106,21 +106,25 @@ async def test_no_listener_raises_on_a_dm(bot):
     raised = {}
     exercised = 0
     for cog in bot.cogs.values():
-        fn = getattr(type(cog), "on_message", None)
-        if fn is None or not isinstance(fn, types.FunctionType):
-            continue
-        exercised += 1
-        for make in PAYLOADS:
-            try:
-                await fn(cog, make())
-            except AttributeError as e:
-                # The failure this test exists for: touching a None guild
-                if "guild" in str(e) or "NoneType" in str(e):
-                    raised.setdefault(cog.qualified_name, str(e))
-            except Exception:
-                # Anything else is the stub message being incomplete, not a
-                # DM-handling bug
-                pass
+        # get_listeners() rather than looking up an `on_message` attribute:
+        # listeners can be registered under any function name via
+        # @commands.Cog.listener("on_message"), and facebookembed has three.
+        for event_name, listener in cog.get_listeners():
+            if event_name != "on_message":
+                continue
+            exercised += 1
+            label = f"{cog.qualified_name}.{listener.__name__}"
+            for make in PAYLOADS:
+                try:
+                    await listener(make())
+                except AttributeError as e:
+                    # The failure this test exists for: touching a None guild
+                    if "guild" in str(e) or "NoneType" in str(e):
+                        raised.setdefault(label, str(e))
+                except Exception:
+                    # Anything else is the stub message being incomplete, not a
+                    # DM-handling bug
+                    pass
 
     assert exercised, "no on_message listeners were exercised"
     assert not raised, f"listeners raising on a DM: {raised}"

@@ -38,7 +38,7 @@ class GeoGuesser(
     TIME_BETWEEN_ROUNDS = 10
 
     geoguesser_group = app_commands.Group(
-        name="geoguesser", description="GeoGuesser commands"
+        name="geoguesser", description="GeoGuesser commands", guild_only=True
     )
 
     city_mode = Mode(

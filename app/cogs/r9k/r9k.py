@@ -33,7 +33,9 @@ class R9K(
     name="R9K",
     description="R9K channel: every message must be unique, duplicates are removed",
 ):
-    r9k_group = app_commands.Group(name="r9k", description="R9K channel commands")
+    r9k_group = app_commands.Group(
+        name="r9k", description="R9K channel commands", guild_only=True
+    )
 
     def __init__(self, bot):
         super().__init__(bot)

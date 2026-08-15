@@ -67,7 +67,9 @@ FB_BLUE = discord.Color.from_rgb(8, 102, 255)
 class FacebookEmbed(
     EmbedFixCog, name="Facebook Embed Fix", description="Fix Facebook embeds"
 ):
-    g = app_commands.Group(name="facebookembed", description="FacebookEmbed commands")
+    g = app_commands.Group(
+        name="facebookembed", description="FacebookEmbed commands", guild_only=True
+    )
 
     def __init__(self, bot: LancoBot):
         # The base EmbedFixCog does a single string replace of `original` with
@@ -179,7 +181,7 @@ class FacebookEmbed(
         Applies the shared guards (bot author, embed permission, angle-bracket
         and spoiler suppression, and the per-guild enabled flag).
         """
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return None
         if not message.channel.permissions_for(message.guild.me).embed_links:
             return None

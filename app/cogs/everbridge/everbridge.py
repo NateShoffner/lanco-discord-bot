@@ -27,6 +27,7 @@ class Everbridge(
     g = app_commands.Group(
         name="everbridge",
         description="Everbridge commands",
+        guild_only=True,
     )
 
     UPDATE_INTERVAL = 10  # seconds

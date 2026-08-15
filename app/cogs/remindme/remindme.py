@@ -64,6 +64,7 @@ class RemindMe(
         name="remindme",
         description="Reminds you of something after a specified duration",
     )
+    @commands.guild_only()
     async def remindme(self, ctx: commands.Context, duration: str, *, reminder: str):
         """Reminds you of something after a specified duration. Example: !remindme 2h take out the trash"""
 

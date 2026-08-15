@@ -68,7 +68,9 @@ class OpenAIPrompts(
 ):
     MAX_CONTEXT_QUESTIONS = 25
 
-    g = app_commands.Group(name="aiprompt", description="AI prompt commands")
+    g = app_commands.Group(
+        name="aiprompt", description="AI prompt commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

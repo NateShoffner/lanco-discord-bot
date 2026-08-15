@@ -19,7 +19,7 @@ from .models import RedditFeedConfig, RedditPost
 
 class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling"):
     reddit_feed_group = app_commands.Group(
-        name="reddit", description="Poll Reddit for new posts"
+        name="reddit", description="Poll Reddit for new posts", guild_only=True
     )
 
     UPDATE_INTERVAL = 10  # seconds

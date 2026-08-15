@@ -10,7 +10,9 @@ from .models import PinboardPost
 class Pinboard(
     LancoCog, name="Pinboard", description="Save messages to a personal pinboard"
 ):
-    g = app_commands.Group(name="pinboard", description="Pinboard commands")
+    g = app_commands.Group(
+        name="pinboard", description="Pinboard commands", guild_only=True
+    )
 
     MAX_PINNED_MESSAGES = 30  # Maximum number of pinned messages per user, per guild
 

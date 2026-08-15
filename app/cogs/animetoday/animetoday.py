@@ -15,7 +15,7 @@ class AnimeToday(
     LancoCog, name="AnimeToday", description="Daily anime shot announcements"
 ):
     embed_group = app_commands.Group(
-        name="animetoday", description="AnimeToday commands"
+        name="animetoday", description="AnimeToday commands", guild_only=True
     )
 
     est = datetime.timezone(datetime.timedelta(hours=-5))
