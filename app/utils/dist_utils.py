@@ -4,6 +4,7 @@ import subprocess
 import toml
 
 bot_version = None
+commit_hash = None
 
 
 def get_bot_version():
@@ -16,6 +17,11 @@ def get_bot_version():
 
 
 def get_commit_hash():
+    # Cached like the version above: the hash cannot change while the process
+    # runs, and without this every caller spawns a git subprocess.
+    global commit_hash
+    if commit_hash:
+        return commit_hash
     # Check env var first (can be injected at build time via Docker ARG/ENV)
     commit_hash = os.getenv("GIT_COMMIT_HASH")
     if commit_hash:

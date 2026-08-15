@@ -385,6 +385,9 @@ class LancoBot(commands.Bot):
 
         # TODO probably a better way to inject a database into a cog
         self.database = database
+        # Cogs that failed to load, name -> error. Kept so health reporting can
+        # surface a cog that silently never came up.
+        self.failed_cogs: dict[str, str] = {}
         self.url_handlers = []
         # Message/file/image router. Cogs register an Intent (or File/Image
         # subclass) on this single list; the router owns the one on_message
@@ -437,11 +440,13 @@ class LancoBot(commands.Bot):
             else:
                 await self.load_extension(dotted)
                 result.status = CogStatus.LOADED
+            self.failed_cogs.pop(name, None)
         except Exception as e:
             logger.error(f"Failed to load cog {name}: {e}")
             capture_apm_exception(cog=name, event="cog_load")
             result.status = CogStatus.ERROR
             result.error = str(e)
+            self.failed_cogs[name] = str(e)
         return result
 
     async def load_cogs(self) -> list["CogLoadResult"]:
@@ -493,6 +498,7 @@ class LancoBot(commands.Bot):
                 logger.info(f"Unloading {name}")
                 await self.unload_extension(dotted)
                 result.status = CogStatus.UNLOADED
+                self.failed_cogs.pop(name, None)
             except Exception as e:
                 logger.error(f"Failed to unload cog {name}: {e}")
                 capture_apm_exception(cog=name, event="cog_unload")
