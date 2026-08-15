@@ -13,7 +13,7 @@ from typing import Optional
 import discord
 import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
-from db import BaseModel, DatabaseType, database_proxy
+from db import BaseModel, database_proxy
 from discord.ext import commands
 from dotenv import load_dotenv
 from logtail import LogtailHandler
@@ -295,45 +295,30 @@ def get_prefix(bot, message):
 
 def init_db() -> Database:
     """Initialize and connect the database, returning the database instance."""
-    db_type_str = os.getenv("DB_TYPE", "sqlite")
-
-    try:
-        db_type = DatabaseType.from_str(db_type_str)
-        logger.info(f"Using {db_type.name} database")
-    except ValueError as e:
-        logger.error(e)
+    db_type = os.getenv("DB_TYPE", "sqlite").lower()
+    if db_type != "sqlite":
+        # Fail loudly rather than silently falling back, so a stale DB_TYPE in
+        # an env file cannot look like it is being honoured.
+        logger.error(f"Unsupported database type: {db_type}. Only sqlite is supported.")
         exit(1)
 
-    if db_type == DatabaseType.SQLITE:
-        sqlite_path = os.getenv("SQLITE_DB")
-        db_dir = os.path.dirname(sqlite_path)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-        # WAL plus a busy timeout is what serializes SQLite writers. A write
-        # queue is not used: it executes BEGIN on its writer thread's connection
-        # while COMMIT runs on the caller's, so transactions (including the one
-        # inside get_or_create) never commit and leak the write lock.
-        db = SqliteDatabase(
-            sqlite_path,
-            pragmas={
-                "journal_mode": "wal",
-                "cache_size": -1024 * 32,
-                "foreign_keys": 1,
-                "busy_timeout": 5000,
-            },
-        )
-
-    elif db_type == DatabaseType.MYSQL:
-        db = MySQLDatabase(
-            os.getenv("MYSQL_DB"),
-            user=os.getenv("MYSQL_USER"),
-            password=os.getenv("MYSQL_PASSWORD"),
-            host=os.getenv("MYSQL_HOST"),
-            port=int(os.getenv("MYSQL_PORT", 3306)),
-        )
-
-    else:
-        raise ValueError(f"Unsupported database type: {db_type_str}")
+    sqlite_path = os.getenv("SQLITE_DB")
+    db_dir = os.path.dirname(sqlite_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir)
+    # WAL plus a busy timeout is what serializes SQLite writers. A write
+    # queue is not used: it executes BEGIN on its writer thread's connection
+    # while COMMIT runs on the caller's, so transactions (including the one
+    # inside get_or_create) never commit and leak the write lock.
+    db = SqliteDatabase(
+        sqlite_path,
+        pragmas={
+            "journal_mode": "wal",
+            "cache_size": -1024 * 32,
+            "foreign_keys": 1,
+            "busy_timeout": 5000,
+        },
+    )
 
     database_proxy.initialize(db)
     db.connect()

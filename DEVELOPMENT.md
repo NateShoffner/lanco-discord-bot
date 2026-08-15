@@ -28,7 +28,6 @@ poetry run isort .
 Copy `.env.default` to `.env` and fill in values. Key variables:
 
 - `DISCORD_TOKEN` - required
-- `DB_TYPE` - `sqlite` (default) or `mysql`
 - `SQLITE_DB` - path to SQLite file
 - `DEV_MODE` - set to `true` to enable hot-reload (set automatically by `poetry run dev`)
 - `COG_WHITELIST` - comma-separated cog names to load exclusively; all others are skipped (e.g. `geoguesser,incidents`)
@@ -44,7 +43,7 @@ Pieces a cog author touches:
 
 **`app/cogs/lancocog.py`** - `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers.
 
-**`app/db.py`** - Peewee `DatabaseProxy` that abstracts SQLite (default) vs MySQL. All Peewee models should inherit `BaseModel` defined here.
+**`app/db.py`** - Peewee `DatabaseProxy` bound to the SQLite database. All Peewee models should inherit `BaseModel` defined here.
 
 **`app/utils/command_utils.py`** - Permission decorators (`is_bot_owner_or_admin`, etc.) used across cogs.
 
