@@ -44,7 +44,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         if message.attachments:

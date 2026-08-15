@@ -158,10 +158,7 @@ class OpenAIPrompts(
     @commands.Cog.listener()
     @track_message_ids()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        if isinstance(message.channel, discord.DMChannel):
+        if message.author.bot or message.guild is None:
             return
 
         prefix = self.bot.get_guild_prefix(message.guild)

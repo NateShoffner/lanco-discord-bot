@@ -308,10 +308,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     async def on_message(self, message: discord.Message) -> discord.Message:
         # TODO commands should perhaps be registered within the bot, but this works for now
 
-        if message.author.bot:
-            return None
-
-        if isinstance(message.channel, discord.DMChannel):
+        if message.author.bot or message.guild is None:
             return None
 
         prefix = self.bot.get_guild_prefix(message.guild)

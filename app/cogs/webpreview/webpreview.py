@@ -34,7 +34,7 @@ class WebPreview(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
         if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
             return

@@ -89,7 +89,7 @@ class AutoResponse(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         config = AutoResponseConfig.get_or_none(guild_id=message.guild.id)
