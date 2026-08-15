@@ -6,7 +6,9 @@ WebServer cog
 """
 
 import datetime
+import math
 import os
+import secrets
 from sys import version_info as sysv
 
 import discord
@@ -45,43 +47,78 @@ class WebServer(
         # replacement cog fails to bind.
         await self.stop_webserver()
 
+    def _uptime_seconds(self) -> int:
+        return int((datetime.datetime.now() - self.bot.start_time).total_seconds())
+
+    def _latency_ms(self) -> int | None:
+        # Latency is nan until the first heartbeat, which is not valid JSON for
+        # strict parsers, so report null instead.
+        latency = self.bot.latency
+        if math.isnan(latency):
+            return None
+        return round(latency * 1000)
+
+    async def handle_health(self, request: web.Request) -> web.Response:
+        """Unauthenticated liveness probe.
+
+        Deliberately cheap: no Discord API calls, so hammering it cannot burn
+        the bot's REST rate limit. The status code is the signal, 200 once the
+        gateway is connected and 503 before that.
+        """
+        ready = self.bot.is_ready()
+        return web.json_response(
+            {
+                "status": "ok" if ready else "starting",
+                "uptime_seconds": self._uptime_seconds(),
+                "latency_ms": self._latency_ms(),
+            },
+            status=200 if ready else 503,
+        )
+
+    def _token_matches(self, request: web.Request, token: str) -> bool:
+        scheme, _, value = request.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() != "bearer":
+            return False
+        return secrets.compare_digest(value, token)
+
     async def handle_status(self, request: web.Request) -> web.Response:
-        """Handle the /status endpoint"""
+        """Detailed status, gated behind WEBSERVER_TOKEN.
 
-        if not self.bot.is_ready():
-            return web.json_response({"Status": "Starting"}, status=503)
+        Fails closed: with no token configured the endpoint stays off rather
+        than publishing this to anyone who finds the port.
+        """
+        token = os.getenv("WEBSERVER_TOKEN", "")
+        if not token:
+            return web.json_response(
+                {"error": "WEBSERVER_TOKEN is not set, /status is disabled"},
+                status=503,
+            )
+        if not self._token_matches(request, token):
+            return web.json_response({"error": "unauthorized"}, status=401)
 
-        info = await self.bot.application_info()
-        application_emojis = await self.bot.fetch_application_emojis()
-
-        commit = get_commit_hash()
-
-        uptime = datetime.datetime.now() - self.bot.start_time
-        owner = self.bot.get_user(info.owner.id)
-        dict = {
-            "Status": "OK",
-            "Python Version": f"{sysv.major}.{sysv.minor}.{sysv.micro}",
-            "Discord.py Version": f"{discord.__version__}",
-            "Guilds": len(self.bot.guilds),
-            "Users": len(self.bot.users),
-            "Commands": len(self.bot.commands),
-            "Slash Commands": len(self.bot.tree.get_commands()),
-            "Latency": f"{round(self.bot.latency * 1000)}ms",
-            "Dev Mode": f"{'Enabled' if self.bot.dev_mode else 'Disabled'}",
-            "Uptime": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s",
-            "Cogs": len(self.bot.get_lanco_cogs()),
-            "Owner": f"{owner.mention if owner else info.owner.global_name}",
-            "Commit": commit[:7],
-            "Message Cache": len(self.bot.cached_messages),
-            "Voice Clients": len(self.bot.voice_clients),
-            "Emojis": len(self.bot.emojis),
-            "App Emojis": len(application_emojis),
-            "Stickers": len(self.bot.stickers),
-            "URL Handlers": len(self.bot.url_handlers),
-            "Version": f"{get_bot_version()}",
-        }
-
-        return web.json_response(dict)
+        ready = self.bot.is_ready()
+        return web.json_response(
+            {
+                "status": "ok" if ready else "starting",
+                "ready": ready,
+                "uptime_seconds": self._uptime_seconds(),
+                "latency_ms": self._latency_ms(),
+                "guilds": len(self.bot.guilds),
+                # Cache size, not a real user count
+                "cached_users": len(self.bot.users),
+                "commands": len(self.bot.commands),
+                "slash_commands": len(self.bot.tree.get_commands()),
+                "cogs_loaded": len(self.bot.extensions),
+                "cogs_failed": sorted(getattr(self.bot, "failed_cogs", {})),
+                "message_cache": len(self.bot.cached_messages),
+                "url_handlers": len(self.bot.url_handlers),
+                "dev_mode": self.bot.dev_mode,
+                "version": get_bot_version(),
+                "commit": (get_commit_hash() or "unknown")[:7],
+                "python_version": f"{sysv.major}.{sysv.minor}.{sysv.micro}",
+                "discordpy_version": discord.__version__,
+            }
+        )
 
     @property
     def running(self) -> bool:
@@ -94,6 +131,7 @@ class WebServer(
             return False
 
         app = web.Application()
+        app.router.add_get("/health", self.handle_health)
         app.router.add_get("/status", self.handle_status)
         runner = web.AppRunner(app)
         await runner.setup()
