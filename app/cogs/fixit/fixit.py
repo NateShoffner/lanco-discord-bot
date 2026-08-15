@@ -19,10 +19,11 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([FixItConfig])
         self.client = SeeClickFixClient()
 
     async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([FixItConfig])
         self.poll.start()
 
     def cog_unload(self):

@@ -54,8 +54,12 @@ class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass payw
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot, "Paywall Bypass", _HANDLERS, PaywallBypassConfig)
-        self.bot.database.create_tables([PaywallPattern])
         self._pattern_cache: dict[int, set[str]] = {}
+
+    async def cog_load(self):
+        # EmbedFixCog.cog_load creates PaywallBypassConfig, our shared base table
+        await super().cog_load()
+        self.bot.database.create_tables([PaywallPattern])
 
     def _guild_patterns(self, guild_id: int) -> set[str]:
         if guild_id not in self._pattern_cache:

@@ -38,10 +38,11 @@ class Everbridge(
             username=os.getenv("EVERBRIDGE_USERNAME"),
             password=os.getenv("EVERBRIDGE_PASSWORD"),
         )
-        self.bot.database.create_tables([EverbridgeConfig])
         self._warned_channels: set[int] = set()
 
     async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([EverbridgeConfig])
         self.poll.start()
 
     def cog_unload(self):

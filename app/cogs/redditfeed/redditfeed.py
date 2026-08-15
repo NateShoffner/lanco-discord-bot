@@ -50,7 +50,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([RedditFeedConfig, RedditPost])
         self.reddit = asyncpraw.Reddit(
             client_id=os.getenv("REDDIT_ID"),
             client_secret=os.getenv("REDDIT_SECRET"),
@@ -67,6 +66,8 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         self._seen_ids_loaded: set[str] = set()  # subreddits whose DB rows are loaded
 
     async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([RedditFeedConfig, RedditPost])
         self.poll.start()
         self.check_post_states.start()
 

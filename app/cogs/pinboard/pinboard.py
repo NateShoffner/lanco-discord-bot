@@ -19,6 +19,9 @@ class Pinboard(
         self.register_context_menu(
             name="Pin Message", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
+
+    async def cog_load(self):
+        await super().cog_load()
         self.bot.database.create_tables([PinboardPost])
 
     async def ctx_menu(

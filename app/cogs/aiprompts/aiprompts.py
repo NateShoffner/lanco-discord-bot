@@ -73,8 +73,11 @@ class OpenAIPrompts(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.bot.database.create_tables([AIPromptConfig])
         self.custom_agents: dict[int, Agent] = {}  # AI ID -> Agent
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([AIPromptConfig])
 
     def get_agent(self, AIpromptConfig: AIPromptConfig) -> Agent:
         ai_id = AIpromptConfig.id

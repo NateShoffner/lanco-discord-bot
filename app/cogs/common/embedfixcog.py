@@ -141,8 +141,11 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
         self.config_model = config_model
         self.skip_if_handled_by_discord = skip_if_handled_by_discord
         self.wait_time = wait_time
-        self.bot.database.create_tables([self.config_model])
         self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([self.config_model])
 
     def _active_handler(self, config) -> "EmbedFixCog.Handler":
         """Return the configured Handler for this guild, falling back to the first."""

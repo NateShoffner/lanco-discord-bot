@@ -26,6 +26,9 @@ class dadjoke(
 
     def __init__(self, bot):
         super().__init__(bot)
+
+    async def cog_load(self):
+        await super().cog_load()
         self.bot.database.create_tables([DadJokeConfig])
 
     @g.command(name="toggle", description="Toggle dad jokes")

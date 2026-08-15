@@ -28,10 +28,10 @@ class PDFPreview(
         self.virus_check = VirusCheck(os.getenv("VIRUS_TOTAL_API_KEY"))
         if not os.path.exists(self.previews_path):
             os.makedirs(self.previews_path)
-        self.bot.database.create_tables([PDFPreviewConfig])
 
     async def cog_load(self):
         await super().cog_load()
+        self.bot.database.create_tables([PDFPreviewConfig])
         # A file intent: any .pdf attachment or link in an enabled guild. The
         # router downloads it once and hands us the local path + bytes.
         self.register_file_intent(

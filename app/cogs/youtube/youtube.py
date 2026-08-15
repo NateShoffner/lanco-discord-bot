@@ -33,9 +33,10 @@ class Youtube(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.google = Aiogoogle(api_key=os.getenv("YOUTUBE_API_KEY"))
-        self.bot.database.create_tables([YoutubeSubscription])
 
     async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([YoutubeSubscription])
         self.poll.start()
 
     def cog_unload(self):

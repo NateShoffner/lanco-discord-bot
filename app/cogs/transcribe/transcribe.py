@@ -22,11 +22,14 @@ class Transcribe(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
-        self.bot.database.create_tables([TranscribeConfig])
         self.model = whisper.load_model("base", device="cpu")
         self.register_context_menu(
             name="Transcribe", callback=self.ctx_menu, errback=self.ctx_menu_error
         )
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([TranscribeConfig])
 
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
