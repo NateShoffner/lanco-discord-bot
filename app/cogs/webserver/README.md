@@ -27,7 +27,8 @@ signal: `200` once the gateway is connected, `503` before that.
 ### `GET /status`
 
 Detailed status. Requires `Authorization: Bearer $WEBSERVER_TOKEN` and returns
-`401` without it, or `503` when no token is configured.
+`401` without it, or `503` when no token is configured. Every field is read from
+memory, so a request makes no Discord API calls and does no I/O.
 
 ```bash
 curl -H "Authorization: Bearer $WEBSERVER_TOKEN" http://host:8080/status
@@ -47,6 +48,9 @@ curl -H "Authorization: Bearer $WEBSERVER_TOKEN" http://host:8080/status
   "cogs_failed": ["transcribe"],
   "message_cache": 1000,
   "url_handlers": 6,
+  "emojis": 214,
+  "stickers": 12,
+  "voice_clients": 0,
   "dev_mode": false,
   "version": "0.1.0",
   "commit": "68826df",

@@ -84,8 +84,8 @@ class WebServer(
     async def handle_status(self, request: web.Request) -> web.Response:
         """Detailed status, gated behind WEBSERVER_TOKEN.
 
-        Fails closed: with no token configured the endpoint stays off rather
-        than publishing this to anyone who finds the port.
+        Fails closed: with no token configured the endpoint stays disabled.
+        Every field is read from memory, so a request costs nothing.
         """
         token = os.getenv("WEBSERVER_TOKEN", "")
         if not token:
@@ -112,6 +112,13 @@ class WebServer(
                 "cogs_failed": sorted(getattr(self.bot, "failed_cogs", {})),
                 "message_cache": len(self.bot.cached_messages),
                 "url_handlers": len(self.bot.url_handlers),
+                # Guild emojis and stickers come from the local cache. The
+                # application emoji count is deliberately absent: it is the only
+                # one needing a REST call, and caching it would just serve a
+                # stale number for a metric nothing acts on.
+                "emojis": len(self.bot.emojis),
+                "stickers": len(self.bot.stickers),
+                "voice_clients": len(self.bot.voice_clients),
                 "dev_mode": self.bot.dev_mode,
                 "version": get_bot_version(),
                 "commit": (get_commit_hash() or "unknown")[:7],
