@@ -181,12 +181,15 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([CustomCommands])
         self.agent = Agent(
             model="openai:gpt-5-nano",
             system_prompt="Generate a concise and relevant response based on the user's command prompt.",
             output_type=AICommandResponse,
         )
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([CustomCommands])
 
     @commands_group.command(name="create", description="Create a custom command")
     @is_bot_owner_or_admin()

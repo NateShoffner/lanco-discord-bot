@@ -46,7 +46,6 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([IncidentsGlobalConfig, IncidentConfig])
 
         gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.geocoder = IncidentGeocoder(gmaps)
@@ -61,15 +60,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         ]
         self._client_priority = [self.arcgis_client, self.feed_client, self.web_client]
 
-        client_config = IncidentsGlobalConfig.get_or_none(
-            IncidentsGlobalConfig.name == "client"
-        )
-        if client_config:
-            self.logger.info(f"Found global config: {client_config.value}")
-            self.set_client_from_name(client_config.value)
-        else:
-            self.current_client = self.arcgis_client
-
+        # Default until cog_load reads the persisted override from the database
+        self.current_client = self.arcgis_client
         self.preferred_client = self.current_client
         self.auto_switched = False
         self.consecutive_failures = 0
@@ -80,6 +72,16 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
 
     async def cog_load(self):
         await super().cog_load()
+        self.bot.database.create_tables([IncidentsGlobalConfig, IncidentConfig])
+
+        client_config = IncidentsGlobalConfig.get_or_none(
+            IncidentsGlobalConfig.name == "client"
+        )
+        if client_config:
+            self.logger.info(f"Found global config: {client_config.value}")
+            self.set_client_from_name(client_config.value)
+        self.preferred_client = self.current_client
+
         self.get_incidents_loop.change_interval(seconds=5)
         self.get_incidents_loop.start()
         self.recovery_check_loop.start()

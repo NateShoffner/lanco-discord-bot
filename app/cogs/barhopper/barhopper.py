@@ -28,11 +28,14 @@ class BarHopper(LancoCog, name="BarHopper", description="Bar hopper commands"):
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([Bar])
         self.gmaps = googlemaps.Client(key=os.getenv("GMAPS_API_KEY"))
         self.bar_details_cache = cachetools.TTLCache(
             maxsize=100, ttl=60 * 60 * 24
         )  # 24 hours
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([Bar])
 
     @barhopper_group.command(
         name="populate", description="Populate the database with bars"

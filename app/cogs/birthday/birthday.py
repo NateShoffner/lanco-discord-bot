@@ -53,6 +53,9 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
+
+    async def cog_load(self):
+        await super().cog_load()
         self.bot.database.create_tables([BirthdayUser, BirthdayAnnouncementConfig])
         self.daily_bday_task.start()
 

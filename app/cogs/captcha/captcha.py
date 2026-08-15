@@ -48,10 +48,10 @@ class CaptchaCog(
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self._ready_at: float = 0.0
-        self.bot.database.create_tables([RoundGameResult])
 
     async def cog_load(self):
         await super().cog_load()
+        self.bot.database.create_tables([RoundGameResult])
         self._ready_at = time.time()
 
     @property

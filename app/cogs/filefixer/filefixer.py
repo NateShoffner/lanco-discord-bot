@@ -20,8 +20,11 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
-        self.bot.database.create_tables([FileFixerConfig])
         self.file_downloader = FileDownloader()
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([FileFixerConfig])
 
     @g.command(
         name="toggle", description="Toggle support for fixing unsupported file types"

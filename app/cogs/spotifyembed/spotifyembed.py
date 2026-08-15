@@ -31,7 +31,6 @@ class SpotifyEmbed(
             client_secret=os.getenv("SPOTIFY_SECRET"),
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
-        self.bot.database.create_tables([SpotifyEmbedConfig])
         self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
 
         bot.register_url_handler(
@@ -41,6 +40,10 @@ class SpotifyEmbed(
                 example_url="https://open.spotify.com/playlist/7q7fMqxIWb8LBCHnyhvxBt",
             )
         )
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([SpotifyEmbedConfig])
 
     @commands.Cog.listener()
     async def on_message(self, message):

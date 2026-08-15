@@ -23,6 +23,9 @@ class AnimeToday(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
+
+    async def cog_load(self):
+        await super().cog_load()
         self.bot.database.create_tables([AnimeTodayConfig])
         self.daily_anime_task.start()
 

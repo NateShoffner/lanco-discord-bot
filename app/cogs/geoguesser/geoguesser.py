@@ -66,11 +66,11 @@ class GeoGuesser(
         self.gmaps = None
         self.location_utils = None
         self._ready_at: float = 0.0
-        self.bot.database.create_tables([LocationModel, RoundGameResult])
         _sessions_starting.clear()
 
     async def cog_load(self):
         await super().cog_load()
+        self.bot.database.create_tables([LocationModel, RoundGameResult])
         self._ready_at = time.time()
         api_key = os.getenv("GMAPS_API_KEY")
         if not api_key:

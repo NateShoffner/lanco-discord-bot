@@ -45,12 +45,15 @@ class TruthSocial(
             username=os.getenv("TRUTH_SOCIAL_USERNAME"),
             password=os.getenv("TRUTH_SOCIAL_PASSWORD"),
         )
-        self.bot.database.create_tables([TruthSocialEmbedConfig])
         self.avatar_cache_dir = os.path.join(
             self.get_cog_data_directory(), "AvatarCache"
         )
         self.media_cache_dir = os.path.join(self.get_cog_data_directory(), "MediaCache")
         self.file_downloader = FileDownloader()
+
+    async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([TruthSocialEmbedConfig])
 
     @track_message_ids()
     @commands.Cog.listener()

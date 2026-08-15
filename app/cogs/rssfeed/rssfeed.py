@@ -24,13 +24,14 @@ class RssFeed(
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self.bot.database.create_tables([RSSFeedConfig])
         self._warned_channels: set[int] = set()
         # feed urls already warned about, so a persistently broken feed does not
         # emit a warning on every poll
         self._warned_feeds: set[str] = set()
 
     async def cog_load(self):
+        await super().cog_load()
+        self.bot.database.create_tables([RSSFeedConfig])
         self.poll.start()
 
     def cog_unload(self):
