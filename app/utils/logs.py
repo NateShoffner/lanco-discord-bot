@@ -104,21 +104,29 @@ def service_fields() -> dict:
     ``event.dataset`` is what the APM UI's Logs tab correlates on, so a line
     without it will not surface next to the service it came from.
 
-    ``data_stream.namespace`` is what the shipper routes on, keeping dev and
+    The ``data_stream.*`` trio is what the shipper routes on, keeping dev and
     prod logs in separate data streams the way the APM environment already
-    separates their traces. It is derived rather than reusing
-    ``service.environment`` directly, because that field has to match what the
-    APM agent reports verbatim for correlation to work, and the namespace has
-    to survive being a hyphen-delimited path segment. For "dev" and "prod"
-    they are the same string; for "pre-prod" they are not.
+    separates their traces. All three are sent, not just the namespace: they
+    are ``constant_keyword`` in the index template, and one that no document
+    ever supplies stays valueless, so every query filtering on it silently
+    matches nothing.
+
+    The namespace is derived rather than reusing ``service.environment``
+    directly, because that field has to match what the APM agent reports
+    verbatim for correlation to work, and the namespace has to survive being a
+    hyphen-delimited path segment. For "dev" and "prod" they are the same
+    string; for "pre-prod" they are not.
     """
     name = os.getenv("ELASTIC_APM_SERVICE_NAME", DEFAULT_SERVICE_NAME)
     environment = env.current()
+    dataset = dataset_for(name)
     return {
         "service.name": name,
         "service.version": get_service_version(),
         "service.environment": environment,
-        "event.dataset": dataset_for(name),
+        "event.dataset": dataset,
+        "data_stream.type": "logs",
+        "data_stream.dataset": dataset,
         "data_stream.namespace": namespace_for(environment),
     }
 

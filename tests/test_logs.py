@@ -88,7 +88,14 @@ def test_routing_fields_are_set(ecs_log):
     doc = read()[0]
     # Hyphens normalized: they would otherwise split the data stream name.
     assert doc["event"]["dataset"] == "lanco_bot.log"
-    assert doc["data_stream"]["namespace"] == "prod"
+    # All three, not just the namespace: they are constant_keyword in the index
+    # template, and one no document ever supplies stays valueless, so queries
+    # filtering on it silently match nothing.
+    assert doc["data_stream"] == {
+        "type": "logs",
+        "dataset": "lanco_bot.log",
+        "namespace": "prod",
+    }
 
 
 def test_namespace_follows_the_environment(ecs_log, monkeypatch):
