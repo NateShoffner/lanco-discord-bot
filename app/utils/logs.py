@@ -28,6 +28,8 @@ from utils.dist_utils import get_service_version
 logger = logging.getLogger(__name__)
 
 DEFAULT_SERVICE_NAME = "lanco-bot"
+#: Daily ECS files kept on disk. Elasticsearch is the durable copy.
+DEFAULT_RETENTION_DAYS = 7
 
 
 def rotate_by_copy() -> bool:
@@ -139,6 +141,28 @@ def service_fields() -> dict:
     }
 
 
+def retention_days() -> int:
+    """Daily ECS files to keep, from ECS_LOG_RETENTION_DAYS.
+
+    Bounded by default, unlike ``logfile.log``, which passes no ``backupCount``
+    and so keeps every daily file forever. That is survivable for a log a human
+    occasionally greps, but this one is a second copy of the same output whose
+    durable home is Elasticsearch: once a shipper has read it the local file has
+    no further purpose. 0 restores the keep-everything behaviour.
+    """
+    raw = os.getenv("ECS_LOG_RETENTION_DAYS", "").strip()
+    if not raw:
+        return DEFAULT_RETENTION_DAYS
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        logger.warning(
+            f"Ignoring invalid ECS_LOG_RETENTION_DAYS={raw!r}, "
+            f"using {DEFAULT_RETENTION_DAYS}"
+        )
+        return DEFAULT_RETENTION_DAYS
+
+
 def add_ecs_file_handler(root: logging.Logger) -> Optional[logging.Handler]:
     """Attach the ECS JSON handler if ECS_LOG_FILE names a path.
 
@@ -153,10 +177,16 @@ def add_ecs_file_handler(root: logging.Logger) -> Optional[logging.Handler]:
     if directory:
         os.makedirs(directory, exist_ok=True)
 
+    days = retention_days()
     handler = WinTimedRotatingFileHandler(
-        filename=path, when="midnight", interval=1, encoding="utf-8"
+        filename=path,
+        when="midnight",
+        interval=1,
+        backupCount=days,
+        encoding="utf-8",
     )
     handler.setFormatter(ServiceFieldFormatter(service_fields()))
     root.addHandler(handler)
-    logger.info(f"ECS log output enabled: {path}")
+    kept = f"{days} day(s) kept" if days else "kept indefinitely"
+    logger.info(f"ECS log output enabled: {path} ({kept})")
     return handler

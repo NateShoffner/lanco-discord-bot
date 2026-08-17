@@ -10,6 +10,7 @@ silently into logs that simply never appear next to the service.
 import json
 import logging
 import os
+import pathlib
 import sys
 
 import elasticapm
@@ -251,3 +252,58 @@ def test_service_fields_follow_the_environment(monkeypatch):
     assert fields["service.name"] == "lanco-bot-dev"
     assert fields["event.dataset"] == "lanco_bot_dev.log"
     assert fields["data_stream.namespace"] == "dev"
+
+
+def test_retention_defaults_to_a_week(monkeypatch):
+    monkeypatch.delenv("ECS_LOG_RETENTION_DAYS", raising=False)
+    assert logs.retention_days() == logs.DEFAULT_RETENTION_DAYS
+
+
+def test_retention_is_configurable(monkeypatch):
+    monkeypatch.setenv("ECS_LOG_RETENTION_DAYS", "3")
+    assert logs.retention_days() == 3
+    # 0 restores the stdlib keep-everything behaviour.
+    monkeypatch.setenv("ECS_LOG_RETENTION_DAYS", "0")
+    assert logs.retention_days() == 0
+    monkeypatch.setenv("ECS_LOG_RETENTION_DAYS", "nonsense")
+    assert logs.retention_days() == logs.DEFAULT_RETENTION_DAYS
+
+
+def test_handler_is_created_with_the_retention_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("ECS_LOG_FILE", str(tmp_path / "app.ecs.json"))
+    monkeypatch.setenv("ECS_LOG_RETENTION_DAYS", "2")
+    log = logging.getLogger("EcsRetention")
+    log.propagate = False
+    handler = logs.add_ecs_file_handler(log)
+    try:
+        assert handler.backupCount == 2
+    finally:
+        handler.close()
+        log.removeHandler(handler)
+
+
+def test_pruning_cannot_touch_the_human_readable_log(tmp_path, monkeypatch):
+    """Both files live in logs/. Rotation deletes by filename prefix, so this
+    pins that logfile.log, which is deliberately unbounded, is never a
+    candidate."""
+    monkeypatch.setenv("ECS_LOG_FILE", str(tmp_path / "lancobot.ecs.json"))
+    monkeypatch.setenv("ECS_LOG_RETENTION_DAYS", "1")
+    for name in (
+        "lancobot.ecs.json.2026-08-10",
+        "lancobot.ecs.json.2026-08-11",
+        "logfile.log",
+        "logfile.log.2026-08-10",
+    ):
+        (tmp_path / name).write_text("x", encoding="utf-8")
+
+    log = logging.getLogger("EcsPrune")
+    log.propagate = False
+    handler = logs.add_ecs_file_handler(log)
+    try:
+        doomed = [pathlib.Path(p).name for p in handler.getFilesToDelete()]
+    finally:
+        handler.close()
+        log.removeHandler(handler)
+
+    assert doomed == ["lancobot.ecs.json.2026-08-10"]
+    assert not any(name.startswith("logfile") for name in doomed)
