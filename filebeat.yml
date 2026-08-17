@@ -1,0 +1,43 @@
+# Filebeat config for the logging sidecar in docker-compose.yml.
+#
+# The bot already writes ECS, so Filebeat forwards the documents intact and
+# adds nothing but host metadata. Reformatting here would be a second place the
+# log shape is decided, and the two would drift.
+#
+# Enable with:  docker-compose --profile logging up -d
+
+filebeat.inputs:
+  - type: filestream
+    id: lancobot-ecs
+    paths:
+      - /logs/*.ecs.json
+    parsers:
+      # One ECS document per line: target:"" merges it into the event root,
+      # overwrite_keys lets the bot's @timestamp and log.level beat Filebeat's,
+      # and expand_keys nests the dotted keys ecs_logging emits.
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          expand_keys: true
+          add_error_key: true
+
+processors:
+  # Which host produced the line, once there is more than one.
+  - add_host_metadata:
+      netinfo.enabled: false
+
+output.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOST}"]
+  api_key: "${ELASTICSEARCH_API_KEY}"
+  # Routed by the data_stream fields the bot stamps, so one config serves every
+  # environment and dev logs can never reach the prod data stream. The segments
+  # are pre-sanitised there; the fallbacks cover pre-existing lines.
+  index: "%{[data_stream.type]:logs}-%{[data_stream.dataset]:lancobot.log}-%{[data_stream.namespace]:default}"
+
+# Elasticsearch's built-in logs-*-* template and lifecycle policy already cover
+# these indices, so Filebeat must not install or manage its own.
+setup.template.enabled: false
+setup.ilm.enabled: false
+
+logging.level: info
+logging.to_files: false

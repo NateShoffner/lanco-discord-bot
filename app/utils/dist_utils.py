@@ -37,6 +37,15 @@ def get_commit_hash():
     return commit_hash
 
 
+def get_service_version():
+    """Version plus short commit, identifying the exact build to Elastic.
+
+    Shared by the APM service version and the ECS log fields so an error and
+    the log lines around it agree about which build produced them.
+    """
+    return f"{get_bot_version()}+{(get_commit_hash() or 'unknown')[:7]}"
+
+
 def strtobool(val):
     """Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values

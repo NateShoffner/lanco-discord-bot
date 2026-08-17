@@ -2,12 +2,10 @@ import asyncio
 import datetime
 import logging
 import os
-import shutil
 import signal
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
-from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 import discord
@@ -15,10 +13,12 @@ import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
 from db import BaseModel, database_proxy
 from discord.ext import commands
-from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
+from utils import apm, env
 from utils.command_utils import is_bot_owner
+from utils.dist_utils import get_bot_version, get_commit_hash, get_service_version
+from utils.logs import WinTimedRotatingFileHandler, add_ecs_file_handler
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
 
@@ -79,18 +79,6 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
-    def doRollover(self):
-        if self.stream:
-            self.stream.close()
-            self.stream = None
-        super().doRollover()
-
-    def rotate(self, source, dest):
-        shutil.copy2(source, dest)
-        open(source, "w").close()  # truncate in place instead of renaming
-
-
 os.makedirs(LOGS_DIR, exist_ok=True)
 file_logger = WinTimedRotatingFileHandler(
     filename=os.path.join(LOGS_DIR, "logfile.log"),
@@ -106,10 +94,9 @@ console_logger.stream.reconfigure(encoding="utf-8", errors="replace")
 console_logger.setFormatter(CustomFormatter())
 logger.addHandler(console_logger)
 
-log_level = (
-    logging.DEBUG if os.getenv("DEV_MODE", "").lower() == "true" else logging.INFO
-)
-logger.setLevel(log_level)
+# Provisional, so the environment resolution below can report what it picked.
+# The real level is set once the environment (and its dotenv file) is known.
+logger.setLevel(logging.INFO)
 
 # Suppress noisy third-party loggers regardless of log level
 for noisy in [
@@ -131,17 +118,10 @@ for noisy in [
 ]:
     logging.getLogger(noisy).setLevel(logging.WARNING)
 
-env_file = ".env"
-dev_arg = len(sys.argv) > 1 and sys.argv[1] == "dev"
-if len(sys.argv) > 1:
-    env = sys.argv[1]
-    env_file = f".env.{env}"
+# Resolves BOT_ENV and loads the matching .env.<env> file. Mutates os.environ.
+env.load_environment()
 
-if os.path.exists(env_file):
-    load_dotenv(env_file, override=True)
-    logger.info(f"Loaded environment: {env_file}")
-else:
-    logger.info("No .env file found, using environment variables")
+logger.setLevel(logging.DEBUG if env.is_dev() else logging.INFO)
 
 # LOG_LEVEL overrides the default root level (DEBUG in dev mode, INFO otherwise),
 # e.g. LOG_LEVEL=INFO hides debug output when running via poetry run dev
@@ -156,7 +136,7 @@ if _log_level_env:
 
 # In dev mode, LOG_COGS=geoguesser,incidents filters console output to only those cogs
 _log_cogs_env = os.getenv("LOG_COGS", "")
-if _log_cogs_env and os.getenv("DEV_MODE", "").lower() == "true":
+if _log_cogs_env and env.is_dev():
     _allowed_cogs = {c.strip().lower() for c in _log_cogs_env.split(",")}
 
     # build set of known non-cog logger name prefixes to always allow through
@@ -181,12 +161,12 @@ if _log_cogs_env and os.getenv("DEV_MODE", "").lower() == "true":
     console_logger.addFilter(CogFilter())
     logger.info(f"LOG_COGS filter active: {_allowed_cogs}")
 
-# If launched with the "dev" arg, force DEV_MODE on regardless of what the env file says
-if dev_arg:
-    os.environ["DEV_MODE"] = "true"
-
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
+
+# ECS JSON output for a shipper to tail into Elasticsearch. No-op unless
+# ECS_LOG_FILE names a path.
+add_ecs_file_handler(logger)
 
 # Elastic APM (optional). Enabled only when ELASTIC_APM_SERVER_URL is set.
 # The agent self-configures from standard ELASTIC_APM_* environment variables
@@ -226,32 +206,49 @@ def init_apm():
         return
     if not os.getenv("ELASTIC_APM_SERVER_URL"):
         return
+
+    # Seeded as environment variables, not passed as kwargs: an explicit kwarg
+    # outranks the environment, which is what previously made
+    # ELASTIC_APM_ENVIRONMENT unsettable and pinned the environment to whatever
+    # DEV_MODE happened to be. setdefault leaves a deployment free to override.
+    os.environ.setdefault("ELASTIC_APM_SERVICE_NAME", "lanco-bot")
+    os.environ.setdefault("ELASTIC_APM_ENVIRONMENT", env.current())
+    os.environ.setdefault("ELASTIC_APM_SERVICE_VERSION", get_service_version())
+
     try:
-        apm_client = elasticapm.Client(
-            service_name=os.getenv("ELASTIC_APM_SERVICE_NAME", "lanco-bot"),
-            environment=(
-                "dev" if os.getenv("DEV_MODE", "").lower() == "true" else "production"
-            ),
-        )
+        apm_client = elasticapm.Client()
         logging.getLogger().addHandler(ApmLoggingHandler(level=logging.ERROR))
         logger.info(
             f"Elastic APM enabled (server={os.getenv('ELASTIC_APM_SERVER_URL')}, "
             f"service={apm_client.config.service_name}, "
-            f"environment={apm_client.config.environment})"
+            f"environment={apm_client.config.environment}, "
+            f"version={apm_client.config.service_version})"
         )
-        try:
-            raise Exception("APM startup test")
-        except Exception:
-            event_id = apm_client.capture_exception(handled=True)
-            if event_id:
-                logger.info(f"APM startup test event queued: {event_id}")
-            else:
-                logger.warning(
-                    "APM startup test returned None — is_recording may be False"
-                )
+        _run_apm_startup_test()
     except Exception as e:
         logger.error(f"Failed to initialize Elastic APM: {e}")
         apm_client = None
+
+
+def _run_apm_startup_test() -> None:
+    """Send one synthetic error to prove the pipeline works end to end.
+
+    On by default in dev only: in production this would file a fake error on
+    every restart and every deploy. Set ELASTIC_APM_STARTUP_TEST=true to run it
+    once against prod when verifying that environment's wiring.
+    """
+    configured = os.getenv("ELASTIC_APM_STARTUP_TEST", "").lower()
+    enabled = configured == "true" if configured else env.is_dev()
+    if not enabled:
+        return
+    try:
+        raise Exception(f"APM startup test ({env.current()})")
+    except Exception:
+        event_id = apm_client.capture_exception(handled=True)
+        if event_id:
+            logger.info(f"APM startup test event queued: {event_id}")
+        else:
+            logger.warning("APM startup test returned None, is_recording may be False")
 
 
 def capture_apm_exception(exc_info=None, **context) -> None:
@@ -365,8 +362,9 @@ class LancoBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.dev_mode = os.getenv("DEV_MODE", "").lower() == "true"
+        self.dev_mode = env.is_dev()
         self.start_time = datetime.datetime.now()
+        self._inventory_reported = False
 
         # TODO probably a better way to inject a database into a cog
         self.database = database
@@ -528,6 +526,11 @@ class LancoBot(commands.Bot):
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"Bot ready: {self.user.name} - {self.user.id}")
+        # Once per process, not per on_ready: a gateway reconnect fires this
+        # again, and the inventory has not changed.
+        if not self._inventory_reported:
+            self._inventory_reported = True
+            apm.emit_inventory(self)
 
     async def setup_hook(self):
         self.add_listener(self.router.handle_message, "on_message")
@@ -554,7 +557,17 @@ class LancoBot(commands.Bot):
                     await self.load_cog(cog_name)
 
 
-class ApmCommandTree(discord.app_commands.CommandTree):
+class InstrumentedCommandTree(discord.app_commands.CommandTree):
+    """Wraps application command dispatch in an APM transaction.
+
+    This is the only place that sees an app command invocation start and
+    finish. The tree swallows command errors internally (it routes them to
+    on_error rather than re-raising), so the error handler parks the exception
+    in ``interaction.extras`` and it is picked back up here to classify the
+    outcome. Without that, a command blocked by a permission check would be
+    indistinguishable from one that crashed.
+    """
+
     async def _call(self, interaction: discord.Interaction) -> None:
         if (
             apm_client is None
@@ -562,21 +575,27 @@ class ApmCommandTree(discord.app_commands.CommandTree):
         ):
             await super()._call(interaction)
             return
-        command_name = (
-            interaction.command.qualified_name if interaction.command else "unknown"
+
+        command = interaction.command
+        command_name = command.qualified_name if command else "unknown"
+        apm_client.begin_transaction(apm.TX_APP_COMMAND)
+        apm.label(
+            command=command_name,
+            cog=apm.app_command_cog(command),
+            guild_id=interaction.guild_id,
         )
-        apm_client.begin_transaction("app_command")
-        elasticapm.label(command=command_name)
-        if interaction.guild_id:
-            elasticapm.label(guild_id=str(interaction.guild_id))
         try:
             await super()._call(interaction)
         finally:
-            result = (
-                "failure"
-                if getattr(interaction, "command_failed", False)
-                else "success"
-            )
+            # Runs for every app command, so a fault in the bookkeeping must
+            # not surface as a failed command or mask the real error.
+            result = apm.RESULT_SUCCESS
+            try:
+                error = getattr(interaction, "extras", {}).get(apm.ERROR_EXTRA)
+                result = apm.result_for(error)
+                apm.label(error_type=apm.error_type_of(error))
+            except Exception:
+                logger.debug("Failed to classify app command result", exc_info=True)
             apm_client.end_transaction(command_name, result)
 
 
@@ -587,7 +606,7 @@ bot = LancoBot(
     intents=intents,
     owner_id=owner_id,
     max_messages=message_cache_size,
-    tree_cls=ApmCommandTree,
+    tree_cls=InstrumentedCommandTree,
 )
 
 
@@ -603,17 +622,22 @@ def _apm_user(obj) -> Optional[dict]:
 async def _begin_command_transaction(ctx: commands.Context):
     if apm_client is None:
         return
-    apm_client.begin_transaction("command")
-    elasticapm.label(command=str(ctx.command))
-    if ctx.guild:
-        elasticapm.label(guild_id=str(ctx.guild.id))
+    # Only reached once every check has passed. A rejected command never gets
+    # here, which is why the listener in utils.apm reports that case instead.
+    apm.mark_invoked(ctx)
+    apm_client.begin_transaction(apm.TX_COMMAND)
+    apm.label(
+        command=str(ctx.command),
+        cog=ctx.cog.qualified_name if ctx.cog else None,
+        guild_id=ctx.guild.id if ctx.guild else None,
+    )
 
 
 @bot.after_invoke
 async def _end_command_transaction(ctx: commands.Context):
     if apm_client is None:
         return
-    result = "failure" if ctx.command_failed else "success"
+    result = apm.RESULT_FAILURE if ctx.command_failed else apm.RESULT_SUCCESS
     apm_client.end_transaction(str(ctx.command) if ctx.command else "unknown", result)
 
 
@@ -639,6 +663,10 @@ async def on_command_error(ctx: commands.Context, error: Exception):
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):
+    # The tree awaits this inside _call before unwinding, so parking the error
+    # here is how its finally block learns what went wrong. Set even for the
+    # check failures ignored below, to tell "blocked" apart from "broken".
+    interaction.extras[apm.ERROR_EXTRA] = error
     if isinstance(error, discord.app_commands.CheckFailure):
         return
     original = getattr(error, "original", error)
@@ -812,6 +840,8 @@ async def main():
     from utils.db_backup import DatabaseBackup
 
     init_apm()
+    # Reports commands rejected before invocation, which open no transaction.
+    apm.install(bot)
     database.create_tables([GuildConfig])
     for config in GuildConfig.select():
         if config.prefix:

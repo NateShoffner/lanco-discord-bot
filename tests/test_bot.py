@@ -16,6 +16,7 @@ import pytest
 import pytest_asyncio
 
 # Must be set before importing main or any cog that triggers DB init
+os.environ.setdefault("BOT_ENV", "test")
 os.environ.setdefault("DB_TYPE", "sqlite")
 os.environ.setdefault("SQLITE_DB", ":memory:")
 

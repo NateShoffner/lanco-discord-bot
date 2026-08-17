@@ -12,6 +12,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from pydantic import BaseModel
+from utils import apm
 from utils.roundgame.session import RoundGameSession
 
 TSession = TypeVar("TSession", bound=RoundGameSession)
@@ -33,6 +34,21 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         """Register a background task to be cancelled on cog unload."""
         self._tracked_tasks.append(task)
         return task
+
+    def record_activity(
+        self, name: str, tx_type: str = apm.TX_COG_ACTION, **labels
+    ) -> None:
+        """Report to Elastic that this cog did something.
+
+        Commands are instrumented centrally. This is for the work that has no
+        command behind it: a listener that fired, a background job that posted,
+        an embed that got rewritten. Without it, a cog would look unused in
+        Kibana right up until the day it was deleted.
+
+        A no-op when APM is not configured, so it is safe to call
+        unconditionally.
+        """
+        apm.record(tx_type, name, cog=self.get_cog_name(), **labels)
 
     async def cog_load(self):
         self.logger.debug(f"{self.get_cog_name()} cog loaded")

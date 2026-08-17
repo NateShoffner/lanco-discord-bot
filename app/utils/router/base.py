@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 import discord
+from utils import apm
 
 if TYPE_CHECKING:
     from cogs.lancocog import LancoCog
@@ -270,7 +271,16 @@ class MessageRouter:
             return 0.0
 
     async def _safe_process(self, intent: Intent, ctx: RouterContext) -> None:
+        # A routed cog never runs a command, so without this its work is
+        # invisible in APM; bracketing also nests any spans it generates.
+        # Labels are read defensively so telemetry cannot throw before the
+        # intent runs and silently stop the bot doing its job.
+        labels = {
+            "cog": intent.cog.get_cog_name(),
+            "guild_id": getattr(getattr(ctx.message, "guild", None), "id", None),
+        }
         try:
-            await intent.process(ctx)
+            async with apm.transaction(intent.name, apm.TX_ROUTER_INTENT, **labels):
+                await intent.process(ctx)
         except Exception as e:
             logger.error("Process error in %s: %s", intent.name, e)

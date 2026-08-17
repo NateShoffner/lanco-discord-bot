@@ -8,6 +8,7 @@ from db import BaseModel
 from discord import app_commands
 from discord.ext import commands
 from peewee import *
+from utils import apm
 
 
 class _HandlerSelect(discord.ui.Select):
@@ -260,6 +261,13 @@ class EmbedFixCog(LancoCog, name="EmbedFixCog", description="Abstract embed fix 
             await message.edit(suppress=True)
 
         self.fixed_messages[message.id] = fixed_msg.id
+
+        # Per handler, not per cog: which service a guild actually rewrites
+        # through is what decides whether a handler still needs maintaining.
+        # Reported after the fact because this path sleeps before it acts.
+        self.record_activity(
+            active.id, tx_type=apm.TX_EMBED_FIX, guild_id=message.guild.id
+        )
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
