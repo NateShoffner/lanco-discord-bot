@@ -35,11 +35,13 @@ LancoBot is a modular Discord bot (Python / discord.py) built around a **cog sys
 
 ### Core Components
 
-**`app/main.py`** — Entry point. Creates the `LancoBot` instance, sets up logging, initializes the database via `init_db()`, and auto-loads all cogs from `app/cogs/`.
+**`app/main.py`** - Entry point. Creates the `LancoBot` instance, resolves the environment, sets up logging, initializes the database via `init_db()`, wires up APM via `init_apm()`, and auto-loads all cogs from `app/cogs/`.
 
 **`app/run.py`** - Poetry script entrypoints for `dev`, `prod`, and `test`. Sets `BOT_ENV` and handles `sys.path` setup so bare imports work correctly.
 
 **`app/utils/env.py`** - Resolves `BOT_ENV`, the single source of truth for which environment the process is. See "Environments" below.
+
+**`app/utils/apm.py`** - Elastic APM instrumentation. Reports command, router-intent, and embed-fix activity as labelled transactions, plus the registered command/cog inventory. See "Observability" below.
 
 **`app/cogs/lancocog.py`** — `LancoCog` base class that all cogs inherit. Provides a per-cog logger, a scoped data directory, and context menu helpers.
 
@@ -108,7 +110,7 @@ Core bot functionality (`app/utils/router/`, not a cog) that owns the single `on
 | `poetry run test` | `test` | `.env.test` only, **never** `.env` |
 | Docker | `prod` by default, overridable | `.env.${BOT_ENV}` (mounted config; nothing is baked into the image) |
 
-The compose stack is parameterized rather than pinned to production. Setting `BOT_ENV`, `CONTAINER_NAME`, and `WEBSERVER_PORT` in the `.env` next to `docker-compose.yml` runs it as a dev stack; run it from its own directory so the `./data` volume is a separate database. Those values are read by compose's own interpolation, which only ever looks at the shell and that adjacent `.env`, never at the `env_file` it loads into the container. `BOT_ENV` is passed through the `environment:` block as well, so it outranks the `env_file` and the container can never load one environment's secrets while reporting itself as another.
+The compose stack is parameterized rather than pinned to production. Setting `BOT_ENV`, `CONTAINER_NAME`, `WEBSERVER_PORT`, `DATA_DIR`, and `LOGS_DIR` in the `.env` next to `docker-compose.yml` runs it as a dev stack alongside prod on one host without colliding on the container name, the published port, or the database. Those values are read by compose's own interpolation, which only ever looks at the shell and that adjacent `.env`, never at the `env_file` it loads into the container. `BOT_ENV` is passed through the `environment:` block as well, so it outranks the `env_file` and the container can never load one environment's secrets while reporting itself as another.
 
 Resolution is two-phase and lives in `app/utils/env.py`. What the process declares (a real `BOT_ENV` env var, the argv the entrypoint was called with, or a legacy `DEV_MODE=true`) is settled before any file is read, and it **outranks the file**. Without that, `load_dotenv(override=True)` reading a `DEV_MODE=false` out of `.env` would silently demote a dev run to production. After loading, both `BOT_ENV` and `DEV_MODE` are rewritten to agree.
 
@@ -116,7 +118,30 @@ Unknown names pass through (a deployment can call itself `staging` and have that
 
 ### Development Mode
 
-Running `poetry run dev` sets `BOT_ENV=dev`, which loads `.env.dev` and enables `watchfiles`-based hot-reload. A background task started in `setup_hook` watches `app/cogs/` — any file change triggers a reload of the affected cog package, including all submodules (`models.py`, etc.).
+Running `poetry run dev` sets `BOT_ENV=dev`, which loads `.env.dev` and enables `watchfiles`-based hot-reload. A background task started in `setup_hook` watches `app/cogs/` - any file change triggers a reload of the affected cog package, including all submodules (`models.py`, etc.).
+
+### Observability
+
+Elastic is the sink. Kibana does the aggregation, dashboards, and alerting; nothing is stored locally and there are no in-bot reporting commands. `app/utils/apm.py` supplies only what Kibana cannot work out for itself.
+
+**Activity.** Every command, router intent, and embed fix becomes an APM transaction labelled `cog`, `command`, `guild_id`, and `error_type`. Transaction types are the vocabulary every dashboard filters on, so renaming one silently breaks saved queries:
+
+| `transaction.type` | Source |
+|---|---|
+| `command` | prefix commands |
+| `app_command` | slash commands and context menus |
+| `router_intent` | a dispatched routing intent |
+| `embed_fix` | an embed rewritten, per handler |
+| `cog_action` | whatever a cog reports via `record_activity` |
+| `inventory` | the startup inventory (see below) |
+
+Results are `success`, `failure`, or `denied`. `denied` means a check rejected the invocation: an attempt, not a failure, and not the same thing as unused. That case matters because a rejected command never reaches `before_invoke`, so a listener in `apm.install()` reports it instead. Without that, a permission-gated command would look identical to a dead one.
+
+Instrumentation is central, so a new cog is covered the day it lands. Work with no command behind it (a listener, a scheduled job) calls `self.record_activity(...)`, which is a no-op when APM is off.
+
+**Inventory.** APM only ever sees what *ran*, so it cannot distinguish a command nobody has invoked from one that does not exist. Once per process, `on_ready` emits the registered commands and cogs as one span each under `transaction.type: inventory`. In Kibana the registered set is those spans and the used set is every other transaction type; what appears in the first and not the second is the retirement shortlist.
+
+**Caveat: retention.** "Should we drop this cog" spans months, while raw APM transaction data is governed by your cluster's ILM policy and is typically kept for days to weeks. Check that policy, or lean on APM's longer-lived aggregated transaction metrics, before trusting a long-window answer.
 
 ### Environment
 

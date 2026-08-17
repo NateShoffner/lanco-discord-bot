@@ -17,7 +17,7 @@ from db import BaseModel, database_proxy
 from discord.ext import commands
 from logtail import LogtailHandler
 from peewee import *
-from utils import env
+from utils import apm, env
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
 from utils.router import ImageRouter, Intent
@@ -378,6 +378,7 @@ class LancoBot(commands.Bot):
 
         self.dev_mode = env.is_dev()
         self.start_time = datetime.datetime.now()
+        self._inventory_reported = False
 
         # TODO probably a better way to inject a database into a cog
         self.database = database
@@ -539,6 +540,11 @@ class LancoBot(commands.Bot):
     @commands.Cog.listener()
     async def on_ready(self):
         logger.info(f"Bot ready: {self.user.name} - {self.user.id}")
+        # Once per process, not per on_ready: a gateway reconnect fires this
+        # again, and the inventory has not changed.
+        if not self._inventory_reported:
+            self._inventory_reported = True
+            apm.emit_inventory(self)
 
     async def setup_hook(self):
         self.add_listener(self.router.handle_message, "on_message")
@@ -565,7 +571,17 @@ class LancoBot(commands.Bot):
                     await self.load_cog(cog_name)
 
 
-class ApmCommandTree(discord.app_commands.CommandTree):
+class InstrumentedCommandTree(discord.app_commands.CommandTree):
+    """Wraps application command dispatch in an APM transaction.
+
+    This is the only place that sees an app command invocation start and
+    finish. The tree swallows command errors internally (it routes them to
+    on_error rather than re-raising), so the error handler parks the exception
+    in ``interaction.extras`` and it is picked back up here to classify the
+    outcome. Without that, a command blocked by a permission check would be
+    indistinguishable from one that crashed.
+    """
+
     async def _call(self, interaction: discord.Interaction) -> None:
         if (
             apm_client is None
@@ -573,21 +589,27 @@ class ApmCommandTree(discord.app_commands.CommandTree):
         ):
             await super()._call(interaction)
             return
-        command_name = (
-            interaction.command.qualified_name if interaction.command else "unknown"
+
+        command = interaction.command
+        command_name = command.qualified_name if command else "unknown"
+        apm_client.begin_transaction(apm.TX_APP_COMMAND)
+        apm.label(
+            command=command_name,
+            cog=apm.app_command_cog(command),
+            guild_id=interaction.guild_id,
         )
-        apm_client.begin_transaction("app_command")
-        elasticapm.label(command=command_name)
-        if interaction.guild_id:
-            elasticapm.label(guild_id=str(interaction.guild_id))
         try:
             await super()._call(interaction)
         finally:
-            result = (
-                "failure"
-                if getattr(interaction, "command_failed", False)
-                else "success"
-            )
+            # Runs for every app command, so a fault in the bookkeeping must
+            # not surface as a failed command or mask the real error.
+            result = apm.RESULT_SUCCESS
+            try:
+                error = getattr(interaction, "extras", {}).get(apm.ERROR_EXTRA)
+                result = apm.result_for(error)
+                apm.label(error_type=apm.error_type_of(error))
+            except Exception:
+                logger.debug("Failed to classify app command result", exc_info=True)
             apm_client.end_transaction(command_name, result)
 
 
@@ -598,7 +620,7 @@ bot = LancoBot(
     intents=intents,
     owner_id=owner_id,
     max_messages=message_cache_size,
-    tree_cls=ApmCommandTree,
+    tree_cls=InstrumentedCommandTree,
 )
 
 
@@ -614,17 +636,22 @@ def _apm_user(obj) -> Optional[dict]:
 async def _begin_command_transaction(ctx: commands.Context):
     if apm_client is None:
         return
-    apm_client.begin_transaction("command")
-    elasticapm.label(command=str(ctx.command))
-    if ctx.guild:
-        elasticapm.label(guild_id=str(ctx.guild.id))
+    # Only reached once every check has passed. A rejected command never gets
+    # here, which is why the listener in utils.apm reports that case instead.
+    apm.mark_invoked(ctx)
+    apm_client.begin_transaction(apm.TX_COMMAND)
+    apm.label(
+        command=str(ctx.command),
+        cog=ctx.cog.qualified_name if ctx.cog else None,
+        guild_id=ctx.guild.id if ctx.guild else None,
+    )
 
 
 @bot.after_invoke
 async def _end_command_transaction(ctx: commands.Context):
     if apm_client is None:
         return
-    result = "failure" if ctx.command_failed else "success"
+    result = apm.RESULT_FAILURE if ctx.command_failed else apm.RESULT_SUCCESS
     apm_client.end_transaction(str(ctx.command) if ctx.command else "unknown", result)
 
 
@@ -650,6 +677,10 @@ async def on_command_error(ctx: commands.Context, error: Exception):
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):
+    # The tree awaits this inside _call before unwinding, so parking the error
+    # here is how its finally block learns what went wrong. Set even for the
+    # check failures ignored below, to tell "blocked" apart from "broken".
+    interaction.extras[apm.ERROR_EXTRA] = error
     if isinstance(error, discord.app_commands.CheckFailure):
         return
     original = getattr(error, "original", error)
@@ -823,6 +854,8 @@ async def main():
     from utils.db_backup import DatabaseBackup
 
     init_apm()
+    # Reports commands rejected before invocation, which open no transaction.
+    apm.install(bot)
     database.create_tables([GuildConfig])
     for config in GuildConfig.select():
         if config.prefix:
