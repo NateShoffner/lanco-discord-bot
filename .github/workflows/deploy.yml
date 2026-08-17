@@ -85,13 +85,14 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          script_stop: true
           command_timeout: 5m
           script: |
-            # -e because script_stop alone did not abort this script: a
-            # docker-compose config error let `down` and `up` both fail, left
-            # the previous container running, and the check below then passed
-            # on it, so a deploy that deployed nothing reported success.
+            # -e is what actually aborts this script. `script_stop: true` was
+            # set here for years but is not an input this action accepts, so it
+            # was ignored: a docker-compose config error let `down` and `up`
+            # both fail, left the previous container running, and the check
+            # below passed on it. The deploy reported success having deployed
+            # nothing.
             set -e
             set +x
             cd ~/lanco-discord-bot
