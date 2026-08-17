@@ -88,6 +88,11 @@ jobs:
           script_stop: true
           command_timeout: 5m
           script: |
+            # -e because script_stop alone did not abort this script: a
+            # docker-compose config error let `down` and `up` both fail, left
+            # the previous container running, and the check below then passed
+            # on it, so a deploy that deployed nothing reported success.
+            set -e
             set +x
             cd ~/lanco-discord-bot
             # Pinned, not inherited: compose reads BOT_ENV/CONTAINER_NAME from
@@ -96,14 +101,22 @@ jobs:
             # cannot redirect an automated production deploy.
             export BOT_ENV=prod
             export CONTAINER_NAME=lanco-bot
+            IMAGE=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             git pull origin master
-            docker pull ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
+            docker pull "$IMAGE"
             docker-compose -p lanco-discord-bot down
             docker-compose -p lanco-discord-bot up -d
             docker image prune -f
             sleep 5
-            if [ -z "$(docker ps -q --filter name=^lanco-bot$ --filter status=running)" ]; then
-              echo "lanco-bot container is not running after deploy"
+            # Compare the running image to the one just pulled. Checking only
+            # that a container named lanco-bot is up passes when the deploy did
+            # nothing at all and the previous container is simply still there.
+            WANT=$(docker image inspect --format '{{.Id}}' "$IMAGE")
+            GOT=$(docker inspect --format '{{.Image}}' lanco-bot 2>/dev/null || echo none)
+            if [ "$WANT" != "$GOT" ]; then
+              echo "lanco-bot is not running the image that was just deployed"
+              echo "  expected $WANT"
+              echo "  running  $GOT"
               docker logs --tail 50 lanco-bot || true
               exit 1
             fi

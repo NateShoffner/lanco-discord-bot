@@ -145,13 +145,13 @@ Instrumentation is central, so a new cog is covered the day it lands. Work with 
 
 Each document carries `service.name`, `service.version`, `service.environment`, `event.dataset`, and the `data_stream.*` trio, plus `trace.id` and `transaction.id` whenever a transaction was in flight. That last pair is the point: it lets Kibana jump from a log line to the command that produced it, and puts the surrounding lines on the APM service's Logs tab. `app/utils/logs.py` documents why those fields are merged the way they are; getting it wrong drops log lines silently.
 
-Shipping is a Filebeat sidecar in `docker-compose.yml`, behind a `logging` profile so it never starts for anyone who has not configured Elasticsearch:
+Shipping is a Filebeat sidecar in `docker-compose.logging.yml`, a separate override file so it never starts for anyone who has not configured Elasticsearch:
 
 ```bash
-docker-compose --profile logging up -d
+docker-compose -f docker-compose.yml -f docker-compose.logging.yml up -d
 ```
 
-It needs `ECS_LOG_FILE` set so there is something to tail, plus `ELASTICSEARCH_HOST` and `ELASTICSEARCH_API_KEY` in the same `.env.<env>` file. Those are Elasticsearch credentials, not the APM ones: different endpoint, different key, and the key is Filebeat's unencoded `id:key` form rather than Kibana's base64 blob. The automated deploy passes no profile, so to keep the sidecar running there put `COMPOSE_PROFILES=logging` in the `.env` beside `docker-compose.yml`; compose reads that itself and the workflow needs no change.
+It needs `ECS_LOG_FILE` set so there is something to tail, plus `ELASTICSEARCH_HOST` and `ELASTICSEARCH_API_KEY` in the same `.env.<env>` file. Those are Elasticsearch credentials, not the APM ones: different endpoint, different key, and the key is Filebeat's unencoded `id:key` form rather than Kibana's base64 blob. To keep the sidecar running through the automated deploy, put `COMPOSE_FILE=docker-compose.yml:docker-compose.logging.yml` in the `.env` beside `docker-compose.yml`; compose reads that itself and the workflow needs no change. An override file rather than a `profiles:` entry because `profiles` requires docker-compose 1.28+ and is a hard config error on anything older, which would break the deploy.
 
 Filebeat parses nothing and routes purely on the `data_stream.*` fields, so the log shape is decided in one place and dev logs cannot reach the prod data stream: `logs-lanco_bot.log-dev` and `logs-lanco_bot.log-prod`. Tailing a file rather than posting from inside the bot means logs written just before a crash still get shipped.
 
