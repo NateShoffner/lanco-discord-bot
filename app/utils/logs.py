@@ -6,12 +6,10 @@ Elasticsearch. Two files rather than one because the formats serve different
 readers, and turning ``logfile.log`` into JSON would make `docker logs` and a
 tail over SSH unreadable.
 
-``ecs_logging`` picks up ``trace.id`` and ``transaction.id`` from the APM agent
-by itself whenever a transaction is in flight, which is what lets Kibana jump
-from a log line to the command that produced it. It only does so *during* a
-transaction, so the service fields are supplied statically as well: without
-them a line logged at startup or from a background task belongs to no service
-at all.
+``ecs_logging`` adds ``trace.id`` and ``transaction.id`` from the APM agent by
+itself, which is what lets Kibana jump from a log line to the command that
+produced it. It only does so during a transaction, so the service and routing
+fields are supplied here too.
 """
 
 from __future__ import annotations
@@ -33,22 +31,16 @@ DEFAULT_SERVICE_NAME = "lanco-bot"
 
 
 def rotate_by_copy() -> bool:
-    """Whether rotation has to copy-and-truncate instead of renaming.
-
-    Only on Windows, which refuses to rename a file another handle still has
-    open. Everywhere else renaming is both possible and better.
-    """
+    """Windows refuses to rename a file another handle still has open."""
     return os.name == "nt"
 
 
 class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
-    """Daily rotation that works on Windows without hurting log shipping.
+    """Daily rotation that survives Windows without hurting log shipping.
 
-    Renaming keeps the inode, so a shipper mid-file finishes reading the
-    rotated copy and then picks up the new one. Copy-and-truncate does not:
-    anything the shipper had not yet read when the truncate lands is gone.
-    That workaround is therefore confined to Windows, which is dev only; the
-    container rotates by rename like everything else.
+    Renaming keeps the inode, so a shipper mid-file finishes the rotated copy
+    and then picks up the new one; copy-and-truncate loses whatever it had not
+    reached. The workaround is confined to Windows, which is dev only.
     """
 
     def doRollover(self):
@@ -122,21 +114,16 @@ def namespace_for(environment: str) -> str:
 def service_fields() -> dict:
     """Fields tying every log line to this service, deployment, and build.
 
-    ``event.dataset`` is what the APM UI's Logs tab correlates on, so a line
-    without it will not surface next to the service it came from.
+    ``event.dataset`` is what the APM UI's Logs tab correlates on. The
+    ``data_stream.*`` trio is what the shipper routes on, keeping dev and prod
+    logs apart the way the APM environment already separates their traces. All
+    three go out, not just the namespace: they are ``constant_keyword``, and
+    one no document ever supplies stays valueless, so queries filtering on it
+    match nothing.
 
-    The ``data_stream.*`` trio is what the shipper routes on, keeping dev and
-    prod logs in separate data streams the way the APM environment already
-    separates their traces. All three are sent, not just the namespace: they
-    are ``constant_keyword`` in the index template, and one that no document
-    ever supplies stays valueless, so every query filtering on it silently
-    matches nothing.
-
-    The namespace is derived rather than reusing ``service.environment``
-    directly, because that field has to match what the APM agent reports
-    verbatim for correlation to work, and the namespace has to survive being a
-    hyphen-delimited path segment. For "dev" and "prod" they are the same
-    string; for "pre-prod" they are not.
+    The namespace is derived rather than reusing ``service.environment``,
+    which has to match the APM agent verbatim for correlation to work while
+    the namespace has to survive being a hyphen-delimited path segment.
     """
     name = os.getenv("ELASTIC_APM_SERVICE_NAME", DEFAULT_SERVICE_NAME)
     environment = env.current()

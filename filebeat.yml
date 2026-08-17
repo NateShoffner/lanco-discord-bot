@@ -1,9 +1,8 @@
 # Filebeat config for the logging sidecar in docker-compose.yml.
 #
-# The bot already writes ECS, so Filebeat's only job is to read the file and
-# forward the documents intact. It parses nothing and enriches nothing beyond
-# host metadata: any reformatting here would be a second place where the log
-# shape is decided, and the two would drift.
+# The bot already writes ECS, so Filebeat forwards the documents intact and
+# adds nothing but host metadata. Reformatting here would be a second place the
+# log shape is decided, and the two would drift.
 #
 # Enable with:  docker-compose --profile logging up -d
 
@@ -13,11 +12,9 @@ filebeat.inputs:
     paths:
       - /logs/*.ecs.json
     parsers:
-      # One ECS document per line. target:"" merges it into the root of the
-      # event rather than nesting it, overwrite_keys lets the bot's own
-      # @timestamp and log.level win over Filebeat's, and expand_keys turns
-      # the dotted keys ecs_logging emits (log.level, ecs.version) into the
-      # nested objects Elasticsearch expects.
+      # One ECS document per line: target:"" merges it into the event root,
+      # overwrite_keys lets the bot's @timestamp and log.level beat Filebeat's,
+      # and expand_keys nests the dotted keys ecs_logging emits.
       - ndjson:
           target: ""
           overwrite_keys: true
@@ -25,23 +22,20 @@ filebeat.inputs:
           add_error_key: true
 
 processors:
-  # Which host produced the line. Useful the moment there is more than one.
+  # Which host produced the line, once there is more than one.
   - add_host_metadata:
       netinfo.enabled: false
 
 output.elasticsearch:
   hosts: ["${ELASTICSEARCH_HOST}"]
   api_key: "${ELASTICSEARCH_API_KEY}"
-  # Routed entirely by the data_stream fields the bot stamped on each document,
-  # so one shipper config serves every environment and dev logs can never land
-  # in the prod data stream. The fallbacks only apply to a line written before
-  # those fields existed. Each segment is pre-sanitised by the bot; a hyphen in
-  # any of them would split the data stream name into the wrong pieces.
+  # Routed by the data_stream fields the bot stamps, so one config serves every
+  # environment and dev logs can never reach the prod data stream. The segments
+  # are pre-sanitised there; the fallbacks cover pre-existing lines.
   index: "%{[data_stream.type]:logs}-%{[data_stream.dataset]:lancobot.log}-%{[data_stream.namespace]:default}"
 
-# Elasticsearch ships a built-in template and lifecycle policy for logs-*-*,
-# so Filebeat should not install its own and must not manage ILM for an index
-# it does not own.
+# Elasticsearch's built-in logs-*-* template and lifecycle policy already cover
+# these indices, so Filebeat must not install or manage its own.
 setup.template.enabled: false
 setup.ilm.enabled: false
 

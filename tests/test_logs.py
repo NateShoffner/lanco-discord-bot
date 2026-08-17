@@ -98,17 +98,6 @@ def test_routing_fields_are_set(ecs_log):
     }
 
 
-def test_namespace_follows_the_environment(ecs_log, monkeypatch):
-    """dev and prod logs must land in separate data streams, the way the APM
-    environment already separates their traces."""
-    log, read = ecs_log
-    log.info("prod line")
-    assert read()[0]["data_stream"]["namespace"] == "prod"
-
-    monkeypatch.setenv("BOT_ENV", "dev")
-    assert logs.service_fields()["data_stream.namespace"] == "dev"
-
-
 @pytest.fixture
 def apm_client():
     """A client that records nothing and talks to no server."""
@@ -251,6 +240,8 @@ def test_data_stream_segments_are_hyphen_free():
 
 
 def test_service_fields_follow_the_environment(monkeypatch):
+    """dev and prod must land in separate data streams, the way the APM
+    environment already separates their traces."""
     monkeypatch.setenv("BOT_ENV", "dev")
     monkeypatch.setenv("ELASTIC_APM_SERVICE_NAME", "lanco-bot-dev")
 
