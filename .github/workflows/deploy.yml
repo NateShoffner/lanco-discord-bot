@@ -12,7 +12,9 @@ on:
       - "pyproject.toml"
       - "poetry.lock"
       - "Dockerfile"
-      - "docker-compose.yml"
+      # Glob, so a new compose override is covered the day it is added.
+      - "docker-compose*.yml"
+      - "filebeat.yml"
       - ".github/workflows/deploy.yml"
 
 env:
