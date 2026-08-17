@@ -79,13 +79,27 @@ def test_service_fields_are_present_without_a_transaction(ecs_log):
     assert service["version"]  # version+commit of the running build
 
 
-def test_event_dataset_is_set(ecs_log):
-    """What the APM UI's Logs tab correlates on."""
+def test_routing_fields_are_set(ecs_log):
+    """event.dataset is what the APM UI's Logs tab correlates on; the pair of
+    them is what the shipper routes to logs-<dataset>-<namespace>."""
     log, read = ecs_log
     log.info("anything")
 
-    # Hyphen normalized: it would otherwise split the data stream name.
-    assert read()[0]["event"]["dataset"] == "lanco_bot.log"
+    doc = read()[0]
+    # Hyphens normalized: they would otherwise split the data stream name.
+    assert doc["event"]["dataset"] == "lanco_bot.log"
+    assert doc["data_stream"]["namespace"] == "prod"
+
+
+def test_namespace_follows_the_environment(ecs_log, monkeypatch):
+    """dev and prod logs must land in separate data streams, the way the APM
+    environment already separates their traces."""
+    log, read = ecs_log
+    log.info("prod line")
+    assert read()[0]["data_stream"]["namespace"] == "prod"
+
+    monkeypatch.setenv("BOT_ENV", "dev")
+    assert logs.service_fields()["data_stream.namespace"] == "dev"
 
 
 @pytest.fixture
@@ -183,12 +197,16 @@ def test_exceptions_carry_type_and_stack_trace(ecs_log):
     assert "raise ValueError" in error["stack_trace"]
 
 
-def test_dataset_names_are_data_stream_safe():
-    """`logs-<dataset>-<namespace>` splits on hyphens, so the dataset cannot
+def test_data_stream_segments_are_hyphen_free():
+    """`logs-<dataset>-<namespace>` splits on hyphens, so neither segment may
     contain one or the document routes somewhere unintended."""
     assert logs.dataset_for("lanco-bot") == "lanco_bot.log"
     assert logs.dataset_for("Lanco Bot!") == "lanco_bot.log"
     assert logs.dataset_for("") == "bot.log"
+
+    assert logs.namespace_for("prod") == "prod"
+    assert logs.namespace_for("pre-prod") == "pre_prod"
+    assert logs.namespace_for("") == "default"
 
 
 def test_service_fields_follow_the_environment(monkeypatch):
@@ -200,3 +218,4 @@ def test_service_fields_follow_the_environment(monkeypatch):
     assert fields["service.environment"] == "dev"
     assert fields["service.name"] == "lanco-bot-dev"
     assert fields["event.dataset"] == "lanco_bot_dev.log"
+    assert fields["data_stream.namespace"] == "dev"

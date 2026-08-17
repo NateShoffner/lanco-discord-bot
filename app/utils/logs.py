@@ -78,15 +78,24 @@ class ServiceFieldFormatter(ecs_logging.StdlibFormatter):
         return doc
 
 
-def dataset_for(service_name: str) -> str:
-    """The ``event.dataset`` for a service name.
+def _slug(value: str, fallback: str) -> str:
+    """A single segment of a data stream name.
 
-    Hyphens become underscores: the shipper routes to a ``logs-<dataset>-
-    <namespace>`` data stream, and a hyphen inside the dataset would be read as
-    a field separator, so "lanco-bot" would land somewhere unintended.
+    ``logs-<dataset>-<namespace>`` is split on hyphens, so neither segment may
+    contain one or the name parses into the wrong pieces.
     """
-    cleaned = re.sub(r"[^a-z0-9_]+", "_", service_name.lower()).strip("_")
-    return f"{cleaned or 'bot'}.log"
+    cleaned = re.sub(r"[^a-z0-9_]+", "_", value.lower()).strip("_")
+    return cleaned or fallback
+
+
+def dataset_for(service_name: str) -> str:
+    """The ``event.dataset`` for a service name."""
+    return f"{_slug(service_name, 'bot')}.log"
+
+
+def namespace_for(environment: str) -> str:
+    """The data stream namespace for an environment."""
+    return _slug(environment, "default")
 
 
 def service_fields() -> dict:
@@ -94,13 +103,23 @@ def service_fields() -> dict:
 
     ``event.dataset`` is what the APM UI's Logs tab correlates on, so a line
     without it will not surface next to the service it came from.
+
+    ``data_stream.namespace`` is what the shipper routes on, keeping dev and
+    prod logs in separate data streams the way the APM environment already
+    separates their traces. It is derived rather than reusing
+    ``service.environment`` directly, because that field has to match what the
+    APM agent reports verbatim for correlation to work, and the namespace has
+    to survive being a hyphen-delimited path segment. For "dev" and "prod"
+    they are the same string; for "pre-prod" they are not.
     """
     name = os.getenv("ELASTIC_APM_SERVICE_NAME", DEFAULT_SERVICE_NAME)
+    environment = env.current()
     return {
         "service.name": name,
         "service.version": get_service_version(),
-        "service.environment": env.current(),
+        "service.environment": environment,
         "event.dataset": dataset_for(name),
+        "data_stream.namespace": namespace_for(environment),
     }
 
 

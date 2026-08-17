@@ -32,9 +32,12 @@ processors:
 output.elasticsearch:
   hosts: ["${ELASTICSEARCH_HOST}"]
   api_key: "${ELASTICSEARCH_API_KEY}"
-  # Route by the dataset the bot stamped on each document. The fallback only
-  # applies to a line written before the service fields existed.
-  index: "logs-%{[event.dataset]:lancobot.log}-default"
+  # Routed entirely by fields the bot stamped on each document, so one shipper
+  # config serves every environment and dev logs can never land in the prod
+  # data stream. The fallbacks only apply to a line written before those
+  # fields existed. Both segments are pre-sanitised by the bot; a hyphen in
+  # either would split the data stream name into the wrong pieces.
+  index: "logs-%{[event.dataset]:lancobot.log}-%{[data_stream.namespace]:default}"
 
 # Elasticsearch ships a built-in template and lifecycle policy for logs-*-*,
 # so Filebeat should not install its own and must not manage ILM for an index
