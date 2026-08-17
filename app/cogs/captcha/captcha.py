@@ -36,7 +36,7 @@ class CaptchaCog(
     TIME_BETWEEN_ROUNDS = 3
 
     captcha_group = app_commands.Group(
-        name="captcha", description="Captcha game commands"
+        name="captcha", description="Captcha game commands", guild_only=True
     )
 
     MODES: list[CaptchaMode] = [

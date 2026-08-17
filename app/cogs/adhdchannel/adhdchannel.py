@@ -26,7 +26,9 @@ class ADHDChannel(
 ):
     adhd_channels = []  # TODO make this persistent
 
-    g = app_commands.Group(name="adhd", description="ADHD Channel commands")
+    g = app_commands.Group(
+        name="adhd", description="ADHD Channel commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

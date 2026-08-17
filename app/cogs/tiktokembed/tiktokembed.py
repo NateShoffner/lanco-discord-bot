@@ -12,7 +12,9 @@ from .models import TikTokEmbedConfig
 class TikTokEmbed(
     EmbedFixCog, name="TikTok Embed Fix", description="Fix TikTok embeds"
 ):
-    g = app_commands.Group(name="tiktokembed", description="TikTokEmbed commands")
+    g = app_commands.Group(
+        name="tiktokembed", description="TikTokEmbed commands", guild_only=True
+    )
 
     tiktok_pattern = re.compile(
         r"https?://(?:www\.)?tiktok\.com/(?!shop(?:/|$)|product(?:/|$))\S+"

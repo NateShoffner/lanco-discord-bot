@@ -12,7 +12,9 @@ from .models import TwitterEmbedConfig
 class TwitterEmbed(
     EmbedFixCog, name="Twitter/X Embed Fix", description="Fix Twitter/X embeds"
 ):
-    g = app_commands.Group(name="twitterembed", description="TwitterEmbed commands")
+    g = app_commands.Group(
+        name="twitterembed", description="TwitterEmbed commands", guild_only=True
+    )
 
     def __init__(self, bot: LancoBot):
         twitter_pattern = re.compile(

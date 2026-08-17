@@ -32,7 +32,11 @@ class Story:
 
 
 class OneWordStory(LancoCog, name="OneWordStory", description="One Word Story game"):
-    story_group = app_commands.Group(name="story", description="One Word Story")
+    # guild_only so a story cannot be started in a DM, which the listener below
+    # ignores anyway
+    story_group = app_commands.Group(
+        name="story", description="One Word Story", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -40,7 +44,7 @@ class OneWordStory(LancoCog, name="OneWordStory", description="One Word Story ga
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         story = self.get_story(message.channel.id)

@@ -15,7 +15,9 @@ class AutoReact(
     name="AutoReact",
     description="Auto-react to messages with emojis based on phrases or patterns",
 ):
-    g = app_commands.Group(name="autoreact", description="AutoReact commands")
+    g = app_commands.Group(
+        name="autoreact", description="AutoReact commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -93,7 +95,7 @@ class AutoReact(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         config = AutoReactConfig.get_or_none(guild_id=message.guild.id)

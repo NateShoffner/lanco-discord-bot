@@ -15,7 +15,9 @@ from .models import FileFixerConfig
 
 
 class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
-    g = app_commands.Group(name="filefixer", description="FileFixer commands")
+    g = app_commands.Group(
+        name="filefixer", description="FileFixer commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -44,7 +46,7 @@ class FileFixer(LancoCog, name="FileFixer", description="Attempt to fix files"):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         if message.attachments:

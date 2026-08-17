@@ -15,7 +15,9 @@ class AutoResponse(
     name="AutoResponse",
     description="Auto-reply to messages matching configured phrases or patterns",
 ):
-    g = app_commands.Group(name="autoresponse", description="AutoResponse commands")
+    g = app_commands.Group(
+        name="autoresponse", description="AutoResponse commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -89,7 +91,7 @@ class AutoResponse(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         config = AutoResponseConfig.get_or_none(guild_id=message.guild.id)

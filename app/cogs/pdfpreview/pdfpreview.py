@@ -16,7 +16,9 @@ class PDFPreview(
     name="PDFPreview",
     description="Generates a preview of a PDF file",
 ):
-    pdf_group = app_commands.Group(name="pdf", description="PDF Preview Commands")
+    pdf_group = app_commands.Group(
+        name="pdf", description="PDF Preview Commands", guild_only=True
+    )
 
     # Discord renders at most 4 images in a single multi-embed gallery, so
     # there's no point generating more page previews than that.

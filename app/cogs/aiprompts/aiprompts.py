@@ -68,7 +68,9 @@ class OpenAIPrompts(
 ):
     MAX_CONTEXT_QUESTIONS = 25
 
-    g = app_commands.Group(name="aiprompt", description="AI prompt commands")
+    g = app_commands.Group(
+        name="aiprompt", description="AI prompt commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -158,10 +160,7 @@ class OpenAIPrompts(
     @commands.Cog.listener()
     @track_message_ids()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        if isinstance(message.channel, discord.DMChannel):
+        if message.author.bot or message.guild is None:
             return
 
         prefix = self.bot.get_guild_prefix(message.guild)

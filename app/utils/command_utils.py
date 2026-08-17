@@ -16,6 +16,13 @@ def is_bot_owner():
 
 def is_bot_owner_or_admin():
     def predicate(interaction: discord.Interaction):
+        # Guild admin is meaningless outside a guild, and in a DM `guild` is
+        # None while `user` is a User with no guild_permissions, so both checks
+        # below would raise. Returning False makes this an ordinary
+        # CheckFailure, which the error handlers already ignore. The owner is
+        # refused too: every command using this check acts on a guild.
+        if interaction.guild is None:
+            return False
         if is_bot_owner_or_team_member(interaction):
             return True
         if interaction.guild.owner_id == interaction.user.id:

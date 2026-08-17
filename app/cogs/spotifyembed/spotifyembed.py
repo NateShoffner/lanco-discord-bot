@@ -17,7 +17,7 @@ class SpotifyEmbed(
     LancoCog, name="Spotify Embed Fix", description="Fix Spotify embeds"
 ):
     embed_group = app_commands.Group(
-        name="spotifyembed", description="SpotifyEmbed commands"
+        name="spotifyembed", description="SpotifyEmbed commands", guild_only=True
     )
 
     spotify_url_pattern = re.compile(
@@ -47,7 +47,7 @@ class SpotifyEmbed(
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         match = self.spotify_url_pattern.search(message.content)

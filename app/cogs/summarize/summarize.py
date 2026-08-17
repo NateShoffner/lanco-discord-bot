@@ -99,6 +99,7 @@ class Summarize(
     @commands.command(
         name="topic", description="Will say what the current channel is talking about"
     )
+    @commands.guild_only()
     @command_channel_lock()
     @track_message_ids()
     async def topic(self, ctx: commands.Context):

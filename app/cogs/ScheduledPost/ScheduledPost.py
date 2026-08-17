@@ -85,7 +85,7 @@ class ScheduledPost(
     # --- Commands ---
 
     scheduled = app_commands.Group(
-        name="scheduledpost", description="Manage scheduled posts"
+        name="scheduledpost", description="Manage scheduled posts", guild_only=True
     )
 
     @scheduled.command(name="add", description="Schedule a new post")

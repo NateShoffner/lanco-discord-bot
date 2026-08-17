@@ -6,7 +6,9 @@ from utils.command_utils import is_bot_owner_or_admin
 
 
 class Admin(LancoCog, name="Admin", description="Administrative commands"):
-    g = app_commands.Group(name="admin", description="Administrative commands")
+    g = app_commands.Group(
+        name="admin", description="Administrative commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

@@ -46,7 +46,9 @@ class BirthdayModal(discord.ui.Modal, title="Set your birthday"):
 
 
 class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birthday"):
-    bday_group = app_commands.Group(name="bday", description="Birthday commands")
+    bday_group = app_commands.Group(
+        name="bday", description="Birthday commands", guild_only=True
+    )
 
     est = datetime.timezone(datetime.timedelta(hours=-5))
     daily_announcement_time = (datetime.time(hour=7, tzinfo=est),)

@@ -50,7 +50,9 @@ def _normalize_domain(raw: str) -> str:
 
 
 class PaywallBypass(EmbedFixCog, name="Paywall Bypass", description="Bypass paywalls"):
-    g = app_commands.Group(name="paywallbypass", description="PaywallBypass commands")
+    g = app_commands.Group(
+        name="paywallbypass", description="PaywallBypass commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot, "Paywall Bypass", _HANDLERS, PaywallBypassConfig)

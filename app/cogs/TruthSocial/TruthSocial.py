@@ -28,7 +28,7 @@ class TruthSocial(
     description="TruthSocial embed support",
 ):
     truth_social_group = app_commands.Group(
-        name="truthsocial", description="TruthSocial commands"
+        name="truthsocial", description="TruthSocial commands", guild_only=True
     )
 
     status_pattern = re.compile(
@@ -58,7 +58,7 @@ class TruthSocial(
     @track_message_ids()
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> discord.Message | None:
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
 
         config = TruthSocialEmbedConfig.get_or_none(guild_id=message.guild.id)

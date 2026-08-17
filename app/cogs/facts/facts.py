@@ -48,7 +48,9 @@ class Facts(
     name="Facts",
     description="Community-submitted facts with random retrieval",
 ):
-    fact_group = app_commands.Group(name="fact", description="Fact commands")
+    fact_group = app_commands.Group(
+        name="fact", description="Fact commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -82,6 +84,7 @@ class Facts(
         await interaction.response.send_modal(modal)
 
     @commands.command(name="fact", description="Get a random fact")
+    @commands.guild_only()
     async def fact(self, ctx: commands.Context):
         fact = self.get_random_fact(ctx.guild.id)
 

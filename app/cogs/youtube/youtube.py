@@ -26,7 +26,9 @@ class Youtube(
     name="Youtube",
     description="Subscribe to YouTube channels and post new video notifications",
 ):
-    g = app_commands.Group(name="youtube", description="Youtube commands")
+    g = app_commands.Group(
+        name="youtube", description="Youtube commands", guild_only=True
+    )
 
     UPDATE_INTERVAL = 10 * 60  # 10 minutes
 

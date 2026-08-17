@@ -177,6 +177,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     commands_group = app_commands.Group(
         name="commands",
         description="Custom commands commands so you can command commands with commands",
+        guild_only=True,
     )
 
     def __init__(self, bot: commands.Bot):
@@ -308,10 +309,7 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
     async def on_message(self, message: discord.Message) -> discord.Message:
         # TODO commands should perhaps be registered within the bot, but this works for now
 
-        if message.author.bot:
-            return None
-
-        if isinstance(message.channel, discord.DMChannel):
+        if message.author.bot or message.guild is None:
             return None
 
         prefix = self.bot.get_guild_prefix(message.guild)

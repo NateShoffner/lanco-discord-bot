@@ -20,7 +20,9 @@ class Verification(
     name="Verification",
     description="Community-voted new member verification system",
 ):
-    g = app_commands.Group(name="verification", description="Verification commands")
+    g = app_commands.Group(
+        name="verification", description="Verification commands", guild_only=True
+    )
 
     APPROVAL_EMOJI = "✅"
     DENIAL_EMOJI = "❌"

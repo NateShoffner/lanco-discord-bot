@@ -12,7 +12,9 @@ class ReactTrack(
     name="ReactTrack",
     description="Track reactions",
 ):
-    g = app_commands.Group(name="reacttrack", description="ReactTrack commands")
+    g = app_commands.Group(
+        name="reacttrack", description="ReactTrack commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

@@ -12,7 +12,9 @@ class Fishbowl(
     name="Fishbowl",
     description="Auto-delete messages in designated channels after a time delay",
 ):
-    g = app_commands.Group(name="fishbowl", description="Fishbowl commands")
+    g = app_commands.Group(
+        name="fishbowl", description="Fishbowl commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)

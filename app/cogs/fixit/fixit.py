@@ -13,7 +13,7 @@ from .models import FixItConfig
 
 
 class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
-    g = app_commands.Group(name="fixit", description="Fix it")
+    g = app_commands.Group(name="fixit", description="Fix it", guild_only=True)
 
     UPDATE_INTERVAL = 30  # seconds
 

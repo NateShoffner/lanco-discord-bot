@@ -23,7 +23,9 @@ class WebPreview(
     name="WebPreview",
     description="Generate rich previews for URLs posted in messages",
 ):
-    g = app_commands.Group(name="webpreview", description="Web preview commands")
+    g = app_commands.Group(
+        name="webpreview", description="Web preview commands", guild_only=True
+    )
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -34,7 +36,7 @@ class WebPreview(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or message.guild is None:
             return
         if message.content.startswith(self.bot.get_guild_prefix(message.guild)):
             return
