@@ -1,0 +1,41 @@
+# Filebeat sidecar, shipping the bot's ECS log file into Elasticsearch.
+#
+# A separate file rather than a `profiles:` entry in docker-compose.yml, which
+# needs docker-compose 1.28+ and is a config error on anything older. Overrides
+# work on every version, and keep the deploy path free of anything the host's
+# compose might reject.
+#
+# Enable per command:
+#
+#   docker-compose -f docker-compose.yml -f docker-compose.logging.yml up -d
+#
+# Or permanently, including for the automated deploy, by putting this in the
+# .env beside docker-compose.yml, which compose reads by itself:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.logging.yml
+#
+# Needs ECS_LOG_FILE, ELASTICSEARCH_HOST and ELASTICSEARCH_API_KEY in the
+# .env.<env> file. Out-of-process on purpose: tailing a file means logs the bot
+# wrote before it died still get shipped, which is when they are worth having.
+version: "2.4"
+
+services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:${FILEBEAT_VERSION:-9.4.4}
+    container_name: ${CONTAINER_NAME:-lanco-bot}-filebeat
+    restart: unless-stopped
+    env_file: .env.${BOT_ENV:-prod}
+    # root so it can write its read-offset registry to the named volume below,
+    # and --strict.perms=false because a bind-mounted config keeps the host's
+    # ownership, which Filebeat's default permission check rejects.
+    user: root
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs:/logs:ro
+      # Survives restarts so a redeploy does not re-ship the whole file.
+      - filebeat-data:/usr/share/filebeat/data
+    mem_limit: 256m
+
+volumes:
+  filebeat-data:

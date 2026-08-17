@@ -4,7 +4,7 @@
 # adds nothing but host metadata. Reformatting here would be a second place the
 # log shape is decided, and the two would drift.
 #
-# Enable with:  docker-compose --profile logging up -d
+# Enable with:  docker-compose -f docker-compose.yml -f docker-compose.logging.yml up -d
 
 filebeat.inputs:
   - type: filestream
