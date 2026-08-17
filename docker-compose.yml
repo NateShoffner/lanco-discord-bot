@@ -42,3 +42,36 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+
+  # Ships the bot's ECS log file into Elasticsearch. Opt-in, because it is
+  # useless without ELASTICSEARCH_HOST and ELASTICSEARCH_API_KEY and would
+  # otherwise restart-loop for anyone who has not set them:
+  #
+  #   docker-compose --profile logging up -d
+  #
+  # The automated deploy passes no profile, so to keep it running there put
+  # COMPOSE_PROFILES=logging in the .env beside this file; compose reads that
+  # on its own and no workflow change is needed.
+  #
+  # Out-of-process on purpose. Tailing a file means logs the bot wrote before
+  # it died still get shipped, which is exactly when they are worth having.
+  filebeat:
+    profiles: ["logging"]
+    image: docker.elastic.co/beats/filebeat:${FILEBEAT_VERSION:-8.18.0}
+    container_name: ${CONTAINER_NAME:-lanco-bot}-filebeat
+    restart: unless-stopped
+    env_file: .env.${BOT_ENV:-prod}
+    # root so it can write its read-offset registry to the named volume below,
+    # and --strict.perms=false because a bind-mounted config keeps the host's
+    # ownership, which Filebeat's default permission check rejects.
+    user: root
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs:/logs:ro
+      # Survives restarts so a redeploy does not re-ship the whole file.
+      - filebeat-data:/usr/share/filebeat/data
+    mem_limit: 256m
+
+volumes:
+  filebeat-data:

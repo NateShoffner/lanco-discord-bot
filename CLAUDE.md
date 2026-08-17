@@ -141,6 +141,20 @@ Instrumentation is central, so a new cog is covered the day it lands. Work with 
 
 **Inventory.** APM only ever sees what *ran*, so it cannot distinguish a command nobody has invoked from one that does not exist. Once per process, `on_ready` emits the registered commands and cogs as one span each under `transaction.type: inventory`. In Kibana the registered set is those spans and the used set is every other transaction type; what appears in the first and not the second is the retirement shortlist.
 
+**Logs.** `ECS_LOG_FILE` turns on a second log file written as ECS JSON, one document per line, for a shipper to tail into Elasticsearch. The console and `logs/logfile.log` are unchanged, because turning those into JSON would make `docker logs` and a tail over SSH unreadable. Off unless the variable names a path.
+
+Each document carries `service.name`, `service.version`, `service.environment`, and `event.dataset`, plus `trace.id` and `transaction.id` whenever a transaction was in flight. That last pair is the point: it lets Kibana jump from a log line to the command that produced it, and puts the surrounding log lines on the APM service's Logs tab.
+
+`ecs_logging` supplies the trace fields itself from the agent, but only during a transaction, so `app/utils/logs.py` fills the service fields in afterwards with setdefault semantics. Passing them through the formatter's own `extra` looks equivalent and is not: the merge is strict, two values for one key raise inside `format()`, the handler swallows it, and the line is dropped. That empties the log exactly when APM is working.
+
+Shipping is a Filebeat sidecar in `docker-compose.yml`, behind a `logging` profile so it never starts for anyone who has not configured Elasticsearch:
+
+```bash
+docker-compose --profile logging up -d
+```
+
+It needs `ELASTICSEARCH_HOST` and `ELASTICSEARCH_API_KEY` in the same `.env.<env>` file as the rest of the config, and `ECS_LOG_FILE` set so there is something to tail. The automated deploy passes no profile, so to keep the sidecar running there put `COMPOSE_PROFILES=logging` in the `.env` beside `docker-compose.yml`; compose reads that variable itself, and the workflow needs no change. Note those are Elasticsearch credentials, not the APM ones: different endpoints, different keys. Filebeat forwards the documents as-is into `logs-<event.dataset>-default` and parses nothing, so the log shape is decided in one place only. Tailing a file rather than posting from inside the bot means logs written just before a crash still get shipped.
+
 **Caveat: retention.** "Should we drop this cog" spans months, while raw APM transaction data is governed by your cluster's ILM policy and is typically kept for days to weeks. Check that policy, or lean on APM's longer-lived aggregated transaction metrics, before trusting a long-window answer.
 
 ### Environment
@@ -154,6 +168,7 @@ Copy `.env.default` to `.env` (or to `.env.dev` / `.env.prod`) and fill in value
 - `COG_BLACKLIST` — comma-separated list of cog directory names to skip (e.g. `honeybot,triviasniper`). Ignored if `COG_WHITELIST` is also set.
 - `LOG_LEVEL` - optional root log level override (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Defaults to `DEBUG` in dev mode and `INFO` otherwise; set `LOG_LEVEL=INFO` in `.env.dev` to hide debug output when running `poetry run dev`.
 - `LOG_COGS` — comma-separated list of cog names whose logs appear on the console in dev mode (e.g. `geoguesser`). All other cog loggers are suppressed on console only; the log file still receives everything.
+- `ECS_LOG_FILE` - optional path to an ECS JSON log file for a shipper to tail into Elasticsearch. Empty disables it. See "Observability" above.
 - `ELASTIC_APM_SERVER_URL` — optional. When set, enables Elastic APM error tracking; uncaught exceptions from commands, app commands, and event listeners are reported with stack traces, locals, and labels (command/cog/guild/user). The agent self-configures from the standard `ELASTIC_APM_*` env vars (`SERVER_URL`, `SECRET_TOKEN` or `API_KEY`, `SERVICE_NAME`, etc.), so it works against Elastic Cloud, a self-hosted APM Server, or a local stack with no hardcoded values. When unset, APM is fully disabled and all capture calls are no-ops.
 - `ELASTIC_APM_ENVIRONMENT` - optional. Defaults to `BOT_ENV`, which is what keeps dev and prod separate in Kibana. `init_apm()` seeds the agent's env vars with `setdefault` rather than passing keyword arguments, because an explicit kwarg to `elasticapm.Client()` outranks the environment and would make this unsettable.
 - `ELASTIC_APM_STARTUP_TEST` - optional. Sends one synthetic error at startup to prove the pipeline works. Defaults to on in dev and off in prod, so production does not file a fake error on every deploy. Set to `true` temporarily when verifying prod wiring. `init_apm()` also logs the resolved service name, environment, and version at startup.

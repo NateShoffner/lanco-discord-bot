@@ -50,6 +50,7 @@ grpcio = "1.80.0"
 elastic-apm = "^6.23.0"
 captcha = ">=0.6.1"
 pillow = ">=11.0.0"
+ecs-logging = "^2.3.0"
 [tool.poetry.group.dev.dependencies]
 pre-commit = ">=3.7,<5.0"
 black = "^26.3.1"

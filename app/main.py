@@ -2,12 +2,10 @@ import asyncio
 import datetime
 import logging
 import os
-import shutil
 import signal
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
-from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 import discord
@@ -19,7 +17,8 @@ from logtail import LogtailHandler
 from peewee import *
 from utils import apm, env
 from utils.command_utils import is_bot_owner
-from utils.dist_utils import get_bot_version, get_commit_hash
+from utils.dist_utils import get_bot_version, get_commit_hash, get_service_version
+from utils.logs import WinTimedRotatingFileHandler, add_ecs_file_handler
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
 
@@ -78,18 +77,6 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.FORMATS.get(record.levelno, self.FORMATS[logging.INFO])
         formatter = logging.Formatter(log_fmt, datefmt="%H:%M:%S")
         return formatter.format(record)
-
-
-class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
-    def doRollover(self):
-        if self.stream:
-            self.stream.close()
-            self.stream = None
-        super().doRollover()
-
-    def rotate(self, source, dest):
-        shutil.copy2(source, dest)
-        open(source, "w").close()  # truncate in place instead of renaming
 
 
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -177,6 +164,10 @@ if _log_cogs_env and env.is_dev():
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
 
+# ECS JSON output for a shipper to tail into Elasticsearch. No-op unless
+# ECS_LOG_FILE names a path.
+add_ecs_file_handler(logger)
+
 # Elastic APM (optional). Enabled only when ELASTIC_APM_SERVER_URL is set.
 # The agent self-configures from standard ELASTIC_APM_* environment variables
 # (SERVER_URL, SECRET_TOKEN or API_KEY, VERIFY_SERVER_CERT, etc.) so this works
@@ -204,11 +195,6 @@ class ApmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
-def _service_version() -> str:
-    """Version plus commit, so an error in the APM UI points at a build."""
-    return f"{get_bot_version()}+{(get_commit_hash() or 'unknown')[:7]}"
-
-
 def init_apm():
     """Construct the Elastic APM client once, if configured.
 
@@ -227,7 +213,7 @@ def init_apm():
     # DEV_MODE happened to be. setdefault leaves a deployment free to override.
     os.environ.setdefault("ELASTIC_APM_SERVICE_NAME", "lanco-bot")
     os.environ.setdefault("ELASTIC_APM_ENVIRONMENT", env.current())
-    os.environ.setdefault("ELASTIC_APM_SERVICE_VERSION", _service_version())
+    os.environ.setdefault("ELASTIC_APM_SERVICE_VERSION", get_service_version())
 
     try:
         apm_client = elasticapm.Client()
