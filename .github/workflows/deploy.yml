@@ -90,6 +90,12 @@ jobs:
           script: |
             set +x
             cd ~/lanco-discord-bot
+            # Pinned, not inherited: compose reads BOT_ENV/CONTAINER_NAME from
+            # the .env beside docker-compose.yml, which exists so that stack can
+            # be run as dev. The shell outranks it, so a value left in that file
+            # cannot redirect an automated production deploy.
+            export BOT_ENV=prod
+            export CONTAINER_NAME=lanco-bot
             git pull origin master
             docker pull ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             docker-compose -p lanco-discord-bot down

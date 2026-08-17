@@ -3,9 +3,7 @@ import os
 import sys
 
 
-def _run(env=None):
-    if env:
-        sys.argv = ["main.py", env]
+def _run():
     # main.py uses bare imports (from cogs..., from db...) that require app/ on sys.path,
     # matching the behavior of `python app/main.py` which adds the script directory automatically.
     app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,16 +14,23 @@ def _run(env=None):
     asyncio.run(main())
 
 
+# BOT_ENV selects the .env.<env> file and, through it, dev mode and the APM
+# environment. Set in the real process environment so it outranks that file:
+# otherwise a DEV_MODE=false left in a dotenv would demote `poetry run dev`.
+
+
 def dev():
-    os.environ["DEV_MODE"] = "true"
+    os.environ["BOT_ENV"] = "dev"
     _run()
 
 
 def prod():
+    os.environ["BOT_ENV"] = "prod"
     _run()
 
 
 def test():
     import pytest
 
+    os.environ["BOT_ENV"] = "test"
     raise SystemExit(pytest.main([]))

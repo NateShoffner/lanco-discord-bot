@@ -3,14 +3,29 @@
 # which `docker-compose up` ignores outside swarm.
 version: "2.4"
 
+# Interpolated values (${...}) come from the shell or from the `.env` file next
+# to THIS file, never from the env_file below. Set them there to run this stack
+# as something other than production:
+#
+#   BOT_ENV=dev
+#   CONTAINER_NAME=lanco-bot-dev
+#   WEBSERVER_PORT=8081
+#
+# which loads .env.dev and reports itself as dev to Elastic APM. Run it from
+# its own directory so the ./data volume below is a separate database.
 services:
   app:
     image: ghcr.io/nateshoffner/lanco-discord-bot:latest
-    container_name: lanco-bot
+    container_name: ${CONTAINER_NAME:-lanco-bot}
     restart: unless-stopped
-    env_file: .env.prod
+    env_file: .env.${BOT_ENV:-prod}
     environment:
-      # Compose does not read .env.prod for interpolation, only for the
+      # Also set here, not just in the env_file, so it lands in the real
+      # process environment where it outranks the file. A stray BOT_ENV inside
+      # .env.prod cannot make a container that loaded prod's secrets call
+      # itself dev.
+      BOT_ENV: ${BOT_ENV:-prod}
+      # Compose does not read the env_file for interpolation, only for the
       # container's env, so a WEBSERVER_PORT set there would not reach the
       # `ports` mapping below and the two could drift. Passing it explicitly
       # here (which takes precedence over env_file) keeps the published port and

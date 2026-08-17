@@ -15,10 +15,11 @@ import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
 from db import BaseModel, database_proxy
 from discord.ext import commands
-from dotenv import load_dotenv
 from logtail import LogtailHandler
 from peewee import *
+from utils import env
 from utils.command_utils import is_bot_owner
+from utils.dist_utils import get_bot_version, get_commit_hash
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
 
@@ -106,10 +107,9 @@ console_logger.stream.reconfigure(encoding="utf-8", errors="replace")
 console_logger.setFormatter(CustomFormatter())
 logger.addHandler(console_logger)
 
-log_level = (
-    logging.DEBUG if os.getenv("DEV_MODE", "").lower() == "true" else logging.INFO
-)
-logger.setLevel(log_level)
+# Provisional, so the environment resolution below can report what it picked.
+# The real level is set once the environment (and its dotenv file) is known.
+logger.setLevel(logging.INFO)
 
 # Suppress noisy third-party loggers regardless of log level
 for noisy in [
@@ -131,17 +131,10 @@ for noisy in [
 ]:
     logging.getLogger(noisy).setLevel(logging.WARNING)
 
-env_file = ".env"
-dev_arg = len(sys.argv) > 1 and sys.argv[1] == "dev"
-if len(sys.argv) > 1:
-    env = sys.argv[1]
-    env_file = f".env.{env}"
+# Resolves BOT_ENV and loads the matching .env.<env> file. Mutates os.environ.
+env.load_environment()
 
-if os.path.exists(env_file):
-    load_dotenv(env_file, override=True)
-    logger.info(f"Loaded environment: {env_file}")
-else:
-    logger.info("No .env file found, using environment variables")
+logger.setLevel(logging.DEBUG if env.is_dev() else logging.INFO)
 
 # LOG_LEVEL overrides the default root level (DEBUG in dev mode, INFO otherwise),
 # e.g. LOG_LEVEL=INFO hides debug output when running via poetry run dev
@@ -156,7 +149,7 @@ if _log_level_env:
 
 # In dev mode, LOG_COGS=geoguesser,incidents filters console output to only those cogs
 _log_cogs_env = os.getenv("LOG_COGS", "")
-if _log_cogs_env and os.getenv("DEV_MODE", "").lower() == "true":
+if _log_cogs_env and env.is_dev():
     _allowed_cogs = {c.strip().lower() for c in _log_cogs_env.split(",")}
 
     # build set of known non-cog logger name prefixes to always allow through
@@ -180,10 +173,6 @@ if _log_cogs_env and os.getenv("DEV_MODE", "").lower() == "true":
 
     console_logger.addFilter(CogFilter())
     logger.info(f"LOG_COGS filter active: {_allowed_cogs}")
-
-# If launched with the "dev" arg, force DEV_MODE on regardless of what the env file says
-if dev_arg:
-    os.environ["DEV_MODE"] = "true"
 
 if os.getenv("LOGTAIL_TOKEN"):
     logger.addHandler(LogtailHandler(os.getenv("LOGTAIL_TOKEN")))
@@ -215,6 +204,11 @@ class ApmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
+def _service_version() -> str:
+    """Version plus commit, so an error in the APM UI points at a build."""
+    return f"{get_bot_version()}+{(get_commit_hash() or 'unknown')[:7]}"
+
+
 def init_apm():
     """Construct the Elastic APM client once, if configured.
 
@@ -226,32 +220,49 @@ def init_apm():
         return
     if not os.getenv("ELASTIC_APM_SERVER_URL"):
         return
+
+    # Seeded as environment variables, not passed as kwargs: an explicit kwarg
+    # outranks the environment, which is what previously made
+    # ELASTIC_APM_ENVIRONMENT unsettable and pinned the environment to whatever
+    # DEV_MODE happened to be. setdefault leaves a deployment free to override.
+    os.environ.setdefault("ELASTIC_APM_SERVICE_NAME", "lanco-bot")
+    os.environ.setdefault("ELASTIC_APM_ENVIRONMENT", env.current())
+    os.environ.setdefault("ELASTIC_APM_SERVICE_VERSION", _service_version())
+
     try:
-        apm_client = elasticapm.Client(
-            service_name=os.getenv("ELASTIC_APM_SERVICE_NAME", "lanco-bot"),
-            environment=(
-                "dev" if os.getenv("DEV_MODE", "").lower() == "true" else "production"
-            ),
-        )
+        apm_client = elasticapm.Client()
         logging.getLogger().addHandler(ApmLoggingHandler(level=logging.ERROR))
         logger.info(
             f"Elastic APM enabled (server={os.getenv('ELASTIC_APM_SERVER_URL')}, "
             f"service={apm_client.config.service_name}, "
-            f"environment={apm_client.config.environment})"
+            f"environment={apm_client.config.environment}, "
+            f"version={apm_client.config.service_version})"
         )
-        try:
-            raise Exception("APM startup test")
-        except Exception:
-            event_id = apm_client.capture_exception(handled=True)
-            if event_id:
-                logger.info(f"APM startup test event queued: {event_id}")
-            else:
-                logger.warning(
-                    "APM startup test returned None — is_recording may be False"
-                )
+        _run_apm_startup_test()
     except Exception as e:
         logger.error(f"Failed to initialize Elastic APM: {e}")
         apm_client = None
+
+
+def _run_apm_startup_test() -> None:
+    """Send one synthetic error to prove the pipeline works end to end.
+
+    On by default in dev only: in production this would file a fake error on
+    every restart and every deploy. Set ELASTIC_APM_STARTUP_TEST=true to run it
+    once against prod when verifying that environment's wiring.
+    """
+    configured = os.getenv("ELASTIC_APM_STARTUP_TEST", "").lower()
+    enabled = configured == "true" if configured else env.is_dev()
+    if not enabled:
+        return
+    try:
+        raise Exception(f"APM startup test ({env.current()})")
+    except Exception:
+        event_id = apm_client.capture_exception(handled=True)
+        if event_id:
+            logger.info(f"APM startup test event queued: {event_id}")
+        else:
+            logger.warning("APM startup test returned None, is_recording may be False")
 
 
 def capture_apm_exception(exc_info=None, **context) -> None:
@@ -365,7 +376,7 @@ class LancoBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.dev_mode = os.getenv("DEV_MODE", "").lower() == "true"
+        self.dev_mode = env.is_dev()
         self.start_time = datetime.datetime.now()
 
         # TODO probably a better way to inject a database into a cog
