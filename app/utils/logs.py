@@ -32,7 +32,25 @@ logger = logging.getLogger(__name__)
 DEFAULT_SERVICE_NAME = "lanco-bot"
 
 
+def rotate_by_copy() -> bool:
+    """Whether rotation has to copy-and-truncate instead of renaming.
+
+    Only on Windows, which refuses to rename a file another handle still has
+    open. Everywhere else renaming is both possible and better.
+    """
+    return os.name == "nt"
+
+
 class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
+    """Daily rotation that works on Windows without hurting log shipping.
+
+    Renaming keeps the inode, so a shipper mid-file finishes reading the
+    rotated copy and then picks up the new one. Copy-and-truncate does not:
+    anything the shipper had not yet read when the truncate lands is gone.
+    That workaround is therefore confined to Windows, which is dev only; the
+    container rotates by rename like everything else.
+    """
+
     def doRollover(self):
         if self.stream:
             self.stream.close()
@@ -40,6 +58,9 @@ class WinTimedRotatingFileHandler(TimedRotatingFileHandler):
         super().doRollover()
 
     def rotate(self, source, dest):
+        if not rotate_by_copy():
+            super().rotate(source, dest)
+            return
         shutil.copy2(source, dest)
         open(source, "w").close()  # truncate in place instead of renaming
 

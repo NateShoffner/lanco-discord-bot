@@ -204,6 +204,40 @@ def test_exceptions_carry_type_and_stack_trace(ecs_log):
     assert "raise ValueError" in error["stack_trace"]
 
 
+def _rotate(tmp_path, by_copy, monkeypatch):
+    monkeypatch.setattr(logs, "rotate_by_copy", lambda: by_copy)
+    source = tmp_path / "app.ecs.json"
+    source.write_text("a line\n", encoding="utf-8")
+    dest = tmp_path / "app.ecs.json.2026-08-16"
+
+    handler = logs.WinTimedRotatingFileHandler(
+        filename=str(source), when="midnight", delay=True, encoding="utf-8"
+    )
+    try:
+        handler.rotate(str(source), str(dest))
+    finally:
+        handler.close()
+    return source, dest
+
+
+def test_rotation_renames_off_windows(tmp_path, monkeypatch):
+    """The shipper follows the inode, so a rotated file keeps being read to
+    EOF. Copy-and-truncate drops whatever it had not reached yet."""
+    source, dest = _rotate(tmp_path, by_copy=False, monkeypatch=monkeypatch)
+
+    assert not source.exists(), "renaming should leave no file at the live path"
+    assert dest.read_text(encoding="utf-8") == "a line\n"
+
+
+def test_rotation_copies_on_windows(tmp_path, monkeypatch):
+    """Windows refuses to rename a file another handle still has open, so it
+    copies and truncates instead, keeping the live path valid."""
+    source, dest = _rotate(tmp_path, by_copy=True, monkeypatch=monkeypatch)
+
+    assert source.exists() and source.read_text(encoding="utf-8") == ""
+    assert dest.read_text(encoding="utf-8") == "a line\n"
+
+
 def test_data_stream_segments_are_hyphen_free():
     """`logs-<dataset>-<namespace>` splits on hyphens, so neither segment may
     contain one or the document routes somewhere unintended."""
