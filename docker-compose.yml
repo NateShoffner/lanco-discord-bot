@@ -57,7 +57,7 @@ services:
   # it died still get shipped, which is exactly when they are worth having.
   filebeat:
     profiles: ["logging"]
-    image: docker.elastic.co/beats/filebeat:${FILEBEAT_VERSION:-8.18.0}
+    image: docker.elastic.co/beats/filebeat:${FILEBEAT_VERSION:-9.4.4}
     container_name: ${CONTAINER_NAME:-lanco-bot}-filebeat
     restart: unless-stopped
     env_file: .env.${BOT_ENV:-prod}
