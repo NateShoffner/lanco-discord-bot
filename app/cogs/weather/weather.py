@@ -6,7 +6,7 @@ import discord
 import pyowm
 from cogs.lancocog import LancoCog
 from discord.ext import commands
-from opencage.geocoder import OpenCageGeocode
+from opencage.geocoder import OpenCageGeocode, OpenCageGeocodeError
 
 
 class Weather(LancoCog, name="Weather", description="Fetches the weather"):
@@ -43,6 +43,9 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
             return self.location_cache[query]
 
         results = self.geocoder.geocode(query)
+        if not results:
+            return None
+
         coords = results[0]["geometry"]["lat"], results[0]["geometry"]["lng"]
 
         self.location_cache[query] = coords
@@ -51,6 +54,8 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
     async def get_weather(self, location):
         """Get the weather for a location"""
         coords = await self.get_coords(location)
+        if not coords:
+            return None
 
         self.logger.info(f"Fetching weather for coords: {coords}")
 
@@ -70,6 +75,8 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
     async def get_air_status(self, location):
         """Get the Air Quality Index for a location"""
         coords = await self.get_coords(location)
+        if not coords:
+            return None
 
         if coords in self.air_statuses:
             return self.air_statuses[coords]
@@ -89,8 +96,15 @@ class Weather(LancoCog, name="Weather", description="Fetches the weather"):
             await ctx.send("Weather is not configured on this bot.")
             return
 
-        air_status = await self.get_air_status(location)
-        weather = await self.get_weather(location)
+        try:
+            air_status = await self.get_air_status(location)
+            weather = await self.get_weather(location)
+        except (OpenCageGeocodeError, pyowm.commons.exceptions.PyOWMError) as e:
+            # A revoked key or a rate limit is a service problem, not a bad
+            # location, so don't report it as one. The cause goes to the log.
+            self.logger.error(f"Weather lookup failed for {location}: {e}")
+            await ctx.send("Weather lookup is unavailable right now.")
+            return
 
         if not weather:
             await ctx.send("Could not find weather for that location")
