@@ -1,0 +1,54 @@
+name: Test
+
+# Tests only ever ran on push to master, as the first job of the deploy
+# pipeline, so a bad change was already on master by the time it failed.
+# This runs the same suite on the pull request instead.
+on:
+  pull_request:
+    # Deliberately the code-relevant subset of deploy.yml's path list.
+    # poetry.lock matters most: when a bump satisfies the existing version
+    # constraint, dependabot rewrites the lock and nothing else, which matched
+    # no trigger here and arrived on master unchecked. docker-compose*.yml and
+    # filebeat.yml are in deploy.yml but omitted here because neither can
+    # affect the test suite. Anything added there that runs code belongs here.
+    paths:
+      - "app/**"
+      - "tests/**"
+      - "migrations/**"
+      - "tools/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "Dockerfile"
+      - ".github/workflows/test.yml"
+
+# A new push to the same PR makes the in-flight run irrelevant.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Kept in step with deploy.yml's test job. If that one changes its
+      # python version or how it invokes the suite, change it here too, or the
+      # pull request stops predicting what the merge will do.
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      # BOT_ENV=test, set by this entrypoint, loads .env.test only and never
+      # .env, so this needs no secrets.
+      - name: Run tests
+        run: poetry run test
