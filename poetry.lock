@@ -2965,14 +2965,24 @@ tests = ["pytest (>=9)", "typing-extensions (>=4.15)"]
 
 [[package]]
 name = "peewee"
-version = "3.18.2"
+version = "4.3.0"
 description = "a little orm"
 optional = false
-python-versions = "*"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "peewee-3.18.2.tar.gz", hash = "sha256:77a54263eb61aff2ea72f63d2eeb91b140c25c1884148e28e4c0f7c4f64996a0"},
+    {file = "peewee-4.3.0-py3-none-any.whl", hash = "sha256:62a43d5934e7986747285124059c5ad8908cc70e538472aadae5cb5e9f10006c"},
+    {file = "peewee-4.3.0.tar.gz", hash = "sha256:f2e6686e6fc61d236fd12f370bfd42955b7b42bbd9954f207d02434a0328c3de"},
 ]
+
+[package.extras]
+aiomysql = ["aiomysql", "greenlet"]
+aiosqlite = ["aiosqlite", "greenlet"]
+asyncpg = ["asyncpg", "greenlet"]
+cysqlite = ["cysqlite (>=0.3.5)"]
+mysql = ["pymysql"]
+postgres = ["psycopg2-binary"]
+psycopg3 = ["psycopg[binary]"]
 
 [[package]]
 name = "pillow"
@@ -5722,4 +5732,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "fee4a31b0633084897223d137c1517cac6297e10a342eaefe990a575bcf2290f"
+content-hash = "0e6f283b78e0125a2e8d45fa23f40064f4b915e23be7af9ab7ca736e0edd0818"
