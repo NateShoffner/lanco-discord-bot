@@ -5,6 +5,7 @@ Description:
 TruthSocial embed support
 """
 
+import asyncio
 import os
 import re
 
@@ -41,10 +42,7 @@ class TruthSocial(
 
     def __init__(self, bot):
         super().__init__(bot)
-        self.client = Api(
-            username=os.getenv("TRUTH_SOCIAL_USERNAME"),
-            password=os.getenv("TRUTH_SOCIAL_PASSWORD"),
-        )
+        self.client = None
         self.avatar_cache_dir = os.path.join(
             self.get_cog_data_directory(), "AvatarCache"
         )
@@ -54,6 +52,60 @@ class TruthSocial(
     async def cog_load(self):
         await super().cog_load()
         self.bot.database.create_tables([TruthSocialEmbedConfig])
+
+        username = os.getenv("TRUTH_SOCIAL_USERNAME")
+        password = os.getenv("TRUTH_SOCIAL_PASSWORD")
+        token = os.getenv("TRUTH_SOCIAL_TOKEN")
+
+        # truthbrush builds its Api lazily and only validates credentials on the
+        # first call, so without this check a missing username surfaces as a
+        # LoginErrorException out of on_message rather than at load.
+        if not token and not (username and password):
+            self.logger.warning(
+                "TruthSocial cog is missing TRUTH_SOCIAL_TOKEN or "
+                "TRUTH_SOCIAL_USERNAME/TRUTH_SOCIAL_PASSWORD, embeds will be disabled"
+            )
+            return
+
+        self.logger.info(
+            f"TruthSocial credentials loaded ({'token' if token else 'username'})"
+        )
+        self.client = Api(username=username, password=password, token=token)
+
+    async def fetch(self, func, *args):
+        """Run a blocking truthbrush call off the event loop.
+
+        Returns None if the call fails. truthbrush raises on auth trouble and
+        on any non-200, and an exception escaping a listener takes out the
+        whole on_message dispatch for that message.
+        """
+        try:
+            return await asyncio.to_thread(func, *args)
+        except Exception:
+            self.logger.error(
+                f"TruthSocial API call {func.__name__} failed", exc_info=True
+            )
+            return None
+
+    async def get_cached_file(self, url: str, cache_dir: str) -> str | None:
+        """Return a local path for url, downloading it on first use.
+
+        None when the file cannot be fetched. download_file returns None on any
+        non-200, which discord.File would then choke on, so callers drop the
+        attachment and send the embed without it rather than lose the embed.
+        """
+        filename = url.split("/")[-1].split("?")[0]
+        local_path = os.path.join(cache_dir, filename)
+
+        if os.path.exists(local_path):
+            return local_path
+
+        try:
+            self.logger.info(f"Downloading {url}")
+            return await self.file_downloader.download_file(url, cache_dir, filename)
+        except Exception:
+            self.logger.error(f"Failed to download {url}", exc_info=True)
+            return None
 
     @track_message_ids()
     @commands.Cog.listener()
@@ -65,12 +117,17 @@ class TruthSocial(
         if not config or not config.enabled:
             return
 
+        if self.client is None:
+            return
+
         status_match = self.status_pattern.search(message.content)
         if status_match:
             handle = status_match.group("handle")
             status_id = status_match.group("status_id")
 
-            status_data = self.client.pull_status(status_id)
+            status_data = await self.fetch(self.client.pull_status, status_id)
+            if not status_data:
+                return
             status = StatusModel(**status_data)
 
             user = status.account
@@ -91,35 +148,24 @@ class TruthSocial(
             )
             embed.timestamp = status.created_at
 
-            avatar_filename = user.avatar_static.split("/")[-1]
-            local_avatar_path = os.path.join(self.avatar_cache_dir, avatar_filename)
-
             files = []
 
-            if not os.path.exists(local_avatar_path):
-                self.logger.info(f"Downloading avatar for {user.acct}")
-                local_avatar_path = await self.file_downloader.download_file(
-                    user.avatar_static, self.avatar_cache_dir, avatar_filename
+            avatar_path = await self.get_cached_file(
+                user.avatar_static, self.avatar_cache_dir
+            )
+            if avatar_path:
+                avatar_filename = os.path.basename(avatar_path)
+                files.append(discord.File(avatar_path, filename=avatar_filename))
+                embed.set_thumbnail(url=f"attachment://{avatar_filename}")
+
+            if status.media_attachments:
+                media_path = await self.get_cached_file(
+                    status.media_attachments[0].url, self.media_cache_dir
                 )
-                self.logger.info(f"Downloaded avatar to {local_avatar_path}")
-            avatar_file = discord.File(local_avatar_path, filename=avatar_filename)
-            files.append(avatar_file)
-            embed.set_thumbnail(url=f"attachment://{avatar_filename}")
-
-            if status.media_attachments and len(status.media_attachments) > 0:
-                media_url = status.media_attachments[0].url
-                media_filename = media_url.split("/")[-1]
-                local_media_path = os.path.join(self.media_cache_dir, media_filename)
-
-                if not os.path.exists(local_media_path):
-                    self.logger.info(f"Downloading media for status {status.url}")
-                    local_media_path = await self.file_downloader.download_file(
-                        media_url, self.media_cache_dir, media_filename
-                    )
-                    self.logger.info(f"Downloaded media to {local_media_path}")
-                media_file = discord.File(local_media_path, filename=media_filename)
-                files.append(media_file)
-                embed.set_image(url=f"attachment://{media_filename}")
+                if media_path:
+                    media_filename = os.path.basename(media_path)
+                    files.append(discord.File(media_path, filename=media_filename))
+                    embed.set_image(url=f"attachment://{media_filename}")
 
             return await message.channel.send(embed=embed, files=files)
 
@@ -127,18 +173,10 @@ class TruthSocial(
         if user_match:
             handle = user_match.group("handle")
 
-            user_data = self.client.lookup(handle)
+            user_data = await self.fetch(self.client.lookup, handle)
+            if not user_data:
+                return
             user = UserModel(**user_data)
-
-            avatar_filename = user.avatar_static.split("/")[-1]
-            local_avatar_path = os.path.join(self.avatar_cache_dir, avatar_filename)
-
-            if not os.path.exists(local_avatar_path):
-                self.logger.info(f"Downloading avatar for {user.acct}")
-                local_avatar_path = await self.file_downloader.download_file(
-                    user.avatar_static, self.avatar_cache_dir, avatar_filename
-                )
-            file = discord.File(local_avatar_path, filename=avatar_filename)
 
             desc = user.markdown_note()
 
@@ -154,8 +192,19 @@ class TruthSocial(
                 description=desc,
                 color=discord.Color.blue(),
             )
+
+            avatar_path = await self.get_cached_file(
+                user.avatar_static, self.avatar_cache_dir
+            )
+            if not avatar_path:
+                return await message.channel.send(embed=embed)
+
+            avatar_filename = os.path.basename(avatar_path)
             embed.set_thumbnail(url=f"attachment://{avatar_filename}")
-            return await message.channel.send(embed=embed, file=file)
+            return await message.channel.send(
+                embed=embed,
+                file=discord.File(avatar_path, filename=avatar_filename),
+            )
 
     @truth_social_group.command(
         name="toggle", description="Enable or disable TruthSocial embeds"
