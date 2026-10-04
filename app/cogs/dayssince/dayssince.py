@@ -19,6 +19,7 @@ from utils.tracked_message import track_message_ids
 from .models import DaysSinceTracker
 
 COMMAND_NAME_PATTERN = re.compile(r"^[a-z0-9_-]{1,32}$")
+TOTAL_PATTERN = re.compile(r"^\d{1,9}$")
 MAX_LISTED = 25
 
 
@@ -66,6 +67,14 @@ class TrackerModal(ui.Modal, title="Days Since Tracker"):
         required=True,
     )
 
+    total_count = ui.TextInput(
+        label="Total:",
+        placeholder="0",
+        style=discord.TextStyle.short,
+        max_length=9,
+        required=False,
+    )
+
     channel_selection = ui.Label(
         text="Restrict to Channel (Optional):",
         description="Limit the command to a single channel.",
@@ -81,6 +90,7 @@ class TrackerModal(ui.Modal, title="Days Since Tracker"):
             self.command_name.default = tracker.command_name
             self.tracker_title.default = tracker.title
             self.event_label.default = tracker.event_label
+            self.total_count.default = str(tracker.total_count)
             if tracker.channel_id:
                 self.channel_selection.component.default_values = [
                     discord.Object(id=tracker.channel_id)
@@ -95,6 +105,13 @@ class TrackerModal(ui.Modal, title="Days Since Tracker"):
                 "Command names must be 1-32 characters of letters, numbers, "
                 "dashes, or underscores, with no spaces.",
                 ephemeral=True,
+            )
+            return
+
+        total_raw = self.total_count.value.strip()
+        if total_raw and not TOTAL_PATTERN.match(total_raw):
+            await interaction.response.send_message(
+                "Total must be a whole number of 0 or more.", ephemeral=True
             )
             return
 
@@ -114,6 +131,12 @@ class TrackerModal(ui.Modal, title="Days Since Tracker"):
         tracker.title = self.tracker_title.value.strip()
         tracker.event_label = self.event_label.value.strip()
 
+        # Blank leaves the running total alone: on create the model default of 0
+        # stands, and on edit a cleared field must not wipe the history. An
+        # explicit reset to zero is `/dayssince set <name> total:0`.
+        if total_raw:
+            tracker.total_count = int(total_raw)
+
         if self.channel_selection.component.values:
             tracker.channel_id = self.channel_selection.component.values[0].id
         else:
@@ -132,6 +155,7 @@ class TrackerModal(ui.Modal, title="Days Since Tracker"):
         embed.add_field(name="Command", value=f"{prefix}{command_name}", inline=False)
         embed.add_field(name="Title", value=tracker.title, inline=False)
         embed.add_field(name="Event", value=tracker.event_label, inline=False)
+        embed.add_field(name="Total", value=str(tracker.total_count), inline=False)
         if tracker.channel_id:
             embed.add_field(
                 name="Channel", value=f"<#{tracker.channel_id}>", inline=False

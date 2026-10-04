@@ -12,17 +12,22 @@ Admins and bot owners only:
 /dayssince create
 ```
 
-Opens a modal with four fields:
+Opens a modal with five fields:
 
 | Field | Purpose | Example |
 |---|---|---|
 | Command Name | The prefix command that displays it | `coffeespill` |
 | Title | Embed heading | `Office Coffee Machine` |
 | Event | The thing being counted, as a noun phrase | `coffee spill` |
+| Total | Optional; seeds the running count for something already under way | `47` |
 | Restrict to Channel | Optional; limits the command to one channel | `#general` |
 
 The Event field is dropped into the sentence "**12 days** since the last
 &lt;event&gt;", so phrase it to fit: `coffee spill`, not `the last coffee spill`.
+
+Five is the whole modal; Discord allows no more. Days and record are not in it
+because of that cap, so backdate a seeded tracker with
+`/dayssince set <name> days:<n> record:<n>` after creating it.
 
 ## Viewing
 
@@ -61,8 +66,12 @@ backdates the last occurrence by that many days.
 /dayssince delete <name>
 ```
 
-`edit` reopens the modal prefilled, including renaming the command. `delete`
-removes the tracker and its history.
+`edit` reopens the modal prefilled, including renaming the command and
+correcting the total. `delete` removes the tracker and its history.
+
+Clearing the prefilled Total leaves the running count untouched rather than
+zeroing it, so an edit made to fix a typo cannot destroy the history by
+accident. Use `/dayssince set <name> total:0` to reset it deliberately.
 
 ## Notes
 

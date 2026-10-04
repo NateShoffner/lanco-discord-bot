@@ -83,12 +83,13 @@ def days_ago(days, hours=0):
     return datetime.datetime.now() - datetime.timedelta(days=days, hours=hours)
 
 
-def fill(modal, *, name, title="Office Coffee Machine", event="coffee spill"):
+def fill(modal, *, name, title="Office Coffee Machine", event="coffee spill", total=""):
     # A real submit populates _value through _refresh_state. Setting .default
     # only changes what the form shows, so it cannot stand in for a submission.
     modal.command_name._value = name
     modal.tracker_title._value = title
     modal.event_label._value = event
+    modal.total_count._value = total
     return modal
 
 
@@ -211,6 +212,58 @@ async def test_modal_creates_a_tracker():
 
 
 @pytest.mark.asyncio
+async def test_modal_seeds_the_total():
+    interaction = make_interaction()
+    await fill(TrackerModal(), name="coffeespill", total="47").on_submit(interaction)
+
+    assert DaysSinceTracker.get(guild_id=GUILD_ID).total_count == 47
+    fields = {f.name: f.value for f in interaction.response.messages[-1].embed.fields}
+    assert fields["Total"] == "47"
+
+
+@pytest.mark.asyncio
+async def test_modal_defaults_the_total_to_zero():
+    interaction = make_interaction()
+    await fill(TrackerModal(), name="coffeespill").on_submit(interaction)
+
+    assert DaysSinceTracker.get(guild_id=GUILD_ID).total_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["-1", "1.5", "abc", "1234567890", "4 7"])
+async def test_modal_rejects_a_bad_total(bad):
+    interaction = make_interaction()
+    await fill(TrackerModal(), name="coffeespill", total=bad).on_submit(interaction)
+
+    assert DaysSinceTracker.select().count() == 0
+    reply = interaction.response.messages[-1]
+    assert reply.ephemeral
+    assert "Total must be" in reply.content
+
+
+@pytest.mark.asyncio
+async def test_modal_corrects_the_total_on_edit():
+    tracker = make_tracker(total_count=37)
+    interaction = make_interaction()
+    modal = fill(TrackerModal(tracker=tracker), name="coffeespill", total="40")
+    await modal.on_submit(interaction)
+
+    assert reload(tracker).total_count == 40
+
+
+@pytest.mark.asyncio
+async def test_a_cleared_total_keeps_the_running_count():
+    # The field is prefilled on edit, so a blank submission must not read as a
+    # reset: an edit to fix a typo would otherwise wipe the history.
+    tracker = make_tracker(total_count=37)
+    interaction = make_interaction()
+    modal = fill(TrackerModal(tracker=tracker), name="coffeespill", total="")
+    await modal.on_submit(interaction)
+
+    assert reload(tracker).total_count == 37
+
+
+@pytest.mark.asyncio
 async def test_modal_rejects_an_invalid_name():
     interaction = make_interaction()
     await fill(TrackerModal(), name="bad name").on_submit(interaction)
@@ -242,7 +295,7 @@ async def test_the_same_name_is_allowed_in_another_guild():
 
 @pytest.mark.asyncio
 async def test_edit_prefills_the_modal(cog):
-    make_tracker(channel_id=CHANNEL_ID)
+    make_tracker(channel_id=CHANNEL_ID, total_count=37)
     interaction = make_interaction()
     await DaysSince.edit.callback(cog, interaction, "coffeespill")
 
@@ -251,6 +304,7 @@ async def test_edit_prefills_the_modal(cog):
     assert modal.command_name.default == "coffeespill"
     assert modal.tracker_title.default == "Office Coffee Machine"
     assert modal.event_label.default == "coffee spill"
+    assert modal.total_count.default == "37"
     assert [v.id for v in modal.channel_selection.component.default_values] == [
         CHANNEL_ID
     ]
