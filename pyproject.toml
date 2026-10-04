@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.14"
 "discord.py" = "2.7.1"
 lcwc = "0.15.0"
 pydantic = "^2.4.2"
@@ -20,7 +20,7 @@ googlemaps = "^4.10.0"
 asyncpraw = "*"
 cachetools = ">=5.3.2,<8.0.0"
 pyowm = "^3.5.0"
-opencage = "^2.4.0"
+opencage = "^3.4.0"
 spotipy = "^2.25.2"
 watchfiles = ">=1.0.0"
 pymupdf = "^1.24.2"
@@ -41,7 +41,7 @@ pydantic-ai = ">=1.56,<3.0"
 psutil = "^7.0.0"
 everbridge = "^0.2.0"
 sightengine-async = "^0.2"
-truthbrush = { git = "https://github.com/NateShoffner/truthbrush.git" }
+truthbrush = { git = "https://github.com/NateShoffner/truthbrush.git", branch = "pull-status-by-id" }
 beautifulsoup4 = "^4.13.4"
 tabulate = "^0.9.0"
 croniter = "^6.2.2"
