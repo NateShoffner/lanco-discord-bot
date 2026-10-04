@@ -3002,14 +3002,14 @@ tests = ["pytest (>=9)", "typing-extensions (>=4.15)"]
 
 [[package]]
 name = "peewee"
-version = "4.3.0"
+version = "4.5.2"
 description = "a little orm"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "peewee-4.3.0-py3-none-any.whl", hash = "sha256:62a43d5934e7986747285124059c5ad8908cc70e538472aadae5cb5e9f10006c"},
-    {file = "peewee-4.3.0.tar.gz", hash = "sha256:f2e6686e6fc61d236fd12f370bfd42955b7b42bbd9954f207d02434a0328c3de"},
+    {file = "peewee-4.5.2-py3-none-any.whl", hash = "sha256:a7765c76834c84799b533aeaa0afeebdcd123b894faefbcebe495fbf4c7548ba"},
+    {file = "peewee-4.5.2.tar.gz", hash = "sha256:10724cf1a6bda2bcdc4da17c376e6ed1d875f16dcabbb42594123cba1304d598"},
 ]
 
 [package.extras]
@@ -5702,4 +5702,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "c13d59c5b9d269d6efc2f6bb34291caa304afd5b1b53dc2d44163374e356c51e"
+content-hash = "d82c1c0d057bcdee8f08d25aa2d1037c378214ecd03450fc881fcfd48c84a921"
