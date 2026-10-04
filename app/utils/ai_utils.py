@@ -44,7 +44,7 @@ async def run_agent(
         try:
             from utils.token_tracker import record_usage
 
-            record_usage(model_name or "unknown", cog_name or "unknown", result.usage())
+            record_usage(model_name or "unknown", cog_name or "unknown", result.usage)
         except Exception:
             logger.debug("Failed to record token usage", exc_info=True)
 
