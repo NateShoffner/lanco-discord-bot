@@ -645,7 +645,8 @@ class GeoGuesser(
         select.callback = self.population_callback
         view = View()
         view.add_item(select)
-        await interaction.response.send_message(view=view)
+        # ephemeral so only the invoker can use the select
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     @geoguesser_group.command(name="wipe", description="Wipe all locations for a mode")
     @is_bot_owner()
