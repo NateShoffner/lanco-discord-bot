@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from cogs.common.embedfixcog import EmbedFixCog
 from cogs.lancocog import UrlHandler
 from discord import app_commands
-from main import LancoBot
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import TwitterEmbedConfig
+
+if TYPE_CHECKING:
+    from main import LancoBot
 
 
 class TwitterEmbed(

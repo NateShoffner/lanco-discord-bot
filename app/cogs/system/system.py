@@ -10,6 +10,7 @@ import discord
 import psutil
 from cogs.lancocog import LancoCog
 from discord.ext import commands
+from models_core import BlacklistedUser
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
 from utils.network_utils import get_external_ip
@@ -287,8 +288,6 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
     async def block(
         self, interaction: discord.Interaction, user: discord.User, reason: str
     ):
-        from main import BlacklistedUser
-
         BlacklistedUser.create(user_id=user.id, reason=reason)
         await interaction.response.send_message(
             f"Blocked {user.mention} for {reason}", ephemeral=True
@@ -297,8 +296,6 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
     @discord.app_commands.command(name="unblock", description="Unblock a user")
     @is_bot_owner()
     async def unblock(self, interaction: discord.Interaction, user: discord.User):
-        from main import BlacklistedUser
-
         u = BlacklistedUser.get_or_none(user_id=user.id)
         if not u:
             await interaction.response.send_message(

@@ -9,6 +9,7 @@ import discord
 import pytz
 from cogs.lancocog import LancoCog
 from discord.ext import commands
+from models_core import BlacklistedUser
 from PIL import Image
 from pydantic_ai import Agent, BinaryContent, ImageUrl
 from pydantic_ai.messages import ModelMessage
@@ -244,8 +245,6 @@ class ChatBot(
 
         if not is_mention and not is_reply:
             return
-
-        from main import BlacklistedUser
 
         if BlacklistedUser.get_or_none(user_id=message.author.id):
             return

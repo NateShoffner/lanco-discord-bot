@@ -11,9 +11,10 @@ from typing import Optional
 import discord
 import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
-from db import BaseModel, database_proxy
+from db import database_proxy
 from discord.ext import commands
 from logtail import LogtailHandler
+from models_core import BlacklistedUser
 from peewee import *
 from utils import apm, env
 from utils.command_utils import is_bot_owner
@@ -324,16 +325,6 @@ def init_db() -> Database:
 
 database = init_db()
 
-
-class BlacklistedUser(BaseModel):
-    user_id = BigIntegerField(primary_key=True)
-    reason = TextField(null=True)
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "blacklisted_users"
-
-
 database.create_tables([BlacklistedUser])
 
 
@@ -386,6 +377,10 @@ class LancoBot(commands.Bot):
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
+
+    def set_guild_prefix(self, guild_id: int, prefix: str) -> None:
+        """Update the prefix cache; the caller persists to GuildConfig."""
+        _prefix_cache[guild_id] = prefix
 
     def get_guild_prefix(self, guild: Optional[discord.Guild] = None) -> str:
         if guild:

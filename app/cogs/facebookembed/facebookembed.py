@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
 import aiohttp
 import discord
@@ -8,10 +11,12 @@ from cogs.common.embedfixcog import EmbedFixCog
 from cogs.lancocog import UrlHandler
 from discord import app_commands
 from discord.ext import commands
-from main import LancoBot
 from utils.command_utils import is_bot_owner_or_admin
 
 from .models import FacebookEmbedConfig
+
+if TYPE_CHECKING:
+    from main import LancoBot
 
 # First-path segments that denote content types (not page vanity slugs), so a
 # bare facebook.com/<slug> is only a page when <slug> isn't one of these.
