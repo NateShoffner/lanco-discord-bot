@@ -16,6 +16,133 @@ from utils.markdown_utils import reddit_to_discord
 
 from .models import RedditFeedConfig, RedditPost
 
+# Reddit's own media hosts. A post pointing at one of these is an upload, not
+# an outbound link, and its content is already represented by the embed image.
+REDDIT_MEDIA_DOMAINS = {"i.redd.it", "v.redd.it"}
+FIELD_VALUE_LIMIT = 1024
+
+
+def _get(source, name: str, default=None):
+    """Read a field off a Submission or off a raw crosspost parent dict."""
+    if isinstance(source, dict):
+        return source.get(name, default)
+    return getattr(source, name, default)
+
+
+def get_crosspost_parent(submission) -> dict | None:
+    """Return the original post's data when the submission is a crosspost."""
+    parents = _get(submission, "crosspost_parent_list")
+    return parents[0] if parents else None
+
+
+def get_content_source(submission):
+    """Return whatever actually holds the post's body, link, and media.
+
+    A crosspost carries none of its own: selftext is empty and the media
+    attributes are missing, so all of it has to be read from the parent.
+    """
+    return get_crosspost_parent(submission) or submission
+
+
+def get_outbound_link(source) -> str | None:
+    """Return the external URL a link post points at, if it has one."""
+    if (
+        _get(source, "is_self")
+        or _get(source, "is_gallery")
+        or _get(source, "is_video")
+    ):
+        return None
+    url = _get(source, "url")
+    if not url or not url.startswith("http"):
+        return None
+    if _get(source, "domain") in REDDIT_MEDIA_DOMAINS:
+        return None
+    return url
+
+
+def format_link(source) -> str | None:
+    """Render the outbound link as a field value, labelled with its domain."""
+    url = get_outbound_link(source)
+    if not url:
+        return None
+    domain = _get(source, "domain") or urllib.parse.urlparse(url).netloc
+    domain = domain.removeprefix("www.")
+    value = f"[{domain}](<{url}>)"
+    # a markdown link cannot be truncated without breaking it
+    return value if len(value) <= FIELD_VALUE_LIMIT else domain
+
+
+def format_crosspost(submission) -> str | None:
+    """Render a link to the post a crosspost was taken from."""
+    parent = get_crosspost_parent(submission)
+    if not parent:
+        return None
+    name = parent.get("subreddit_name_prefixed") or f"r/{parent.get('subreddit')}"
+    permalink = parent.get("permalink")
+    if not permalink:
+        return f"/{name}"
+    return f"[/{name}](https://reddit.com{permalink})"
+
+
+def format_media(source) -> str | None:
+    """Describe media the embed can only show a single still frame of."""
+    if _get(source, "is_gallery"):
+        items = (_get(source, "gallery_data") or {}).get("items") or []
+        if not items:
+            return "Gallery"
+        noun = "image" if len(items) == 1 else "images"
+        return f"Gallery · {len(items)} {noun}"
+    if _get(source, "is_video"):
+        video = (_get(source, "media") or {}).get("reddit_video") or {}
+        duration = video.get("duration")
+        if not duration:
+            return "Video"
+        minutes, seconds = divmod(int(duration), 60)
+        return f"Video · {minutes}:{seconds:02d}"
+    return None
+
+
+def format_poll(source) -> str | None:
+    """Render a poll's options, which Reddit keeps out of the selftext."""
+    poll = _get(source, "poll_data")
+    if not poll:
+        return None
+    lines = [f"- {_get(option, 'text')}" for option in _get(poll, "options") or []]
+    if not lines:
+        return None
+    total = _get(poll, "total_vote_count")
+    if total is not None:
+        lines.append(f"{total} vote" if total == 1 else f"{total} votes")
+    value = "\n".join(lines)
+    if len(value) > FIELD_VALUE_LIMIT:
+        value = f"{value[: FIELD_VALUE_LIMIT - 3]}..."
+    return value
+
+
+def get_image_url(source) -> str | None:
+    """Pick the image to show: the first gallery/inline image, else the preview."""
+    image_url = None
+    images = (_get(source, "preview") or {}).get("images")
+    if images:
+        image_url = images[0]["source"]["url"]
+
+    media_metadata = _get(source, "media_metadata")
+    if media_metadata:
+        gallery_data = _get(source, "gallery_data")
+        if gallery_data and "items" in gallery_data:
+            # gallery_data holds the display order; media_metadata does not
+            candidates = [
+                media_metadata.get(gallery_item["media_id"])
+                for gallery_item in gallery_data["items"]
+            ]
+        else:
+            candidates = media_metadata.values()
+        for item in candidates:
+            if item and item.get("status") == "valid" and item.get("e") == "Image":
+                image_url = item["s"]["u"]
+                break
+    return image_url
+
 
 class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling"):
     reddit_feed_group = app_commands.Group(
@@ -424,8 +551,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         deleted, removed, removed_by_reddit = self.get_removal_state(submission)
 
+        # A crosspost keeps its body, link, and media on the parent post
+        source = get_content_source(submission)
+
         # Convert Reddit markdown to Discord-compatible markdown
-        selftext = reddit_to_discord(submission.selftext)
+        selftext = reddit_to_discord(_get(source, "selftext") or "")
 
         # limit to 4096 characters to avoid Discord embed size limit
         description = selftext[:4096]
@@ -467,6 +597,19 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             ),
         )
 
+        link = format_link(source)
+        if link:
+            embed.add_field(name="Link", value=link, inline=False)
+        crosspost = format_crosspost(submission)
+        if crosspost:
+            embed.add_field(name="Crossposted From", value=crosspost)
+        media = format_media(source)
+        if media:
+            embed.add_field(name="Media", value=media)
+        poll = format_poll(source)
+        if poll:
+            embed.add_field(name="Poll", value=poll, inline=False)
+
         # Status field, only shown when something has changed
         if deleted:
             embed.add_field(name="Status", value="Deleted")
@@ -503,25 +646,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         manual_blur = False
         file = None
 
-        image_url = None
-        if hasattr(submission, "preview"):
-            image_url = submission.preview["images"][0]["source"]["url"]
-        if hasattr(submission, "media_metadata"):
-            if (
-                hasattr(submission, "gallery_data")
-                and "items" in submission.gallery_data
-            ):
-                for gallery_item in submission.gallery_data["items"]:
-                    media_id = gallery_item["media_id"]
-                    item = submission.media_metadata.get(media_id)
-                    if item and item["status"] == "valid" and item["e"] == "Image":
-                        image_url = item["s"]["u"]
-                        break
-            else:
-                for item in submission.media_metadata.values():
-                    if item["status"] == "valid" and item["e"] == "Image":
-                        image_url = item["s"]["u"]
-                        break
+        image_url = get_image_url(source)
 
         if image_url and not deleted and not removed and not removed_by_reddit:
             if nsfw:

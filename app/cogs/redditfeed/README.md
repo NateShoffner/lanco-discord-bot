@@ -22,6 +22,7 @@ Stop watching a subreddit in the current channel.
 
 - New posts are polled every **10 seconds**
 - Post state (edited, removed) is checked every **2 minutes** for posts made within the last **30 minutes**
+- Crossposts carry no content of their own, so the body, link, and image are read from the original post
 - NSFW posts have their images automatically blurred before being shared
 - If a post is edited or removed by a moderator, the original Discord message is updated with a **Status** field
 
@@ -34,6 +35,10 @@ Stop watching a subreddit in the current channel.
 | Flair | Post flair with link to filtered subreddit view |
 | Score | Current upvote score |
 | Comments | Current comment count |
+| Link | Link posts only: the outbound URL, labelled with its domain |
+| Crossposted From | Crossposts only: the original post |
+| Media | Galleries and Reddit-hosted videos only: image count or video length, since the embed can show a single still |
+| Poll | Polls only: the options and total vote count |
 | Status | Only shown if edited or removed after posting |
 
 ## Notes
