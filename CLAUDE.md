@@ -192,8 +192,57 @@ Examples: `feat(counting): add counting game cog`, `fix(techlanc): silence coold
 
 ### Deployment
 
-The bot is deployed via GitHub Actions on push to `master`. The workflow only triggers when code-relevant paths change (`app/`, `tests/`, `migrations/`, `tools/`, `pyproject.toml`, `poetry.lock`, `Dockerfile`, `docker-compose.yml`). Pushes that only modify docs or other non-code files skip the pipeline entirely.
+Push to `master` builds and publishes; it does not reach the host. Rollout is
+pull-based: a Watchtower container running next to the bot polls ghcr and
+recreates the bot when `:latest` moves.
+
+The workflow (`.github/workflows/deploy.yml`, named **Build & Publish**) only
+triggers when code-relevant paths change (`app/`, `tests/`, `migrations/`,
+`tools/`, `pyproject.toml`, `poetry.lock`, `Dockerfile`). Pushes that only touch
+docs skip the pipeline entirely.
 
 1. Tests run via `poetry run test`
-2. Docker image is built and pushed to `ghcr.io`
-3. VPS pulls the new image and restarts via `docker-compose`
+2. The image is built and pushed to `ghcr.io` as both `:latest` and `:<sha>`
+3. Within ~5 minutes Watchtower sees the new `:latest` and recreates the bot
+
+Publishing is where CI stops, so the pipeline holds no credential to the host and
+the host exposes no inbound deploy port. Migrations run in the image's `CMD`, so a
+container recreate is a complete deploy. The image is public, so Watchtower needs
+no registry authentication.
+
+The instance is `nicholas-fedor/watchtower`, not `containrrr/watchtower`: the
+original was archived read-only in December 2025. The fork is config-compatible
+and keeps the `com.centurylinklabs.*` label names.
+
+Container selection is restricted twice, because the cost of getting it wrong is
+recreating an unrelated container on the host. `WATCHTOWER_LABEL_ENABLE` limits it
+to containers that opted in (Watchtower's default is to watch everything it can
+see), and `WATCHTOWER_SCOPE` limits it to one stack. The scope value tracks
+`CONTAINER_NAME`, so a dev stack alongside prod gets its own instance and the two
+never recreate each other's bot. Filebeat is unlabelled and so is never touched.
+
+**The first rollout is manual.** Watchtower cannot create itself, so the box needs
+one `docker-compose -p lanco-discord-bot up -d` after this compose file lands.
+Every deploy after that is automatic.
+
+Three things worth knowing:
+
+- **Compose and `.env` changes do not self-deploy.** Watchtower reuses the running
+  container's config and only swaps the image, and nothing pulls the git checkout
+  on the host any more. Editing `docker-compose.yml`, a compose override, or
+  `.env.prod` means a manual
+  `git pull && docker-compose -p lanco-discord-bot up -d` where the bot runs.
+- **A failed rollout is not reported.** CI goes green when the image is published,
+  which is before the bot has restarted, so a release that crashes on boot shows
+  up only in Discord, Kibana, or `docker logs lanco-bot-watchtower`. A
+  crash-looping container is still updatable (`WATCHTOWER_INCLUDE_RESTARTING` is
+  on, and is off by default), so pushing a fix recovers it without touching the
+  box.
+- **There is no automatic rollback.** To pin a known-good build, set the `app`
+  image to `ghcr.io/nateshoffner/lanco-discord-bot:<sha>` and `up -d`. Watchtower
+  then tracks that tag, which never moves, and leaves the bot alone until
+  `:latest` goes back.
+
+Watchtower reaches the Docker socket read-only, which stops it rewriting the
+socket's own permissions but is still effectively host root. That is the trade for
+deleting the pipeline's ssh key; the `:ro` is defence in depth, not a sandbox.
