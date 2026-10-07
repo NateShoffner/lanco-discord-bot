@@ -1,5 +1,6 @@
 import datetime
 
+import discord
 from cogs.lancocog import LancoCog
 from discord import Embed, Interaction, Reaction, User, app_commands
 from discord.ext import commands
@@ -53,13 +54,21 @@ class ReactTrack(
 
     @g.command(name="today", description="Check reactions today for a user")
     async def view(self, interaction, user: User):
-        last_24_hours = datetime.datetime.now() - datetime.timedelta(days=1)
+        # Timestamps are stored timezone-aware in UTC (message.created_at), so
+        # the cutoff has to be aware too: SQLite compares them as text, and a
+        # naive local time would shift the window by the UTC offset.
+        now = discord.utils.utcnow()
+        last_24_hours = now - datetime.timedelta(days=1)
 
-        events = ReactEvent.select().where(
-            ReactEvent.user_id == user.id,
-            ReactEvent.added == True,
-            ReactEvent.timestamp > last_24_hours,
-            ReactEvent.guild_id == interaction.guild.id,
+        events = (
+            ReactEvent.select()
+            .where(
+                ReactEvent.user_id == user.id,
+                ReactEvent.added == True,
+                ReactEvent.timestamp > last_24_hours,
+                ReactEvent.guild_id == interaction.guild.id,
+            )
+            .order_by(ReactEvent.timestamp)
         )
 
         embed = Embed(
@@ -82,9 +91,9 @@ class ReactTrack(
         oldest_timestamp = events[0].timestamp
 
         # calculate reactions per hour, using the oldest timestamp as the start
-        time_diff = datetime.datetime.now() - oldest_timestamp
+        time_diff = now - oldest_timestamp
         hours = time_diff.total_seconds() / 3600
-        emojis_per_hour = len(events) / hours
+        emojis_per_hour = len(events) / hours if hours > 0 else len(events)
 
         emoji_counts = dict(
             sorted(emoji_counts.items(), key=lambda item: item[1], reverse=True)
