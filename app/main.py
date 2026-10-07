@@ -568,6 +568,13 @@ class InstrumentedCommandTree(discord.app_commands.CommandTree):
     indistinguishable from one that crashed.
     """
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # App-command counterpart of global_block_check, which bot.check only
+        # applies to prefix commands. Silent, like a CheckFailure there.
+        if BlacklistedUser.get_or_none(user_id=interaction.user.id):
+            return False
+        return True
+
     async def _call(self, interaction: discord.Interaction) -> None:
         if (
             apm_client is None
@@ -607,6 +614,11 @@ bot = LancoBot(
     owner_id=owner_id,
     max_messages=message_cache_size,
     tree_cls=InstrumentedCommandTree,
+    # No @everyone/@here from echoed text (LLM replies, custom commands, feeds).
+    # Roles stay on: TechLanc's meetup ping role relies on it.
+    allowed_mentions=discord.AllowedMentions(
+        everyone=False, users=True, roles=True, replied_user=True
+    ),
 )
 
 
