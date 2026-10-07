@@ -221,14 +221,12 @@ class FileDownloader:
         if message.attachments:
             self.logger.info("Attachments found in message")
             for a in message.attachments:
-                url = a.url
-                urls.append(url)
+                urls.append(a.url)
         elif message.embeds:
             self.logger.info("Embed found in message")
             for embed in message.embeds:
-                if embed.image:
-                    url = embed.image.proxy_url
-                if embed.video:
+                # video wins: for tenor the image is just the still preview
+                if embed.video and embed.video.proxy_url:
                     proxy_url = embed.video.proxy_url
 
                     self.logger.info(f"Proxy URL: {proxy_url}")
@@ -255,19 +253,21 @@ class FileDownloader:
                         path = url_split[1]
                         if path.endswith("Po"):
                             path = path[:-2] + "AC"
-                        new_url = f"https://c.tenor.com/{path}/tenor.gif"
-                        url = new_url
-                        urls.append(url)
+                        urls.append(f"https://c.tenor.com/{path}/tenor.gif")
 
                         # https://media.tenor.com/jv1uzXK_ELwAAAPo/fullmetal-alchemist.mp4
                         # https://c.tenor.com/jv1uzXK_ELwAAAAC/tenor.gif
                         # https://c.tenor.com/jv1uzXK_ELwAAAC/fullmetal-alchemist.gif
-            self.logger.info(f"URL: {url}")
+                elif embed.image and embed.image.proxy_url:
+                    urls.append(embed.image.proxy_url)
+            self.logger.info(f"{len(urls)} downloadable url(s) found in embeds")
 
         await asyncio.to_thread(os.makedirs, dir, exist_ok=True)
 
         for url in urls:
             filename = await self.download_file(url, dir)
+            if not filename:
+                continue
             local_files.append(Attatchment(url, filename))
 
         return local_files
