@@ -1,4 +1,4 @@
-name: Deploy
+name: Build & Publish
 
 on:
   push:
@@ -12,10 +12,10 @@ on:
       - "pyproject.toml"
       - "poetry.lock"
       - "Dockerfile"
-      # Glob, so a new compose override is covered the day it is added.
-      - "docker-compose*.yml"
-      - "filebeat.yml"
       - ".github/workflows/deploy.yml"
+      # No compose/filebeat paths: nothing here consumes them, so building on a
+      # compose edit would republish :latest and bounce the bot for an
+      # identical image. Applying one is a manual `up -d`; see CLAUDE.md.
 
 env:
   REGISTRY: ghcr.io
@@ -75,51 +75,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.sha }}
 
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 5m
-          script: |
-            # -e is what actually aborts this script. `script_stop: true` was
-            # set here for years but is not an input this action accepts, so it
-            # was ignored: a docker-compose config error let `down` and `up`
-            # both fail, left the previous container running, and the check
-            # below passed on it. The deploy reported success having deployed
-            # nothing.
-            set -e
-            set +x
-            cd ~/lanco-discord-bot
-            # Pinned, not inherited: compose reads BOT_ENV/CONTAINER_NAME from
-            # the .env beside docker-compose.yml, which exists so that stack can
-            # be run as dev. The shell outranks it, so a value left in that file
-            # cannot redirect an automated production deploy.
-            export BOT_ENV=prod
-            export CONTAINER_NAME=lanco-bot
-            IMAGE=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
-            git pull origin master
-            docker pull "$IMAGE"
-            docker-compose -p lanco-discord-bot down
-            docker-compose -p lanco-discord-bot up -d
-            docker image prune -f
-            sleep 5
-            # Compare the running image to the one just pulled. Checking only
-            # that a container named lanco-bot is up passes when the deploy did
-            # nothing at all and the previous container is simply still there.
-            WANT=$(docker image inspect --format '{{.Id}}' "$IMAGE")
-            GOT=$(docker inspect --format '{{.Image}}' lanco-bot 2>/dev/null || echo none)
-            if [ "$WANT" != "$GOT" ]; then
-              echo "lanco-bot is not running the image that was just deployed"
-              echo "  expected $WANT"
-              echo "  running  $GOT"
-              docker logs --tail 50 lanco-bot || true
-              exit 1
-            fi
+# Publishing :latest is the whole deploy. Watchtower on the host polls ghcr and
+# recreates the bot when the tag moves, so this pipeline holds no credential to
+# the host. See docker-compose.yml, and CLAUDE.md for what it does not cover.

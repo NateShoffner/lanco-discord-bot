@@ -44,4 +44,34 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+      com.centurylinklabs.watchtower.scope: ${CONTAINER_NAME:-lanco-bot}
 
+  # Recreates `app` when :latest moves, which is what makes a push to master
+  # deploy without CI holding an ssh key to this box. See CLAUDE.md.
+  #
+  # nicholas-fedor/watchtower, NOT containrrr/watchtower: the original was
+  # archived read-only in December 2025. The fork is config-compatible.
+  watchtower:
+    image: ghcr.io/nicholas-fedor/watchtower:1.23.0
+    container_name: ${CONTAINER_NAME:-lanco-bot}-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Scoped to this stack, so a dev stack alongside prod does not recreate
+      # prod's bot and vice versa.
+      WATCHTOWER_SCOPE: ${CONTAINER_NAME:-lanco-bot}
+      # Off by default, which would leave a crash-looping bot unfixable by
+      # deploy: `restart: unless-stopped` parks a container that exits on boot
+      # in the `restarting` state, and Watchtower skips those.
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_LOG_LEVEL: "info"
+    labels:
+      # Needs its own scope label to clean up superseded images correctly.
+      com.centurylinklabs.watchtower.scope: ${CONTAINER_NAME:-lanco-bot}
+    mem_limit: 128m
