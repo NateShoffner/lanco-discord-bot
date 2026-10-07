@@ -68,8 +68,6 @@ class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
     )
     @is_bot_owner_or_admin()
     async def setprefix(self, interaction: discord.Interaction, prefix: str):
-        import main
-
         if len(prefix) > 2:
             await interaction.response.send_message(
                 "Prefix must be 2 characters or fewer.", ephemeral=True
@@ -80,7 +78,7 @@ class Bot(LancoCog, name="Bot", description="Bot configuration commands"):
         config, _ = GuildConfig.get_or_create(guild_id=guild_id)
         config.prefix = prefix
         config.save()
-        main._prefix_cache[guild_id] = prefix
+        self.bot.set_guild_prefix(guild_id, prefix)
         await interaction.response.send_message(
             f"Prefix set to `{prefix}`", ephemeral=True
         )

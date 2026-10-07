@@ -11,9 +11,10 @@ from typing import Optional
 import discord
 import elasticapm
 from cogs.lancocog import LancoCog, UrlHandler
-from db import BaseModel, database_proxy
+from db import database_proxy
 from discord.ext import commands
 from logtail import LogtailHandler
+from models_core import BlacklistedUser
 from peewee import *
 from utils import apm, env
 from utils.command_utils import is_bot_owner
@@ -324,16 +325,6 @@ def init_db() -> Database:
 
 database = init_db()
 
-
-class BlacklistedUser(BaseModel):
-    user_id = BigIntegerField(primary_key=True)
-    reason = TextField(null=True)
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "blacklisted_users"
-
-
 database.create_tables([BlacklistedUser])
 
 
@@ -386,6 +377,10 @@ class LancoBot(commands.Bot):
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
+
+    def set_guild_prefix(self, guild_id: int, prefix: str) -> None:
+        """Update the prefix cache; the caller persists to GuildConfig."""
+        _prefix_cache[guild_id] = prefix
 
     def get_guild_prefix(self, guild: Optional[discord.Guild] = None) -> str:
         if guild:
@@ -568,6 +563,13 @@ class InstrumentedCommandTree(discord.app_commands.CommandTree):
     indistinguishable from one that crashed.
     """
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # App-command counterpart of global_block_check, which bot.check only
+        # applies to prefix commands. Silent, like a CheckFailure there.
+        if BlacklistedUser.get_or_none(user_id=interaction.user.id):
+            return False
+        return True
+
     async def _call(self, interaction: discord.Interaction) -> None:
         if (
             apm_client is None
@@ -607,6 +609,11 @@ bot = LancoBot(
     owner_id=owner_id,
     max_messages=message_cache_size,
     tree_cls=InstrumentedCommandTree,
+    # No @everyone/@here from echoed text (LLM replies, custom commands, feeds).
+    # Roles stay on: TechLanc's meetup ping role relies on it.
+    allowed_mentions=discord.AllowedMentions(
+        everyone=False, users=True, roles=True, replied_user=True
+    ),
 )
 
 
