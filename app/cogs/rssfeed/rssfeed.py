@@ -1,7 +1,6 @@
 import datetime
 from urllib.parse import urlparse
 
-import aiohttp
 import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
@@ -10,6 +9,7 @@ from feedparser import parse
 from feedparser.util import FeedParserDict
 from utils.channel_lock import command_channel_lock
 from utils.command_utils import is_bot_owner_or_admin, is_bot_owner_or_admin_ctx
+from utils.file_downloader import UnsafeUrlError, guarded_fetch
 
 from .models import RSSFeedConfig
 
@@ -20,6 +20,8 @@ class RssFeed(
     description="Poll RSS feeds and post new entries to configured channels",
 ):
     UPDATE_INTERVAL = 10  # seconds
+    MAX_FEED_BYTES = 10 * 1024 * 1024
+    FETCH_TIMEOUT = 10  # shorter than the default; the poll runs every interval
     g = app_commands.Group(
         name="rssfeed", description="RSSFeed commands", guild_only=True
     )
@@ -72,6 +74,14 @@ class RssFeed(
         feed = None
         try:
             feed = await self.get_feed(url)
+        except UnsafeUrlError as e:
+            self.logger.warning(
+                f"[{label}] {interaction.user} tried to subscribe channel "
+                f"{interaction.channel.id} to a rejected url {url}: {e}"
+            )
+            embed.description = f"Refused to fetch that feed: {e}"
+            await response_msg.edit(embed=embed)
+            return
         except Exception:
             self.logger.exception(
                 f"[{label}] {interaction.user} failed to subscribe channel "
@@ -212,16 +222,15 @@ class RssFeed(
 
     async def get_feed(self, url: str) -> FeedParserDict:
         """Get the feed"""
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    self.warn_once(
-                        url,
-                        f"[{self.feed_label(url)}] HTTP {response.status} fetching {url}",
-                    )
-                text = await response.text()
-                parsed = parse(text)
-                return parsed
+        response = await guarded_fetch(
+            url, timeout=self.FETCH_TIMEOUT, max_bytes=self.MAX_FEED_BYTES
+        )
+        if response.status != 200:
+            self.warn_once(
+                url,
+                f"[{self.feed_label(url)}] HTTP {response.status} fetching {url}",
+            )
+        return parse(response.text())
 
     async def is_new_item(self, entry: str, last_checked: datetime.datetime) -> bool:
         """Check if an item is new"""
