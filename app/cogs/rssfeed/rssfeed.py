@@ -9,7 +9,7 @@ from discord.ext import commands, tasks
 from feedparser import parse
 from feedparser.util import FeedParserDict
 from utils.channel_lock import command_channel_lock
-from utils.command_utils import is_bot_owner_or_admin
+from utils.command_utils import is_bot_owner_or_admin, is_bot_owner_or_admin_ctx
 
 from .models import RSSFeedConfig
 
@@ -258,7 +258,7 @@ class RssFeed(
         return await channel.send(embed=embed)
 
     @commands.command(name="rsstest", description="Test the Reddit feed")
-    @is_bot_owner_or_admin()
+    @is_bot_owner_or_admin_ctx()
     async def test(self, ctx: commands.Context):
         feed = await self.get_feed("https://www.cityoflancasterpa.gov/feed/")
         yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=3)
