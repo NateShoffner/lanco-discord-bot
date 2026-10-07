@@ -283,7 +283,7 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.app_commands.command(name="block", description="Block a user")
-    @commands.is_owner()
+    @is_bot_owner()
     async def block(
         self, interaction: discord.Interaction, user: discord.User, reason: str
     ):
@@ -295,7 +295,7 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         )
 
     @discord.app_commands.command(name="unblock", description="Unblock a user")
-    @commands.is_owner()
+    @is_bot_owner()
     async def unblock(self, interaction: discord.Interaction, user: discord.User):
         from main import BlacklistedUser
 

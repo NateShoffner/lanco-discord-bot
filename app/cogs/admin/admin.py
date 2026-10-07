@@ -2,7 +2,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
-from utils.command_utils import is_bot_owner_or_admin
+from utils.command_utils import is_bot_owner_or_admin, is_bot_owner_or_admin_ctx
 
 
 class Admin(LancoCog, name="Admin", description="Administrative commands"):
@@ -14,11 +14,15 @@ class Admin(LancoCog, name="Admin", description="Administrative commands"):
         super().__init__(bot)
 
     @commands.command(name="delete", description="Delete a message")
-    @is_bot_owner_or_admin()
+    @is_bot_owner_or_admin_ctx()
     async def delete(self, ctx: commands.Context):
         """Delete a message"""
         # delete the message that was replied to
-        message = ctx.message.reference.resolved
+        reference = ctx.message.reference
+        message = reference.resolved if reference else None
+        if not isinstance(message, discord.Message):
+            await ctx.send("Reply to the message you want deleted.")
+            return
         await message.delete()
         # delete the command message
         await ctx.message.delete()

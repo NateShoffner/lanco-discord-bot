@@ -33,8 +33,8 @@ class Pinboard(
         pinned_count = (
             PinboardPost.select()
             .where(
-                PinboardPost.pin_owner_id == interaction.user.id
-                and PinboardPost.guild_id == interaction.guild.id
+                (PinboardPost.pin_owner_id == interaction.user.id)
+                & (PinboardPost.guild_id == interaction.guild.id)
             )
             .count()
         )
@@ -118,13 +118,16 @@ class Pinboard(
             return
 
         pinned_message = pinned_message_ids[message_number - 1]
-        PinboardPost.delete().where(PinboardPost.message_id == pinned_message).execute()
+        PinboardPost.delete().where(
+            (PinboardPost.message_id == pinned_message)
+            & (PinboardPost.pin_owner_id == interaction.user.id)
+        ).execute()
 
         await interaction.response.send_message("Message unpinned", ephemeral=True)
 
     async def get_pinned_message_ids(self, user: discord.User, guild: discord.Guild):
         pinned_messages = PinboardPost.select().where(
-            PinboardPost.pin_owner_id == user.id and PinboardPost.guild_id == guild.id
+            (PinboardPost.pin_owner_id == user.id) & (PinboardPost.guild_id == guild.id)
         )
         if not pinned_messages:
             return None
@@ -133,7 +136,7 @@ class Pinboard(
 
     async def get_pinned_messages(self, user: discord.User, guild: discord.Guild):
         pinned_messages = PinboardPost.select().where(
-            PinboardPost.pin_owner_id == user.id and PinboardPost.guild_id == guild.id
+            (PinboardPost.pin_owner_id == user.id) & (PinboardPost.guild_id == guild.id)
         )
         if not pinned_messages:
             return None

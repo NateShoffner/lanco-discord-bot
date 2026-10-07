@@ -536,7 +536,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         view.add_item(select)
 
         await interaction.channel.typing()
-        await interaction.response.send_message(view=view)
+        # ephemeral so only the invoker can use the select
+        await interaction.response.send_message(view=view, ephemeral=True)
 
 
 async def setup(bot):

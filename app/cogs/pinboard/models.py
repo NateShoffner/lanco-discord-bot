@@ -1,5 +1,3 @@
-from email import message
-
 from db import BaseModel
 from peewee import *
 

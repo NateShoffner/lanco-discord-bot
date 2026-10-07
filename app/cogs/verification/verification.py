@@ -35,7 +35,7 @@ class Verification(
         self.bot.database.create_tables([VerificationConfig, VerificationRequest])
 
     @g.command(name="threshold", description="Set the vote threshold.")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def threshold(self, interaction: discord.Interaction, threshold: int):
         """
         Set the vote threshold.
@@ -51,7 +51,7 @@ class Verification(
         )
 
     @g.command(name="role", description="Set the role to be given to verified users.")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def role(self, interaction: discord.Interaction, role: discord.Role):
         """
         Set the role to be given to verified users.
@@ -68,7 +68,7 @@ class Verification(
         )
 
     @g.command(name="modchannel", description="Set the mod channel.")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def modchannel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):

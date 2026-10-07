@@ -62,6 +62,7 @@ class PDFPreview(
 
         config = PDFPreviewConfig.get_or_none(guild_id=ctx.message.guild.id)
         preview_pages = max(1, config.preview_pages if config else 1)
+        virus_check_enabled = config.virus_check if config else True
 
         file_size = os.path.getsize(pdf_filename)
         image_paths, page_count = self.generate_pdf_preview(pdf_filename, preview_pages)
@@ -69,14 +70,28 @@ class PDFPreview(
         files = [
             discord.File(path, filename=os.path.basename(path)) for path in image_paths
         ]
-        embeds = self.build_preview_embeds(image_paths, page_count, file_size, pdf_url)
+        embeds = self.build_preview_embeds(
+            image_paths,
+            page_count,
+            file_size,
+            pdf_url,
+            virus_check_enabled=virus_check_enabled,
+        )
 
         embed_msg = await ctx.message.channel.send(files=files, embeds=embeds)
+
+        if not virus_check_enabled:
+            return
 
         vt_results = await self.virus_check.check_file(pdf_filename)
         # update the embeds with the VirusTotal results
         embeds = self.build_preview_embeds(
-            image_paths, page_count, file_size, pdf_url, vt_results
+            image_paths,
+            page_count,
+            file_size,
+            pdf_url,
+            vt_results,
+            virus_check_enabled=True,
         )
         await embed_msg.edit(embeds=embeds)
 
@@ -114,6 +129,7 @@ class PDFPreview(
         file_size: int,
         pdf_url: str,
         vt_results: VirusTotalResults = None,
+        virus_check_enabled: bool = True,
     ):
         """Build a list of embeds that Discord renders as a single gallery.
 
@@ -148,7 +164,7 @@ class PDFPreview(
                         value=f"[{vt_status}]({vt_results.url})",
                         inline=False,
                     )
-                else:
+                elif virus_check_enabled:
                     embed.add_field(
                         name="VirusTotal Results", value="⏳ Pending", inline=False
                     )
@@ -192,6 +208,21 @@ class PDFPreview(
         config.save()
         await interaction.response.send_message(
             f"PDF previews will now show the first {pages} page(s)."
+        )
+
+    @pdf_group.command(
+        name="viruscheck",
+        description="Toggle uploading previewed PDFs to VirusTotal for scanning",
+    )
+    @is_bot_owner_or_admin()
+    async def viruscheck(self, interaction: discord.Interaction):
+        config, _ = PDFPreviewConfig.get_or_create(guild_id=interaction.guild.id)
+        config.virus_check = not config.virus_check
+        config.save()
+        await interaction.response.send_message(
+            "PDFs will be uploaded to VirusTotal for scanning"
+            if config.virus_check
+            else "PDFs will no longer be uploaded to VirusTotal"
         )
 
 

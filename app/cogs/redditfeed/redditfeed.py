@@ -9,7 +9,7 @@ from asyncpraw.models import Submission
 from cogs.lancocog import LancoCog
 from discord import TextChannel, app_commands
 from discord.ext import commands, tasks
-from utils.command_utils import is_bot_owner_or_admin
+from utils.command_utils import is_bot_owner_or_admin, is_bot_owner_or_admin_ctx
 from utils.file_downloader import FileDownloader
 from utils.image_utils import blur_image
 from utils.markdown_utils import reddit_to_discord
@@ -519,7 +519,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         return icon
 
     @commands.command(name="reddittest", description="Test the Reddit feed")
-    @is_bot_owner_or_admin()
+    @is_bot_owner_or_admin_ctx()
     async def test(self, ctx: commands.Context):
         subreddit = await self.reddit.subreddit("lancaster")
         async for submission in subreddit.new(limit=1):
@@ -529,7 +529,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     @commands.command(
         name="reddittest2", description="Test the Reddit feed with a specific URL"
     )
-    @is_bot_owner_or_admin()
+    @is_bot_owner_or_admin_ctx()
     async def test2(self, ctx: commands.Context):
         url = "https://www.reddit.com/r/lancaster/comments/1rbp3hm/snow_emergency_today_move_your_cars/"
         try:
