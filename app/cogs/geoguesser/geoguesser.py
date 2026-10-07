@@ -1,4 +1,5 @@
 import asyncio
+import io
 import os
 import re
 import time
@@ -138,9 +139,9 @@ class GeoGuesser(
         files = [discord.File(cached_image_path, filename="streetview.jpg")]
         return embed, files
 
-    def build_results_embed(
+    async def build_results_embed(
         self, session: GameSession, next_round_time: int | None
-    ) -> discord.Embed:
+    ) -> tuple[discord.Embed, list[discord.File]]:
         r = session.get_current_round()
         coords = r.location.road_coords
         maps_url = f"https://www.google.com/maps?q={coords.lat},{coords.lng}"
@@ -160,7 +161,10 @@ class GeoGuesser(
                 member = session.channel.guild.get_member(user_id)
                 label = (member.display_name[0] if member else "?").upper()
                 map_params += f"&markers=color:{color}%7Clabel:{label}%7C{guess_result.guess_coords.lat},{guess_result.guess_coords.lng}"
-        static_map_url = f"https://maps.googleapis.com/maps/api/staticmap?{map_params}&key={os.getenv('GMAPS_API_KEY')}"
+        static_map_url = (
+            f"https://maps.googleapis.com/maps/api/staticmap?{map_params}"
+            f"&key={os.getenv('GMAPS_API_KEY')}"
+        )
 
         def format_distance(meters: float) -> str:
             feet = meters * 3.28084
@@ -201,8 +205,25 @@ class GeoGuesser(
                 name="Next round", value=f"<t:{next_round_time}:R>", inline=False
             )
 
-        embed.set_image(url=static_map_url)
-        return embed
+        # fetched and attached as a file, like the Street View photo
+        files = []
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(static_map_url) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        files.append(
+                            discord.File(io.BytesIO(data), filename="results_map.png")
+                        )
+                        embed.set_image(url="attachment://results_map.png")
+                    else:
+                        self.logger.warning(
+                            f"Static map request failed with status {resp.status}"
+                        )
+        except aiohttp.ClientError as e:
+            self.logger.warning(f"Failed to download results map: {e}")
+
+        return embed, files
 
     def build_final_embed(self, session: GameSession) -> discord.Embed:
         leaderboard = self.build_leaderboard(session)

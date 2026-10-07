@@ -123,9 +123,13 @@ class RoundGameCog(LancoCog, Generic[TSession]):
         raise NotImplementedError
 
     @abstractmethod
-    def build_results_embed(
+    async def build_results_embed(
         self, session: TSession, next_round_time: int | None
-    ) -> discord.Embed:
+    ) -> discord.Embed | tuple[discord.Embed, list[discord.File]]:
+        """Return the end-of-round embed, or (embed, files) if it needs an
+        attachment, e.g. a map image fetched server-side and attached rather
+        than linked by a URL that carries request parameters.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -276,8 +280,12 @@ class RoundGameCog(LancoCog, Generic[TSession]):
                 pass
             session.round_warning_message = None
 
-        embed = self.build_results_embed(session, next_round_time)
-        session.round_results_message = await session.channel.send(embed=embed)
+        result = await self.build_results_embed(session, next_round_time)
+        embed, files = result if isinstance(result, tuple) else (result, [])
+        send_kwargs = {"embed": embed}
+        if files:
+            send_kwargs["files"] = files
+        session.round_results_message = await session.channel.send(**send_kwargs)
 
     async def post_final_results(self, session: TSession, skipped: bool = False):
         if session.cancelled:

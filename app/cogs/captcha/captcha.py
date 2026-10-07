@@ -109,7 +109,7 @@ class CaptchaCog(
         file = discord.File(BytesIO(challenge.image_bytes), filename="captcha.png")
         return embed, [file]
 
-    def build_results_embed(
+    async def build_results_embed(
         self, session: CaptchaSession, next_round_time: int | None
     ) -> discord.Embed:
         r = session.get_current_round()
