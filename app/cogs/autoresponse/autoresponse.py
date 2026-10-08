@@ -1,11 +1,9 @@
-import re
-
 import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
-from utils.common import is_regex
+from utils.common import is_safe_regex, matches_pattern
 
 from .models import AutoResponseConfig
 
@@ -47,9 +45,11 @@ class AutoResponse(
     async def set_auto_response_regex(
         self, interaction: discord.Interaction, pattern: str, response: str
     ):
-        if not is_regex(pattern):
+        if not is_safe_regex(pattern):
             await interaction.response.send_message(
-                "Please provide a valid regex pattern", ephemeral=True
+                "That pattern is not a valid regex, or is too slow to run on "
+                "every message",
+                ephemeral=True,
             )
             return
 
@@ -99,7 +99,7 @@ class AutoResponse(
             return
 
         if config.is_regex:
-            if re.findall(config.phrase, message.content):
+            if matches_pattern(config.phrase, message.content):
                 await message.reply(config.response)
         else:
             message_words = message.content.split()
