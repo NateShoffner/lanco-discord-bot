@@ -31,6 +31,10 @@ class SleepRoyale:
     users: list[SleepRoyaleUser]
 
 
+# reads up to 500 messages and one vision call per attachment, so: per guild
+ROYALE_COOLDOWN = 300.0
+
+
 class SleepCheck(
     LancoCog,
     name="SleepCheck",
@@ -52,6 +56,9 @@ class SleepCheck(
     @g.command(
         name="today",
         description="Check how much sleep everyone got today",
+    )
+    @app_commands.checks.cooldown(
+        1, ROYALE_COOLDOWN, key=lambda i: i.guild_id or i.user.id
     )
     async def today(
         self,
@@ -118,6 +125,17 @@ class SleepCheck(
         await response_msg.edit(embed=final_embed)
 
         del self.active_royales[royale_channel.id]
+
+    @today.error
+    async def today_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ) -> None:
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(
+                f"Sleep Royale is on cooldown, try again in "
+                f"{error.retry_after:.0f}s.",
+                ephemeral=True,
+            )
 
     async def get_sleep_times(
         self, messages: list[discord.Message]

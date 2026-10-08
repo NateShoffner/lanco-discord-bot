@@ -45,6 +45,10 @@ class ChannelDiscussion(BaseModel):
     )
 
 
+# every command here reads channel history and makes a paid LLM call
+LLM_COOLDOWN = 30
+
+
 class Summarize(
     LancoCog,
     name="Summarize",
@@ -100,6 +104,7 @@ class Summarize(
         name="topic", description="Will say what the current channel is talking about"
     )
     @commands.guild_only()
+    @commands.cooldown(1, LLM_COOLDOWN, commands.BucketType.user)
     @command_channel_lock()
     @track_message_ids()
     async def topic(self, ctx: commands.Context):
@@ -200,6 +205,7 @@ class Summarize(
     @commands.command(
         name="vibecheck", description="Will provide a vibe check of the current channel"
     )
+    @commands.cooldown(1, LLM_COOLDOWN, commands.BucketType.user)
     @command_channel_lock()
     @track_message_ids()
     async def vibecheck(self, ctx: commands.Context):
@@ -229,6 +235,7 @@ class Summarize(
         name="eli5",
         description="Explain Like I'm 5 - provides a simple explanation of the current channel's vibe",
     )
+    @commands.cooldown(1, LLM_COOLDOWN, commands.BucketType.user)
     @command_channel_lock()
     @track_message_ids()
     async def eli5(self, ctx: commands.Context):
@@ -256,6 +263,7 @@ class Summarize(
         name="chime",
         description="Chime in on the current conversation with an opinion or insight",
     )
+    @commands.cooldown(1, LLM_COOLDOWN, commands.BucketType.user)
     @command_channel_lock()
     @track_message_ids()
     async def chime(self, ctx: commands.Context):

@@ -89,6 +89,7 @@ class TraceMoe(
         return embed
 
     @commands.command(name="sauce", description="Get the anime from a screenshot")
+    @commands.cooldown(1, 20, commands.BucketType.user)
     async def tracemoe(self, ctx: commands.Context):
         if not ctx.message.reference:
             await ctx.send("Please reply to a message with an image")

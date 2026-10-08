@@ -14,6 +14,7 @@ class WolframAlpha(
         self.client = wolframalpha.Client(os.getenv("WOLFRAM_ALPHA_API_KEY"))
 
     @commands.command(name="calc", description="Query Wolfram Alpha")
+    @commands.cooldown(1, 10, commands.BucketType.user)
     async def calc(self, ctx: commands.Context, *, query: str):
         if not query:
             await ctx.message.reply("Please provide a query")
