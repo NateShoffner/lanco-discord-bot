@@ -36,7 +36,7 @@ class RssFeed(
     async def cog_load(self):
         await super().cog_load()
         self.bot.database.create_tables([RSSFeedConfig])
-        self.poll.start()
+        self.start_loop(self.poll)
 
     def cog_unload(self):
         self.poll.cancel()

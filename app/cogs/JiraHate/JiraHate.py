@@ -46,7 +46,7 @@ class JiraHate(
         self.latest_quote_id = None
 
     async def cog_load(self):
-        self.get_feed.start()
+        self.start_loop(self.get_feed)
 
     def cog_unload(self):
         self.get_feed.cancel()

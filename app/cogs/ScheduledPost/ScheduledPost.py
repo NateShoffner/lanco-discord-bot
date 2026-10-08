@@ -32,7 +32,7 @@ class ScheduledPost(
 
     async def cog_load(self):
         self.bot.database.create_tables([ScheduledPostModel])
-        self.check_posts.start()
+        self.start_loop(self.check_posts)
 
     @tasks.loop(seconds=30)
     async def check_posts(self):

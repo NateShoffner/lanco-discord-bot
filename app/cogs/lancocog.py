@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import inspect
 import logging
 import re
@@ -10,7 +11,7 @@ from typing import Generic, TypeVar
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from pydantic import BaseModel
 from utils import apm
 from utils.roundgame.session import RoundGameSession
@@ -29,11 +30,49 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         self.logger = logging.getLogger(self.get_cog_name())
         self.context_menus = []
         self._tracked_tasks = []
+        self._tracked_loops = []
 
     def track_task(self, task):
         """Register a background task to be cancelled on cog unload."""
         self._tracked_tasks.append(task)
         return task
+
+    def start_loop(self, loop: tasks.Loop, *, wait_for_ready: bool = True):
+        """Start a ``tasks.loop`` that survives a raising iteration and waits for
+        the gateway. Pass ``wait_for_ready=False`` if it touches no Discord state.
+        """
+        if getattr(loop, "_lanco_guarded", False):
+            loop.start()
+            return loop
+
+        original = loop.coro
+
+        @functools.wraps(original)
+        async def guarded(*args, **kwargs):
+            try:
+                await original(*args, **kwargs)
+            except Exception:
+                self.logger.exception(
+                    f"Unhandled error in {original.__qualname__}, loop continuing"
+                )
+
+        loop.coro = guarded
+
+        if wait_for_ready:
+            # composed, so a cog can still have its own before_loop
+            previous = loop._before_loop
+
+            async def before_loop(*args, **kwargs):
+                await self.bot.wait_until_ready()
+                if previous is not None:
+                    await previous(*args, **kwargs)
+
+            loop.before_loop(before_loop)
+
+        loop._lanco_guarded = True
+        self._tracked_loops.append(loop)
+        loop.start()
+        return loop
 
     def record_activity(
         self, name: str, tx_type: str = apm.TX_COG_ACTION, **labels
@@ -81,6 +120,10 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
         for task in self._tracked_tasks:
             task.cancel()
         self._tracked_tasks.clear()
+
+        for loop in self._tracked_loops:
+            loop.cancel()
+        self._tracked_loops.clear()
 
         for ctx_menu in self.context_menus:
             self.bot.tree.remove_command(ctx_menu.name, type=ctx_menu.type)

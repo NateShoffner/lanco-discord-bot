@@ -83,8 +83,8 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         self.preferred_client = self.current_client
 
         self.get_incidents_loop.change_interval(seconds=5)
-        self.get_incidents_loop.start()
-        self.recovery_check_loop.start()
+        self.start_loop(self.get_incidents_loop)
+        self.start_loop(self.recovery_check_loop)
 
     async def cog_unload(self):
         self.get_incidents_loop.cancel()

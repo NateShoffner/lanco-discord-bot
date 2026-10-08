@@ -195,8 +195,8 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     async def cog_load(self):
         await super().cog_load()
         self.bot.database.create_tables([RedditFeedConfig, RedditPost])
-        self.poll.start()
-        self.check_post_states.start()
+        self.start_loop(self.poll)
+        self.start_loop(self.check_post_states)
 
     def cog_unload(self):
         self.poll.cancel()
