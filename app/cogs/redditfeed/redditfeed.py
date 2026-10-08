@@ -22,6 +22,17 @@ REDDIT_MEDIA_DOMAINS = {"i.redd.it", "v.redd.it"}
 FIELD_VALUE_LIMIT = 1024
 
 
+def normalize_subreddit_name(name: str) -> str:
+    """Strip a leading /r/ or r/ from a subreddit name.
+
+    lstrip("/r/") stripped a character set, so "r/rust" became "ust".
+    """
+    name = name.strip().lstrip("/")
+    if name.lower().startswith("r/"):
+        name = name[2:]
+    return name.strip("/").lower()
+
+
 def _get(source, name: str, default=None):
     """Read a field off a Submission or off a raw crosspost parent dict."""
     if isinstance(source, dict):
@@ -302,19 +313,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 if submission.id in seen_ids:
                     continue
 
-                # Skip posts older than the last known post creation for any config
-                # This prevents backfilling old content on restarts
-                min_timestamp = min(
-                    (
-                        c.last_known_post_creation
-                        for c in configs
-                        if c.last_known_post_creation
-                    ),
-                    default=None,
-                )
-                if min_timestamp and submission.created_utc <= min_timestamp:
-                    continue
-
                 # New post — share to all configured channels
                 author = submission.author.name if submission.author else "[deleted]"
                 deleted, removed, removed_by_reddit = self.get_removal_state(submission)
@@ -326,6 +324,14 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 )
 
                 for config in configs:
+                    # Each config's own watermark. The minimum across all of
+                    # them re-posted old content to the caught-up channels.
+                    if (
+                        config.last_known_post_creation
+                        and submission.created_utc <= config.last_known_post_creation
+                    ):
+                        continue
+
                     self.logger.debug(
                         f"[{sr}] Sharing post {submission.id} to channel {config.channel_id}"
                     )
@@ -337,7 +343,18 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         )
                         continue
 
-                    msg = await self.share_post(submission, channel)
+                    try:
+                        msg = await self.share_post(submission, channel)
+                    except Exception:
+                        self.logger.exception(
+                            f"[{sr}] Failed to post {submission.id} to channel "
+                            f"{config.channel_id}, skipping it"
+                        )
+                        # advance anyway, so one bad post cannot block the rest
+                        config.last_known_post_creation = submission.created_utc
+                        config.save()
+                        continue
+
                     self.logger.info(
                         f"[{sr}] Posted {submission.id} to channel {config.channel_id} as message {msg.id}"
                     )
@@ -365,7 +382,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                     config.last_known_post_creation = submission.created_utc
                     config.save()
 
-                # Mark as seen
+                # per submission, so a mid-batch failure cannot replay the batch
                 seen_ids.add(submission.id)
                 self.logger.info(f"[{sr}] Marked {submission.id} as seen")
 
@@ -456,7 +473,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
     @is_bot_owner_or_admin()
     async def subscribe(self, interaction: discord.Interaction, subreddit_name: str):
-        subreddit_name = subreddit_name.lstrip("/r/").lower()
+        subreddit_name = normalize_subreddit_name(subreddit_name)
         reddit_config, created = RedditFeedConfig.get_or_create(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,
@@ -480,7 +497,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     )
     @is_bot_owner_or_admin()
     async def unsubscribe(self, interaction: discord.Interaction, subreddit_name: str):
-        subreddit_name = subreddit_name.lstrip("/r/").lower()
+        subreddit_name = normalize_subreddit_name(subreddit_name)
         reddit_config = RedditFeedConfig.get_or_none(
             channel_id=interaction.channel.id,
             subreddit=subreddit_name,

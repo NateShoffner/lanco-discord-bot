@@ -198,14 +198,34 @@ class RssFeed(
                             f"skipping {len(new_items)} item(s)"
                         )
 
+                # oldest first, so the watermark cannot step over a pending item
+                new_items.sort(
+                    key=lambda e: self.entry_timestamp(e) or datetime.datetime.min
+                )
+
                 for item in new_items:
                     if not channel:
                         continue
-                    msg = await self.post_item(feed.feed.title, item, channel)
-                    self.logger.info(
-                        f"[{label}] Posted {getattr(item, 'link', '?')} "
-                        f"to channel {config.channel_id} as message {msg.id}"
-                    )
+                    try:
+                        msg = await self.post_item(feed.feed.title, item, channel)
+                        self.logger.info(
+                            f"[{label}] Posted {getattr(item, 'link', '?')} "
+                            f"to channel {config.channel_id} as message {msg.id}"
+                        )
+                    except Exception:
+                        self.logger.exception(
+                            f"[{label}] Failed to post "
+                            f"{getattr(item, 'link', '?')} to channel "
+                            f"{config.channel_id}, skipping it"
+                        )
+                    # per item and even on failure, so one bad entry cannot
+                    # replay the whole batch on every poll
+                    published = self.entry_timestamp(item)
+                    if published and (
+                        config.last_checked is None or published > config.last_checked
+                    ):
+                        config.last_checked = published
+                        config.save()
 
                 # feedparser normalises entry timestamps to UTC, so the watermark
                 # must be UTC too. Using local time here made every item published
@@ -232,14 +252,20 @@ class RssFeed(
             )
         return parse(response.text())
 
+    @staticmethod
+    def entry_timestamp(entry) -> datetime.datetime | None:
+        """A feed entry's publication time as naive UTC, or None if it has none."""
+        published = entry.get("published_parsed") or entry.get("updated_parsed")
+        return datetime.datetime(*published[:6]) if published else None
+
     async def is_new_item(self, entry: str, last_checked: datetime.datetime) -> bool:
         """Check if an item is new"""
-        published = entry.published_parsed or entry.updated_parsed
+        published = self.entry_timestamp(entry)
         if not published:
             return False
         if not last_checked:
             return True
-        return datetime.datetime(*published[:6]) > last_checked
+        return published > last_checked
 
     async def get_new_items(
         self, feed: FeedParserDict, last_checked: datetime.datetime

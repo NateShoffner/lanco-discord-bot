@@ -74,6 +74,15 @@ class Everbridge(
         embed.set_footer(text=f"ID: {notification.id}")
         return embed
 
+    async def newest_notification_date(self) -> datetime.datetime | None:
+        """createdAt of the newest notification, as the API represents it."""
+        try:
+            notifications = await self.client.get_notifications()
+        except Exception:
+            self.logger.exception("Could not read notifications to seed a watermark")
+            return None
+        return max((n.createdAt for n in notifications), default=None)
+
     async def get_new_notifications(self):
         """Get new Everbridge notifications."""
         everbridge_configs = EverbridgeConfig.select()
@@ -87,8 +96,9 @@ class Everbridge(
             self.logger.debug("No new notifications found.")
             return
 
-        # reverse the notifs
-        notifications.reverse()
+        # Oldest first: the watermark is the last createdAt sent, and the API
+        # returns newest first.
+        notifications = sorted(notifications, key=lambda n: n.createdAt)
 
         for config in everbridge_configs:
             channel = self.bot.get_channel(config.channel_id)
@@ -100,11 +110,15 @@ class Everbridge(
 
             last_event_date = config.last_event_date
 
-            # For testing
-            # last_event_date = datetime.datetime.now() - datetime.timedelta(weeks=4)
-
             if not last_event_date:
-                return  # if no last event date, skip this config
+                # a row predating the seeding below; adopt the newest, not the backlog
+                config.last_event_date = notifications[-1].createdAt
+                config.save()
+                self.logger.info(
+                    f"Seeded watermark for channel {config.channel_id}; "
+                    f"alerts start from the next notification"
+                )
+                continue
 
             new_notifications = [
                 notification
@@ -116,12 +130,18 @@ class Everbridge(
                 f"New notifications for channel {config.channel_id}: {len(new_notifications)}"
             )
 
-            if new_notifications:
-                for notification in new_notifications:
+            for notification in new_notifications:
+                try:
                     embed = await self.build_notification_embed(notification, config)
                     await channel.send(embed=embed)
-                    config.last_event_date = notification.createdAt
-                    config.save()
+                except Exception:
+                    self.logger.exception(
+                        f"Failed to send notification {notification.id} to "
+                        f"channel {config.channel_id}, skipping it"
+                    )
+                # advanced even on failure, so one bad alert cannot wedge the rest
+                config.last_event_date = notification.createdAt
+                config.save()
 
     @commands.command()
     async def ebtest(self, ctx):
@@ -149,9 +169,14 @@ class Everbridge(
     ):
         """Subscribe to Everbridge notifications in a specific channel."""
         everbridge_config, created = EverbridgeConfig.get_or_create(
-            channel_id=interaction.channel.id,
+            channel_id=channel.id,
             subscription_name=subscription_name,
         )
+
+        # Seeded, because the poll delivers nothing without a baseline. From the
+        # API rather than the clock: its timestamps are naive.
+        if created or not everbridge_config.last_event_date:
+            everbridge_config.last_event_date = await self.newest_notification_date()
         everbridge_config.save()
 
         embed = discord.Embed(
@@ -169,9 +194,7 @@ class Everbridge(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
         """Unsubscribe from Everbridge notifications in a specific channel."""
-        everbridge_config = EverbridgeConfig.get_or_none(
-            channel_id=interaction.channel.id
-        )
+        everbridge_config = EverbridgeConfig.get_or_none(channel_id=channel.id)
 
         if everbridge_config:
             everbridge_config.delete_instance()
