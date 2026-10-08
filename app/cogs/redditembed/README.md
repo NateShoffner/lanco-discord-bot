@@ -7,13 +7,18 @@ Fixes Reddit embeds by rewriting links to a third-party fixer service that enabl
 | Command | Permission | Description |
 |---|---|---|
 | `/redditembed toggle` | Admin | Enable or disable the embed fix for this guild |
-| `/redditembed handler` | Admin | View the active fixer service |
+| `/redditembed handler` | Admin | Switch the fixer service for this guild |
 
 ## Handlers
 
 | ID | Name | Replacement |
 |---|---|---|
-| `rxddit` *(default)* | Rxddit | `rxddit.com` |
+| `vxreddit` *(default)* | VxReddit | `vxreddit.com` |
+| `redditez` | RedditEZ | `redditez.com` (EmbedEZ) |
+
+`rxddit.com` was the default until Reddit began blocking it; every request now
+returns an error card instead of a preview. Guilds still holding that handler id
+fall back to the default.
 
 ## Behavior
 
