@@ -29,8 +29,8 @@ class AnimeToday(
         self.bot.database.create_tables([AnimeTodayConfig])
         self.start_loop(self.daily_anime_task)
 
-    def cog_unload(self):
-        self.daily_anime_task.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(time=daily_announcement_time)
     async def daily_anime_task(self):

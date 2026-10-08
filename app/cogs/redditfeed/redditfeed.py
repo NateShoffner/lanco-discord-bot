@@ -209,9 +209,8 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         self.start_loop(self.poll)
         self.start_loop(self.check_post_states)
 
-    def cog_unload(self):
-        self.poll.cancel()
-        self.check_post_states.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):

@@ -87,8 +87,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         self.start_loop(self.recovery_check_loop)
 
     async def cog_unload(self):
-        self.get_incidents_loop.cancel()
-        self.recovery_check_loop.cancel()
+        await super().cog_unload()
 
     @tasks.loop(seconds=10)
     async def get_incidents_loop(self):

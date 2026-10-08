@@ -26,8 +26,8 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
         self.bot.database.create_tables([FixItConfig])
         self.start_loop(self.poll)
 
-    def cog_unload(self):
-        self.poll.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):

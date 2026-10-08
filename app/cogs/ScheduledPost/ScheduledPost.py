@@ -27,8 +27,8 @@ class ScheduledPost(
     def __init__(self, bot):
         super().__init__(bot)
 
-    def cog_unload(self):
-        self.check_posts.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     async def cog_load(self):
         self.bot.database.create_tables([ScheduledPostModel])

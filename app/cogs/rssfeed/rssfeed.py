@@ -38,8 +38,8 @@ class RssFeed(
         self.bot.database.create_tables([RSSFeedConfig])
         self.start_loop(self.poll)
 
-    def cog_unload(self):
-        self.poll.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @staticmethod
     def feed_label(url: str) -> str:
