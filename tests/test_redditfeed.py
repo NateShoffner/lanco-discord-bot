@@ -16,6 +16,7 @@ from cogs.redditfeed.redditfeed import (
     format_poll,
     get_content_source,
     get_image_url,
+    resolve_title,
 )
 
 
@@ -159,3 +160,23 @@ def test_poll_lists_options_and_votes():
     )
     assert format_poll(_submission(poll_data=poll)) == "- Yes\n- No\n1 vote"
     assert format_poll(_submission()) is None
+
+
+def test_removed_post_keeps_the_title_it_was_posted_with():
+    submission = _submission(title="[ Removed by moderator ]")
+    recorded = SimpleNamespace(title="Inflation caused by the Trump Tariffs")
+    assert resolve_title(submission, recorded) == (
+        "Inflation caused by the Trump Tariffs"
+    )
+
+
+def test_title_comes_from_the_submission_when_nothing_is_recorded():
+    assert resolve_title(_submission(title="Snow emergency today")) == (
+        "Snow emergency today"
+    )
+
+
+def test_overlong_title_is_truncated():
+    title = resolve_title(_submission(title="a" * 300))
+    assert len(title) == 256
+    assert title.endswith("...")

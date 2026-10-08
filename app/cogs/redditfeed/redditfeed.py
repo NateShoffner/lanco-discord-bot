@@ -130,6 +130,20 @@ def format_poll(source) -> str | None:
     return value
 
 
+def resolve_title(submission, existing_post=None) -> str:
+    """Return the title to display, preferring the one recorded at post time.
+
+    Reddit rewrites a removed post's title to "[ Removed by moderator ]", so
+    refreshing an existing embed from the live submission would throw away the
+    title the post was announced with and leave the channel with no record of
+    what it was. Titles are immutable on Reddit, so the recorded one is still
+    the real one.
+    """
+    title = (getattr(existing_post, "title", None) or submission.title) or ""
+    # limit to 256 characters to avoid Discord embed size limit
+    return f"{title[:253]}..." if len(title) >= 256 else title
+
+
 def get_image_url(source) -> str | None:
     """Pick the image to show: the first gallery/inline image, else the preview."""
     image_url = None
@@ -578,10 +592,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         if len(selftext) >= 4096:
             description = f"{description[:4093]}..."
 
-        # limit title to 256 characters
-        title = submission.title
-        if len(title) >= 256:
-            title = f"{title[:253]}..."
+        title = resolve_title(submission, existing_post)
 
         nsfw = submission.over_18 or submission.spoiler
         icon = await self.get_subreddit_icon(submission.subreddit.display_name)
