@@ -225,6 +225,19 @@ never recreate each other's bot. Filebeat is unlabelled and so is never touched.
 one `docker-compose -p lanco-discord-bot up -d` after this compose file lands.
 Every deploy after that is automatic.
 
+**The container runs as UID 1000, so the data directories need chowning once.**
+`./data` and `./logs` are bind mounts, which keep the host's ownership whatever
+the image sets, and they were created by a root-run container. The rollout that
+first carries the non-root `USER` will crash-loop on an unwritable
+`data/lancobot.db` until the host runs:
+
+```bash
+sudo chown -R 1000:1000 data logs
+```
+
+Do that before or immediately after that rollout. Nothing reports the failure
+(see below), so the symptom is the bot simply not coming back.
+
 Three things worth knowing:
 
 - **Compose and `.env` changes do not self-deploy.** Watchtower reuses the running

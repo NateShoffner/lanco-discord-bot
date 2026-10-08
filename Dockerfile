@@ -39,6 +39,19 @@ COPY migrate.py .
 COPY migrations/ migrations/
 COPY pyproject.toml .
 
+# Code stays root-owned so a compromised bot cannot rewrite its own source. The
+# UID is pinned because ./data and ./logs are bind mounts that keep the host's
+# ownership; see CLAUDE.md under Deployment. db_backups is migrate.py's default.
+RUN groupadd --gid 1000 lanco && \
+    useradd --uid 1000 --gid 1000 --no-create-home lanco && \
+    mkdir -p /app/data /app/logs /app/db_backups && \
+    chown -R lanco:lanco /app/data /app/logs /app/db_backups
+
+# /app/app is root-owned, so bytecode cannot be cached beside the sources.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+USER lanco
+
 # exec replaces the shell, so the bot is PID 1 and receives SIGTERM from
 # `docker stop`. Without it the shell stays PID 1, never forwards the signal,
 # and the bot is SIGKILLed after the grace period.
