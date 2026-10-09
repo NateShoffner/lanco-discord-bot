@@ -9,6 +9,7 @@ import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.command_utils import is_bot_owner_or_admin
 
 
 class RoleStats(
@@ -27,6 +28,7 @@ class RoleStats(
         name="stats",
         description="Get role stats",
     )
+    @is_bot_owner_or_admin()
     async def stats(self, interaction: discord.Interaction, role: discord.Role):
         """Get role stats"""
         embed = discord.Embed(

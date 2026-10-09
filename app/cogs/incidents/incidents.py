@@ -413,6 +413,7 @@ class Incidents(LancoCog, name="Incidents", description="LCWC Incident feed"):
         await interaction.response.send_message("Incidents feed disabled")
 
     @incidents_group.command(name="status", description="Show LCWC cog status")
+    @is_bot_owner_or_admin()
     async def status(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="Status", description="Incident Cog Status", color=0x00FF00

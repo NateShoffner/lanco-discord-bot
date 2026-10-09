@@ -19,7 +19,7 @@ Monitors and announces active Lancaster County emergency incidents sourced from 
 |---|---|---|
 | `/incidents enable` | Admin | Enable the feed in the current channel |
 | `/incidents disable` | Admin | Disable the feed for this guild |
-| `/incidents status` | Everyone | Show sync status, active incident count, client, and package version |
+| `/incidents status` | Admin | Show sync status, active incident count, client, and package version |
 | `/incidents view <number>` | Everyone | View embed for a currently active incident by number (ArcGIS only) |
 | `/incidents setclient` | Bot owner | Switch the data source client |
 
