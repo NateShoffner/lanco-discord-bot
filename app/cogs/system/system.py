@@ -13,7 +13,6 @@ from discord.ext import commands
 from models_core import BlacklistedUser
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash
-from utils.network_utils import get_external_ip
 
 USAGE_API = "https://api.openai.com/v1/organization/usage/completions"
 CACHE_TTL = 300  # seconds
@@ -132,8 +131,6 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
 
     @discord.app_commands.command(name="info", description="Show bot info")
     async def info(self, interaction: discord.Interaction):
-        info = await self.bot.application_info()
-
         desc = f"{self.bot.user.name} is a general-purpose Discord bot tailored for Lancaster County, PA Discord servers.\n\n"
         links = {
             "Homepage": "https://lancobot.dev",
@@ -151,12 +148,6 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         uptime = datetime.datetime.now() - self.bot.start_time
         uptime_str = f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m {uptime.seconds % 60}s"
 
-        owner_str = "Unknown"
-        if info.owner:
-            owner_str = info.owner.name
-        if info.team:
-            owner_str = info.team.name
-
         commit = get_commit_hash()
         github = os.getenv("GITHUB_REPO")
         version_value = (
@@ -165,11 +156,8 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
             else f"v{get_bot_version()} - {commit[:7]}"
         )
 
-        embed.add_field(name="Servers", value=str(len(self.bot.guilds)))
-        embed.add_field(name="Users", value=str(len(self.bot.users)))
         embed.add_field(name="Uptime", value=uptime_str)
         embed.add_field(name="Latency", value=f"{round(self.bot.latency * 1000)}ms")
-        embed.add_field(name="Owner", value=owner_str)
         embed.add_field(name="Version", value=version_value)
 
         embed.set_footer(
@@ -251,7 +239,6 @@ class SystemCog(LancoCog, name="SystemCog", description="System and admin comman
         )
         embed.add_field(name="Message Cache", value=str(len(self.bot.cached_messages)))
         embed.add_field(name="Voice Clients", value=str(len(self.bot.voice_clients)))
-        embed.add_field(name="URL Handlers", value=str(len(self.bot.url_handlers)))
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
