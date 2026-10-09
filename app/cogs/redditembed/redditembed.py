@@ -23,13 +23,29 @@ class RedditEmbed(
             bot,
             "Reddit Embed Fix",
             [
+                # rxddit.com, the vxReddit author's own instance, was the default
+                # until Reddit started blocking it; it now answers every request
+                # with an error card. vxreddit.com is the same project on
+                # unblocked hosting. The replacement is "reddit.com" rather than
+                # "www.reddit.com" so bare-domain links get rewritten too; the
+                # fixers serve the resulting www.<fixer> host just the same.
                 EmbedFixCog.Handler(
-                    "rxddit",
-                    "Rxddit",
-                    "Uses rxddit.com",
+                    "vxreddit",
+                    "VxReddit",
+                    "Uses vxreddit.com",
                     [
                         EmbedFixCog.PatternReplacement(
-                            self.reddit_pattern, "www.reddit.com", "rxddit.com"
+                            self.reddit_pattern, "reddit.com", "vxreddit.com"
+                        ),
+                    ],
+                ),
+                EmbedFixCog.Handler(
+                    "redditez",
+                    "RedditEZ",
+                    "Uses redditez.com (EmbedEZ)",
+                    [
+                        EmbedFixCog.PatternReplacement(
+                            self.reddit_pattern, "reddit.com", "redditez.com"
                         ),
                     ],
                 ),
