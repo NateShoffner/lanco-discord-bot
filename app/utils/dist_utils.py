@@ -1,7 +1,6 @@
 import os
 import subprocess
-
-import toml
+import tomllib
 
 bot_version = None
 commit_hash = None
@@ -10,8 +9,9 @@ commit_hash = None
 def get_bot_version():
     global bot_version
     if not bot_version:
-        with open("pyproject.toml", "r") as f:
-            pyproject = toml.load(f)
+        # tomllib needs a binary handle; it decodes UTF-8 itself.
+        with open("pyproject.toml", "rb") as f:
+            pyproject = tomllib.load(f)
             bot_version = pyproject["tool"]["poetry"]["version"]
     return bot_version
 
