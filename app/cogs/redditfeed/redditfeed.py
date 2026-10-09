@@ -34,7 +34,11 @@ def normalize_subreddit_name(name: str) -> str:
 
 
 def _get(source, name: str, default=None):
-    """Read a field off a Submission or off a raw crosspost parent dict."""
+    """Read a field off a Submission or off a raw crosspost parent dict.
+
+    A redacted post has no source at all, and every read off that `None`
+    falls through to the default, which is what withholds its content.
+    """
     if isinstance(source, dict):
         return source.get(name, default)
     return getattr(source, name, default)
@@ -46,12 +50,21 @@ def get_crosspost_parent(submission) -> dict | None:
     return parents[0] if parents else None
 
 
-def get_content_source(submission):
+def get_content_source(submission, redacted: bool = False):
     """Return whatever actually holds the post's body, link, and media.
 
     A crosspost carries none of its own: selftext is empty and the media
     attributes are missing, so all of it has to be read from the parent.
+
+    A removed post has no content source. Reddit blanks a native post's own
+    body for us, but a crosspost's parent is a separate post on another
+    subreddit that is almost always still live, so reading through to it
+    would walk straight around the removal. The removal applies to what the
+    post carried, not to where it happened to be stored, so everything that
+    reads off the source has to come up empty.
     """
+    if redacted:
+        return None
     return get_crosspost_parent(submission) or submission
 
 
@@ -128,6 +141,20 @@ def format_poll(source) -> str | None:
     if len(value) > FIELD_VALUE_LIMIT:
         value = f"{value[: FIELD_VALUE_LIMIT - 3]}..."
     return value
+
+
+def resolve_title(submission, existing_post=None) -> str:
+    """Return the title to display, preferring the one recorded at post time.
+
+    Reddit rewrites a removed post's title to "[ Removed by moderator ]", so
+    refreshing an existing embed from the live submission would throw away the
+    title the post was announced with and leave the channel with no record of
+    what it was. Titles are immutable on Reddit, so the recorded one is still
+    the real one.
+    """
+    title = (getattr(existing_post, "title", None) or submission.title) or ""
+    # limit to 256 characters to avoid Discord embed size limit
+    return f"{title[:253]}..." if len(title) >= 256 else title
 
 
 def get_image_url(source) -> str | None:
@@ -567,8 +594,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         deleted, removed, removed_by_reddit = self.get_removal_state(submission)
 
-        # A crosspost keeps its body, link, and media on the parent post
-        source = get_content_source(submission)
+        # A crosspost keeps its body, link, and media on the parent post,
+        # unless the post has been taken down, in which case it shows neither
+        redacted = deleted or removed or removed_by_reddit
+        source = get_content_source(submission, redacted=redacted)
 
         # Convert Reddit markdown to Discord-compatible markdown
         selftext = reddit_to_discord(_get(source, "selftext") or "")
@@ -578,17 +607,12 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         if len(selftext) >= 4096:
             description = f"{description[:4093]}..."
 
-        # limit title to 256 characters
-        title = submission.title
-        if len(title) >= 256:
-            title = f"{title[:253]}..."
+        title = resolve_title(submission, existing_post)
 
         nsfw = submission.over_18 or submission.spoiler
         icon = await self.get_subreddit_icon(submission.subreddit.display_name)
 
-        color = discord.Color(0xFF0000)
-        if deleted or removed or removed_by_reddit:
-            color = discord.Color(0x808080)
+        color = discord.Color(0x808080 if redacted else 0xFF0000)
 
         embed = discord.Embed(
             title=title,
@@ -664,7 +688,8 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         image_url = get_image_url(source)
 
-        if image_url and not deleted and not removed and not removed_by_reddit:
+        # a redacted post has no source to have produced an image_url
+        if image_url:
             if nsfw:
                 image_path = await self.file_downloader.download_file(
                     image_url, self.cache_dir

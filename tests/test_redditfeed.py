@@ -10,12 +10,14 @@ from types import SimpleNamespace
 
 from cogs.redditfeed.redditfeed import (
     FIELD_VALUE_LIMIT,
+    _get,
     format_crosspost,
     format_link,
     format_media,
     format_poll,
     get_content_source,
     get_image_url,
+    resolve_title,
 )
 
 
@@ -119,6 +121,45 @@ def test_crosspost_of_gallery_uses_parent_media():
     assert format_link(source) is None
 
 
+def test_removed_crosspost_withholds_its_parents_content():
+    """A removal has to survive the parent post still being live.
+
+    The parent is a separate post on another subreddit and nothing about the
+    removal touches it, so its body, link, and media are all still readable.
+    """
+    parent = {
+        "subreddit_name_prefixed": "r/Pennsylvania",
+        "permalink": "/r/Pennsylvania/comments/1rbp3hm/inflation/",
+        "selftext": "The research and proof is in.",
+        "url": "https://www.cnbc.com/2026/10/08/inflation-tariffs.html",
+        "domain": "www.cnbc.com",
+        "is_gallery": True,
+        "gallery_data": {"items": [{"media_id": "a"}]},
+        "media_metadata": {
+            "a": {"status": "valid", "e": "Image", "s": {"u": "https://a"}},
+        },
+        "poll_data": {"options": [{"text": "yes"}], "total_vote_count": 3},
+    }
+    post = _submission(crosspost_parent_list=[parent])
+
+    source = get_content_source(post, redacted=True)
+    assert source is None
+    assert _get(source, "selftext") is None
+    assert format_link(source) is None
+    assert format_media(source) is None
+    assert format_poll(source) is None
+    assert get_image_url(source) is None
+    # attribution is not content, and the parent is still a live post
+    assert format_crosspost(post) == (
+        "[/r/Pennsylvania](https://reddit.com/r/Pennsylvania/comments/1rbp3hm/inflation/)"
+    )
+
+
+def test_a_post_still_up_keeps_its_content_source():
+    post = _submission(is_self=True, selftext="body")
+    assert get_content_source(post, redacted=False) is post
+
+
 def test_non_crosspost_is_its_own_source():
     post = _submission(is_self=True, selftext="body")
     assert get_content_source(post) is post
@@ -159,3 +200,23 @@ def test_poll_lists_options_and_votes():
     )
     assert format_poll(_submission(poll_data=poll)) == "- Yes\n- No\n1 vote"
     assert format_poll(_submission()) is None
+
+
+def test_removed_post_keeps_the_title_it_was_posted_with():
+    submission = _submission(title="[ Removed by moderator ]")
+    recorded = SimpleNamespace(title="Inflation caused by the Trump Tariffs")
+    assert resolve_title(submission, recorded) == (
+        "Inflation caused by the Trump Tariffs"
+    )
+
+
+def test_title_comes_from_the_submission_when_nothing_is_recorded():
+    assert resolve_title(_submission(title="Snow emergency today")) == (
+        "Snow emergency today"
+    )
+
+
+def test_overlong_title_is_truncated():
+    title = resolve_title(_submission(title="a" * 300))
+    assert len(title) == 256
+    assert title.endswith("...")
