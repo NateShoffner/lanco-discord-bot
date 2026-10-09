@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 from pydantic import BaseModel
 from utils.command_utils import is_bot_owner_or_admin
+from utils.file_downloader import UnsafeUrlError, guarded_fetch
 
 
 class PageDetails(BaseModel):
@@ -26,6 +27,9 @@ class WebPreview(
     g = app_commands.Group(
         name="webpreview", description="Web preview commands", guild_only=True
     )
+
+    MAX_HTML_BYTES = 2 * 1024 * 1024  # only the <head> is needed
+    FETCH_TIMEOUT = 10
 
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -86,36 +90,46 @@ class WebPreview(
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
         }
 
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    self.logger.error(
-                        f"Failed to get page details for {url}, status: {response.status}, reason: {response.reason}"
-                    )
-                    return None
+        try:
+            response = await guarded_fetch(
+                url,
+                headers=headers,
+                timeout=self.FETCH_TIMEOUT,
+                max_bytes=self.MAX_HTML_BYTES,
+            )
+        except UnsafeUrlError as e:
+            self.logger.warning(f"Refused to preview {url}: {e}")
+            return None
+        except (TimeoutError, aiohttp.ClientError) as e:
+            self.logger.warning(f"Failed to fetch {url}: {e}")
+            return None
 
-                html = await response.text()
-                soup = BeautifulSoup(html, "html.parser")
+        if response.status != 200:
+            self.logger.error(
+                f"Failed to get page details for {url}, status: {response.status}"
+            )
+            return None
 
-                title = None
-                description = None
+        soup = BeautifulSoup(response.text(), "html.parser")
 
-                # first try meta tags
-                title = soup.title.string
-                meta_description = soup.find("meta", attrs={"name": "description"})
-                if meta_description:
-                    description = meta_description["content"]
+        title = soup.title.string if soup.title else None
+        description = None
 
-                # try open graph tags
-                og_title = soup.find("meta", attrs={"name": "og:title"})
+        # first try meta tags
+        meta_description = soup.find("meta", attrs={"name": "description"})
+        if meta_description:
+            description = meta_description["content"]
 
-                if og_title:
-                    title = og_title["value"]
-                og_description = soup.find("meta", attrs={"name": "og:description"})
-                if og_description:
-                    description = og_description["value"]
+        # try open graph tags
+        og_title = soup.find("meta", attrs={"name": "og:title"})
 
-                return PageDetails(title=title, description=description)
+        if og_title:
+            title = og_title["value"]
+        og_description = soup.find("meta", attrs={"name": "og:description"})
+        if og_description:
+            description = og_description["value"]
+
+        return PageDetails(title=title, description=description)
 
     @g.command(name="toggle", description="Toggle Web previews for this server")
     @is_bot_owner_or_admin()

@@ -651,9 +651,15 @@ async def _end_command_transaction(ctx: commands.Context):
 @bot.event
 async def on_command_error(ctx: commands.Context, error: Exception):
     # Ignore the common, expected non-errors so they don't pollute APM/logs.
+    # CommandOnCooldown is listed because it does not subclass CheckFailure.
     if isinstance(
         error,
-        (commands.CommandNotFound, commands.CheckFailure, commands.UserInputError),
+        (
+            commands.CommandNotFound,
+            commands.CheckFailure,
+            commands.CommandOnCooldown,
+            commands.UserInputError,
+        ),
     ):
         return
     original = getattr(error, "original", error)

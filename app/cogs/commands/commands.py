@@ -1,3 +1,5 @@
+import datetime
+
 import discord
 from cogs.lancocog import LancoCog
 from discord import app_commands, ui
@@ -24,6 +26,23 @@ class AICommandResponse(BaseModel):
 class CommandTypes:
     BASIC = "basic"
     AI = "ai"
+
+
+def _as_utc(value) -> datetime.datetime | None:
+    """Coerce a stored last_used into an aware UTC datetime.
+
+    peewee cannot parse an offset-bearing one, so it comes back as a str.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc)
 
 
 class CommandModal(ui.Modal, title="Command Info"):
@@ -304,6 +323,20 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
 
         await menu.start()
 
+    @staticmethod
+    def remaining_cooldown(command: CustomCommands) -> float:
+        """Seconds left on a custom command's cooldown, 0 when it is ready.
+
+        The cooldown is per command row, so it is shared by the whole guild.
+        """
+        if not command.cooldown:
+            return 0.0
+        last_used = _as_utc(command.last_used)
+        if last_used is None:
+            return 0.0
+        elapsed = (discord.utils.utcnow() - last_used).total_seconds()
+        return max(0.0, command.cooldown - elapsed)
+
     @commands.Cog.listener()
     @track_message_ids()
     async def on_message(self, message: discord.Message) -> discord.Message:
@@ -326,7 +359,15 @@ class Commands(LancoCog, name="Commands", description="Custom guild commands"):
                 ):
                     return
 
-                # TODO handle cooldowns
+                remaining = self.remaining_cooldown(command)
+                if remaining > 0:
+                    self.logger.info(
+                        f"Custom command '{command.command_name}' in guild "
+                        f"'{message.guild.name}' ({message.guild.id}) is on "
+                        f"cooldown, {remaining:.0f}s remaining"
+                    )
+                    return
+
                 # TODO handle exclusive owner
 
                 self.logger.info(

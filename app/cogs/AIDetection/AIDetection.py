@@ -9,7 +9,7 @@ import os
 
 import discord
 from cogs.lancocog import LancoCog
-from discord import Emoji
+from discord import Emoji, app_commands
 from discord.ext import commands
 from sightengine.client import SightEngineClient
 from sightengine.models import CheckRequest, CheckResponse
@@ -17,6 +17,9 @@ from utils.emoji_uploader import EmojiUploader, LocalEmoji
 from utils.file_downloader import FileDownloader
 from utils.progressbar_generator import ProgressEmoteGenerator
 from utils.tracked_message import track_message_ids
+
+# One paid SightEngine call per invocation, so it is rate limited per user.
+DETECTION_COOLDOWN = 30.0
 
 
 class AIDetection(
@@ -67,6 +70,7 @@ class AIDetection(
             pb_emojis_dict[part] for part in parts_we_need if part in pb_emojis_dict
         ]
 
+    @app_commands.checks.cooldown(1, DETECTION_COOLDOWN)
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
@@ -75,6 +79,12 @@ class AIDetection(
     async def ctx_menu_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
+        # nothing was sent yet, so edit_original_response below would fail
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(
+                f"On cooldown, try again in {error.retry_after:.0f}s.", ephemeral=True
+            )
+            return
         self.logger.error(error)
         await interaction.edit_original_response(
             content="An error occurred while processing the request."

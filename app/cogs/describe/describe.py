@@ -3,6 +3,7 @@ import os
 
 import discord
 from cogs.lancocog import LancoCog
+from discord import app_commands
 from discord.ext import commands
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, BinaryContent
@@ -16,6 +17,10 @@ class FileDetails(BaseModel):
         ...,
         description="A detailed description of the image, including any relevant context or information.",
     )
+
+
+# One paid vision call per invocation, so it is rate limited per user.
+VISION_COOLDOWN = 30.0
 
 
 class Describe(
@@ -36,6 +41,7 @@ class Describe(
         self.cache_dir = os.path.join(self.get_cog_data_directory(), "Cache")
         self.file_downloader = FileDownloader()
 
+    @app_commands.checks.cooldown(1, VISION_COOLDOWN)
     async def ctx_menu(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
@@ -44,6 +50,12 @@ class Describe(
     async def ctx_menu_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
+        # nothing was sent yet, so edit_original_response below would fail
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(
+                f"On cooldown, try again in {error.retry_after:.0f}s.", ephemeral=True
+            )
+            return
         self.logger.error(error)
         await interaction.edit_original_response(
             content="An error occurred while processing the request."
