@@ -24,10 +24,10 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
     async def cog_load(self):
         await super().cog_load()
         self.bot.database.create_tables([FixItConfig])
-        self.poll.start()
+        self.start_loop(self.poll)
 
-    def cog_unload(self):
-        self.poll.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def poll(self):
@@ -55,7 +55,11 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
 
         issues_response = await self.client.get_issues(**params)
 
-        for issue in issues_response.issues:
+        # Ascending: the watermark is the highest id posted, and SeeClickFix
+        # returns newest first.
+        issues = sorted(issues_response.issues, key=lambda i: i.id)
+
+        for issue in issues:
             for fixit_config in fixit_configs:
                 if (
                     fixit_config.last_known_issue
@@ -72,8 +76,15 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
 
                 self.logger.info(f"New FixIt issue: {issue.id} - {issue.summary}")
 
-                await self.share_issue(issue, channel)
+                try:
+                    await self.share_issue(issue, channel)
+                except Exception:
+                    self.logger.exception(
+                        f"Failed to share issue {issue.id} to channel "
+                        f"{fixit_config.channel_id}, skipping it"
+                    )
 
+                # advanced even on failure, so one bad issue cannot hold up the rest
                 fixit_config.last_known_issue = issue.id
                 fixit_config.save()
 

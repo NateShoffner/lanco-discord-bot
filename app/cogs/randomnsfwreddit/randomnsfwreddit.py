@@ -36,10 +36,11 @@ class RandomNsfwReddit(
         self.last_updated = None
 
     async def cog_load(self):
-        self.update_nsfw_subreddits.start()
+        # nothing in this loop touches Discord, it only refreshes a cache
+        self.start_loop(self.update_nsfw_subreddits, wait_for_ready=False)
 
-    def cog_unload(self):
-        self.update_nsfw_subreddits.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def update_nsfw_subreddits(self):

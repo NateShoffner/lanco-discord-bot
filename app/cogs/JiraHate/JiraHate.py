@@ -46,10 +46,10 @@ class JiraHate(
         self.latest_quote_id = None
 
     async def cog_load(self):
-        self.get_feed.start()
+        self.start_loop(self.get_feed)
 
-    def cog_unload(self):
-        self.get_feed.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(seconds=UPDATE_INTERVAL)
     async def get_feed(self) -> list[FeedItem]:

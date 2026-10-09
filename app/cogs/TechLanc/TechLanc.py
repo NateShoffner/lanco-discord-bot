@@ -94,10 +94,10 @@ class TechLanc(
         self.bot.database.create_tables(
             [TechLancConfig, TechLancGuildConfig, TechLancAllowedPoster]
         )
-        self.scheduled_post.start()
+        self.start_loop(self.scheduled_post)
 
-    def cog_unload(self):
-        self.scheduled_post.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     @tasks.loop(minutes=1)
     async def scheduled_post(self):

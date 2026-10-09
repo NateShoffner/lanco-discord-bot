@@ -59,7 +59,7 @@ class Birthday(LancoCog, name="Birthday", description="Wish a user a happy birth
     async def cog_load(self):
         await super().cog_load()
         self.bot.database.create_tables([BirthdayUser, BirthdayAnnouncementConfig])
-        self.daily_bday_task.start()
+        self.start_loop(self.daily_bday_task)
 
     def get_todays_birthday_users(self):
         return BirthdayUser.select().where(

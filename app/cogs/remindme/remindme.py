@@ -16,15 +16,14 @@ class RemindMe(
         super().__init__(bot)
         self.reminders = []
 
-    def cog_unload(self):
-        self.load_daily_reminders.cancel()
-        self.issue_reminders.cancel()
+    async def cog_unload(self):
+        await super().cog_unload()
 
     async def cog_load(self):
         self.bot.database.create_tables([Reminder])
         await self._load_reminders()
-        self.load_daily_reminders.start()
-        self.issue_reminders.start()
+        self.start_loop(self.load_daily_reminders)
+        self.start_loop(self.issue_reminders)
 
     async def _load_reminders(self):
         """Load all pending (unissued) reminders into memory."""
@@ -77,6 +76,11 @@ class RemindMe(
                 "Invalid duration. Try something like `2h`, `30m`, or `tomorrow`."
             )
             return
+
+        # dateparser returns aware when the input names a zone; the column, and
+        # issue_reminders, are naive local
+        if remind_time.tzinfo is not None:
+            remind_time = remind_time.astimezone().replace(tzinfo=None)
 
         now = datetime.datetime.now()
         delta = remind_time - now
