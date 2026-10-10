@@ -248,7 +248,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         except Exception as e:
             self.logger.error(f"Error polling: {e}")
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=STATE_CHECK_INTERVAL)
     async def check_post_states(self):
         """Actively fetch recent posts by ID to catch edits and removals."""
         try:
