@@ -209,3 +209,56 @@ def test_the_cogs_with_loops_are_all_covered():
             if _loop_attribute_names(ast.parse(open(path, encoding="utf-8").read())):
                 with_loops.add(os.path.basename(root))
     assert len(with_loops) >= 14, f"only found loops in {sorted(with_loops)}"
+
+
+@pytest.mark.asyncio
+async def test_a_loop_that_dies_in_before_loop_says_so(cog, caplog):
+    """discord.py reports this one nowhere: the loop dies and every log is empty."""
+
+    async def boom():
+        raise RuntimeError("Client has not been properly initialised.")
+
+    cog.bot.wait_until_ready = boom
+    cog.start_loop(cog.ticker)
+
+    assert await _wait_for(lambda: not cog.ticker.is_running())
+    assert cog.iterations == 0
+    assert any(
+        r.levelname == "ERROR" and r.exc_info and "before_loop" in r.getMessage()
+        for r in caplog.records
+    ), "a loop that never starts must say so"
+
+
+def test_cogs_are_loaded_inside_the_client_context():
+    """Outside it, Client._ready does not exist yet and cog loops die in before_loop."""
+    main_py = os.path.join(os.path.dirname(__file__), "..", "app", "main.py")
+    with open(main_py, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+
+    main_fn = next(
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.AsyncFunctionDef) and n.name == "main"
+    )
+
+    def load_cogs_calls(node):
+        return [
+            c
+            for c in ast.walk(node)
+            if isinstance(c, ast.Call)
+            and isinstance(c.func, ast.Attribute)
+            and c.func.attr == "load_cogs"
+        ]
+
+    calls = load_cogs_calls(main_fn)
+    assert calls, "main() no longer loads cogs"
+
+    guarded = {
+        id(c)
+        for node in ast.walk(main_fn)
+        if isinstance(node, ast.AsyncWith)
+        for c in load_cogs_calls(node)
+    }
+    assert all(
+        id(c) in guarded for c in calls
+    ), "load_cogs() must be awaited inside `async with bot:`"
