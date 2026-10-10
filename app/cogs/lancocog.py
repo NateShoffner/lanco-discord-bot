@@ -63,9 +63,17 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
             previous = loop._before_loop
 
             async def before_loop(*args, **kwargs):
-                await self.bot.wait_until_ready()
-                if previous is not None:
-                    await previous(*args, **kwargs)
+                # tasks.Loop awaits before_loop outside its try/except, so a
+                # failure here kills the loop with no trace anywhere.
+                try:
+                    await self.bot.wait_until_ready()
+                    if previous is not None:
+                        await previous(*args, **kwargs)
+                except Exception:
+                    self.logger.exception(
+                        f"{original.__qualname__} will never run: before_loop failed"
+                    )
+                    raise
 
             loop.before_loop(before_loop)
 
