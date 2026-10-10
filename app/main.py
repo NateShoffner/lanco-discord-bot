@@ -861,8 +861,10 @@ async def main():
             _prefix_cache[config.guild_id] = config.prefix
 
     db_backup = DatabaseBackup()
-    await bot.load_cogs()
     async with bot:
+        # Not before: entering the context creates Client._ready, and until it
+        # exists wait_until_ready() raises, killing every cog loop silently.
+        await bot.load_cogs()
         _install_shutdown_handlers()
         db_backup.start()
         try:
