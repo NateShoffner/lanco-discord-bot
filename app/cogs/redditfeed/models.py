@@ -25,6 +25,9 @@ class RedditPost(BaseModel):
     deleted = BooleanField(default=False)
     removed = BooleanField(default=False)
     removed_by_reddit = BooleanField(default=False)
+    # Raw removed_by_category, so a value we do not classify yet is still
+    # visible when working out why an embed says what it says
+    removal_category = CharField(null=True)
     edited = BooleanField(default=False)
     comment_count = IntegerField(null=True)
     score = IntegerField(null=True)

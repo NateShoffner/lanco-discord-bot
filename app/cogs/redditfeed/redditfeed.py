@@ -1,6 +1,7 @@
 import datetime
 import os
 import urllib.parse
+from typing import NamedTuple
 
 import asyncpraw
 import cachetools
@@ -42,6 +43,67 @@ def _get(source, name: str, default=None):
     if isinstance(source, dict):
         return source.get(name, default)
     return getattr(source, name, default)
+
+
+# removed_by_category values that mean reddit itself (admins/AEO/legal) took
+# the post down, as opposed to the author or a subreddit mod
+REDDIT_REMOVAL_CATEGORIES = {
+    "reddit",
+    "anti_evil_ops",
+    "content_takedown",
+    "copyright_takedown",
+}
+# AutoMod's filter action holds a post in the modqueue rather than taking it
+# down, and is often reversed when a mod approves. Still a removal as far as
+# the embed is concerned, but labelled distinctly.
+AUTOMOD_FILTERED = "automod_filtered"
+MOD_REMOVAL_CATEGORIES = {"moderator", "community_ops", AUTOMOD_FILTERED}
+
+
+class RemovalState(NamedTuple):
+    """Whether and how a submission was taken down.
+
+    `category` is the raw removed_by_category, kept so the reason reaches the
+    database instead of being collapsed into the booleans and lost.
+    """
+
+    deleted: bool
+    removed: bool
+    removed_by_reddit: bool
+    category: str | None
+
+    @property
+    def taken_down(self) -> bool:
+        return self.deleted or self.removed or self.removed_by_reddit
+
+    @property
+    def status(self) -> str | None:
+        """The embed's Status value, or None when the post is untouched."""
+        if self.deleted:
+            return "Deleted"
+        if self.removed_by_reddit:
+            return "Removed by Reddit"
+        if self.removed:
+            return "Filtered" if self.category == AUTOMOD_FILTERED else "Removed"
+        return None
+
+
+def get_removal_state(submission) -> RemovalState:
+    """Classify how a submission was taken down, if it was.
+
+    removed_by_category is the authoritative signal; the selftext sentinels
+    are kept as a fallback since link posts have no selftext to compare.
+    Admin takedowns rewrite selftext to a policy notice rather than
+    "[removed]", so they are only detectable via removed_by_category.
+    """
+    category = _get(submission, "removed_by_category")
+    selftext = _get(submission, "selftext")
+    removed_by_reddit = category in REDDIT_REMOVAL_CATEGORIES
+    deleted = category == "deleted" or selftext == "[deleted]"
+    removed = category in MOD_REMOVAL_CATEGORIES or (
+        selftext == "[removed]" and not removed_by_reddit and not deleted
+    )
+    return RemovalState(deleted, removed, removed_by_reddit, category)
 
 
 def get_crosspost_parent(submission) -> dict | None:
@@ -203,16 +265,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
     # so a stale baseline can never turn into a mass re-post.
     MAX_NEW_POSTS_PER_POLL = 10
 
-    # removed_by_category values that mean Reddit itself (admins/AEO/legal)
-    # took the post down, as opposed to the author or a subreddit mod
-    REDDIT_REMOVAL_CATEGORIES = {
-        "reddit",
-        "anti_evil_ops",
-        "content_takedown",
-        "copyright_takedown",
-    }
-    MOD_REMOVAL_CATEGORIES = {"moderator", "automod_filtered", "community_ops"}
-
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self.reddit = asyncpraw.Reddit(
@@ -255,22 +307,6 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             await self.update_post_states()
         except Exception as e:
             self.logger.error(f"Error checking post states: {e}")
-
-    def get_removal_state(self, submission: Submission) -> tuple[bool, bool, bool]:
-        """Classify a submission as (deleted, removed, removed_by_reddit).
-
-        removed_by_category is the authoritative signal; the selftext sentinels
-        are kept as a fallback since link posts have no selftext to compare.
-        Admin takedowns rewrite selftext to a policy notice rather than
-        "[removed]", so they are only detectable via removed_by_category.
-        """
-        category = getattr(submission, "removed_by_category", None)
-        removed_by_reddit = category in self.REDDIT_REMOVAL_CATEGORIES
-        deleted = category == "deleted" or submission.selftext == "[deleted]"
-        removed = category in self.MOD_REMOVAL_CATEGORIES or (
-            submission.selftext == "[removed]" and not removed_by_reddit and not deleted
-        )
-        return deleted, removed, removed_by_reddit
 
     async def get_new_posts(self):
         """Get new posts from watched subreddits and share them to the configured channels"""
@@ -341,7 +377,7 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
                 # New post — share to all configured channels
                 author = submission.author.name if submission.author else "[deleted]"
-                deleted, removed, removed_by_reddit = self.get_removal_state(submission)
+                state = get_removal_state(submission)
                 edited = bool(submission.edited)
                 permalink = f"https://reddit.com{submission.permalink}"
 
@@ -396,9 +432,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                         author=author,
                         is_nsfw=submission.over_18,
                         spoiler=submission.spoiler,
-                        deleted=deleted,
-                        removed=removed,
-                        removed_by_reddit=removed_by_reddit,
+                        deleted=state.deleted,
+                        removed=state.removed,
+                        removed_by_reddit=state.removed_by_reddit,
+                        removal_category=state.category,
                         edited=False,  # always False on first insert; set True on update
                         comment_count=submission.num_comments,
                         score=submission.score,
@@ -425,12 +462,14 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             for row in RedditFeedConfig.select(RedditFeedConfig.subreddit).tuples()
         )
 
+        # Deletions and admin takedowns are terminal, so those rows retire. A
+        # mod removal is not: excluding it here froze approved-after-filtering
+        # posts on "Removed", score and comment count included.
         recent_posts = list(
             RedditPost.select().where(
                 RedditPost.created >= cutoff_ts,
                 RedditPost.subreddit << active_subreddits,
                 RedditPost.deleted == False,
-                RedditPost.removed == False,
                 RedditPost.removed_by_reddit == False,
             )
         )
@@ -459,26 +498,29 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
                 if not submission:
                     continue
 
-                deleted, removed, removed_by_reddit = self.get_removal_state(submission)
+                state = get_removal_state(submission)
                 edited = bool(submission.edited)
 
                 if (
-                    post.deleted == deleted
-                    and post.removed == removed
-                    and post.removed_by_reddit == removed_by_reddit
+                    post.deleted == state.deleted
+                    and post.removed == state.removed
+                    and post.removed_by_reddit == state.removed_by_reddit
+                    and post.removal_category == state.category
                     and post.edited == edited
                 ):
                     continue
 
                 self.logger.info(
                     f"[{sr}] Post {post.post_id} state changed - "
-                    f"deleted={deleted} removed={removed} "
-                    f"removed_by_reddit={removed_by_reddit} edited={edited}"
+                    f"deleted={state.deleted} removed={state.removed} "
+                    f"removed_by_reddit={state.removed_by_reddit} "
+                    f"category={state.category} edited={edited}"
                 )
 
-                post.deleted = deleted
-                post.removed = removed
-                post.removed_by_reddit = removed_by_reddit
+                post.deleted = state.deleted
+                post.removed = state.removed
+                post.removed_by_reddit = state.removed_by_reddit
+                post.removal_category = state.category
                 post.edited = edited
                 post.comment_count = submission.num_comments
                 post.score = submission.score
@@ -592,11 +634,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         """Share or update a Reddit post in a channel."""
         permalink = f"https://reddit.com{submission.permalink}"
 
-        deleted, removed, removed_by_reddit = self.get_removal_state(submission)
+        state = get_removal_state(submission)
 
         # A crosspost keeps its body, link, and media on the parent post,
         # unless the post has been taken down, in which case it shows neither
-        redacted = deleted or removed or removed_by_reddit
+        redacted = state.taken_down
         source = get_content_source(submission, redacted=redacted)
 
         # Convert Reddit markdown to Discord-compatible markdown
@@ -651,14 +693,9 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
             embed.add_field(name="Poll", value=poll, inline=False)
 
         # Status field, only shown when something has changed
-        if deleted:
-            embed.add_field(name="Status", value="Deleted")
-        elif removed_by_reddit:
-            embed.add_field(name="Status", value="Removed by Reddit")
-        elif removed:
-            embed.add_field(name="Status", value="Removed")
-        elif submission.edited:
-            embed.add_field(name="Status", value="Edited")
+        status = state.status or ("Edited" if submission.edited else None)
+        if status:
+            embed.add_field(name="Status", value=status)
 
         embed.timestamp = datetime.datetime.fromtimestamp(submission.created_utc)
 
