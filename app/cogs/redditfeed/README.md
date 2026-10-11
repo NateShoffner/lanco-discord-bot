@@ -40,15 +40,18 @@ Stop watching a subreddit in the current channel.
 | Crossposted From | Crossposts only: the original post |
 | Media | Galleries and Reddit-hosted videos only: image count or video length, since the embed can show a single still |
 | Poll | Polls only: the options and total vote count |
-| Status | Only shown if edited or removed after posting |
+| Status | Only shown if edited or taken down after posting: **Edited**, **Filtered**, **Removed**, **Removed by Reddit**, or **Deleted** |
 
 ## Notes
 
 - **Author deletions** are detected via `reddit.info()` and reflected near-instantly
 - **Moderator removals** are detected reliably and reflected within the state check interval
+- **AutoMod filtering** holds a post in the modqueue rather than taking it down, and is often reversed when a mod approves it. It gets its own **Filtered** status, because "Removed" claims a decision nobody has made yet. AutoMod's *remove* action is not distinguishable here: Reddit names the actor in `banned_by` / `removed_by`, which are mod-only fields and come back empty for this bot's app-only credentials
 - **Reddit admin takedowns** (content policy, legal, copyright) are detected via `removed_by_category` and shown with a **Removed by Reddit** status
 - A removal applies to what the post carried, not to where that content was stored. Reddit blanks a native post's body itself, but a crosspost's parent is a separate post on another subreddit and is almost always still live, so its content is withheld deliberately rather than read through to
 - The title shown is the one recorded when the post was first shared. Reddit rewrites a removed post's title to `[ Removed by moderator ]`, which would otherwise overwrite it on the next state check
 - **Edits** are best-effort — the Reddit API caches post data aggressively and edited state can take many minutes to propagate or may not propagate at all, particularly on low-traffic subreddits or new accounts. This is a known Reddit API limitation with no reliable workaround without streaming
+- The raw `removed_by_category` is stored on the post as `removal_category`, so a value we do not classify yet is still visible when working out why an embed says what it says
+- Removal is **not** treated as terminal. An author deletion or an admin takedown retires the post from the state check, but a mod removal or an AutoMod filter stays in it, so an approval restores the embed along with its score and comment count
 - The bot uses ID-based deduplication so posts held in a moderation queue will still be shared when they become visible
 - State changes are only tracked for posts within the last **2 hours** of being created

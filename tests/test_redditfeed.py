@@ -17,6 +17,7 @@ from cogs.redditfeed.redditfeed import (
     format_poll,
     get_content_source,
     get_image_url,
+    get_removal_state,
     resolve_title,
 )
 
@@ -220,3 +221,49 @@ def test_overlong_title_is_truncated():
     title = resolve_title(_submission(title="a" * 300))
     assert len(title) == 256
     assert title.endswith("...")
+
+
+def test_live_post_has_no_status():
+    state = get_removal_state(_submission())
+    assert not state.taken_down
+    assert state.status is None
+
+
+def test_automod_filter_is_labelled_distinctly_from_a_mod_removal():
+    filtered = get_removal_state(_submission(removed_by_category="automod_filtered"))
+    assert filtered.removed
+    assert filtered.status == "Filtered"
+
+    by_mod = get_removal_state(_submission(removed_by_category="moderator"))
+    assert by_mod.removed
+    assert by_mod.status == "Removed"
+
+
+def test_admin_takedown_outranks_the_removed_sentinel():
+    state = get_removal_state(
+        _submission(removed_by_category="copyright_takedown", selftext="[removed]")
+    )
+    assert state.removed_by_reddit
+    assert not state.removed
+    assert state.status == "Removed by Reddit"
+
+
+def test_link_post_removal_is_detected_without_selftext():
+    state = get_removal_state(
+        _submission(removed_by_category="moderator", url="https://example.com")
+    )
+    assert state.removed
+    assert state.status == "Removed"
+
+
+def test_author_deletion_is_not_a_removal():
+    state = get_removal_state(_submission(selftext="[deleted]"))
+    assert state.deleted
+    assert not state.removed
+    assert state.status == "Deleted"
+
+
+def test_raw_category_is_preserved_for_values_we_do_not_classify():
+    state = get_removal_state(_submission(removed_by_category="something_new"))
+    assert state.category == "something_new"
+    assert not state.taken_down
