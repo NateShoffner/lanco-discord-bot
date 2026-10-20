@@ -1,4 +1,4 @@
-FROM python:3.15-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -10,12 +10,16 @@ RUN pip install poetry && \
     poetry config virtualenvs.in-project true
 
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --only main && \
-    find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+# Its own RUN step: chained after a `|| true`, a failed install exits 0 too and
+# bakes in a broken venv.
+RUN poetry install --no-root --only main
+
+# Size trimming, where `|| true` belongs: these can match nothing.
+RUN find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true; \
     /app/.venv/bin/pip uninstall -y pip setuptools 2>/dev/null || true
 
 
-FROM python:3.15-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 ARG GIT_COMMIT_HASH=unknown
 ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
