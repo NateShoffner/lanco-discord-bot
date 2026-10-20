@@ -29,10 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Read from the Dockerfile so a base image bump moves the tests with it.
+      - name: Resolve the Python version from the Dockerfile
+        run: |
+          version=$(sed -nE 's/^FROM python:([0-9]+\.[0-9]+)-slim.*/\1/p' Dockerfile | head -1)
+          test -n "$version" || { echo "no python version found in Dockerfile"; exit 1; }
+          echo "PYTHON_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
         run: pip install poetry
@@ -64,15 +71,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # Commit tag only. :latest is the deploy, so it waits for the smoke test.
+      - name: Build and push the commit tag
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           build-args: |
             GIT_COMMIT_HASH=${{ github.sha }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.sha }}
+
+      # The test job runs on the runner against its own venv, so this is the only
+      # step that executes the image's.
+      - name: Smoke test the image
+        run: |
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.sha }} \
+            python -c "import discord, aiohttp, yarl, peewee, pydantic, cairosvg, fitz; print('imports ok')"
+
+      # A registry-side retag of the image just tested, not a second build.
+      - name: Promote to latest
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.sha }}
 
 # Publishing :latest is the whole deploy. Watchtower on the host polls ghcr and
