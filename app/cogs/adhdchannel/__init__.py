@@ -1,1 +1,0 @@
-from .adhdchannel import setup
