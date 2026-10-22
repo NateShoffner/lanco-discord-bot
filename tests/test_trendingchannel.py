@@ -1,12 +1,16 @@
-"""TrendingChannel must stay inside Discord's edit bucket and fall back cleanly.
+"""TrendingChannel posts summaries by default and renames only when asked.
 
-Discord allows two channel name or topic edits per ten minutes, and discord.py
-sleeps on an exhausted bucket instead of raising. The original cog edited on a
-fixed 30 second loop with no persistence, so it stalled after two renames,
-forgot every enabled channel on restart, and one deleted channel aborted the
-iteration for all the others. These tests pin the replacements: a persisted
-cooldown and new-message threshold gate the model call, an edit that cannot
-happen becomes a summary message, and a bad channel is skipped, not fatal.
+The baseline is a summary message in the channel. Renaming the channel and
+updating its topic is a per-channel extra that also needs Manage Channels.
+Discord allows two channel name or topic edits per ten minutes, and
+discord.py sleeps on an exhausted bucket instead of raising, so a rename
+that cannot happen must never cost the summary or stall the loop. The
+original cog edited on a fixed 30 second loop with no persistence, so it
+stalled after two renames, forgot every enabled channel on restart, and one
+deleted channel aborted the iteration for all the others. These tests pin
+the replacements: a persisted cooldown and new-message threshold gate the
+model call, the summary always goes out when it can, the rename is
+best-effort, and a bad channel is skipped, not fatal.
 """
 
 import asyncio
@@ -21,6 +25,7 @@ from cogs.trendingchannel.trendingchannel import (
     MIN_NEW_MESSAGES,
     UPDATE_COOLDOWN,
     ChannelPulse,
+    Outcome,
     TrendingChannel,
     sanitize_channel_name,
 )
@@ -53,9 +58,9 @@ def make_pulse(
 ):
     return ChannelPulse(
         topics=["packaging"],
+        announcement=summary,
         channel_name=name,
         channel_topic=topic,
-        announcement=summary,
     )
 
 
@@ -97,6 +102,14 @@ def make_config(**overrides):
     fields = dict(guild_id=GUILD_ID, channel_id=CHANNEL_ID)
     fields.update(overrides)
     return TrendingChannelConfig.create(**fields)
+
+
+def make_interaction(channel):
+    return SimpleNamespace(
+        channel=channel,
+        user=SimpleNamespace(id=7),
+        response=SimpleNamespace(send_message=AsyncMock()),
+    )
 
 
 def wire(cog, monkeypatch, messages, pulse):
@@ -173,7 +186,8 @@ async def test_cooldown_elapsed_runs(cog, monkeypatch):
     channel = make_channel()
     wire(cog, monkeypatch, make_messages(10), make_pulse())
 
-    assert await cog.process_channel(config, channel) == "edited"
+    outcome = await cog.process_channel(config, channel)
+    assert outcome.summary == "announced"
 
 
 async def test_force_ignores_threshold_but_not_cooldown(cog, monkeypatch):
@@ -181,48 +195,116 @@ async def test_force_ignores_threshold_but_not_cooldown(cog, monkeypatch):
     channel = make_channel(last_message_id=109)
     wire(cog, monkeypatch, make_messages(10), make_pulse())
 
-    assert await cog.process_channel(config, channel, force=True) == "edited"
+    outcome = await cog.process_channel(config, channel, force=True)
+    assert outcome.summary == "announced"
 
     # now inside the cooldown
     config = TrendingChannelConfig.get()
     assert await cog.process_channel(config, channel, force=True) is None
 
 
-# ---------------------------------------------------------------------------
-# applying the result
-
-
-async def test_edit_sets_name_and_topic_and_records_state(cog, monkeypatch):
+async def test_nowhere_to_put_the_result_skips_model(cog, monkeypatch):
     config = make_config()
-    channel = make_channel()
+    channel = make_channel(send_messages=False, manage_channels=False)
+    fetch, analyze = wire(cog, monkeypatch, make_messages(10), make_pulse())
+
+    assert await cog.process_channel(config, channel) is None
+    assert await cog.process_channel(config, channel, force=True) == Outcome(
+        "no_permission"
+    )
+    fetch.assert_not_awaited()
+    analyze.assert_not_awaited()
+
+
+async def test_rename_only_channel_still_pays_for_model(cog, monkeypatch):
+    """No Send Messages is fine when the rename extra can still use the result."""
+    config = make_config(rename_enabled=True)
+    channel = make_channel(send_messages=False)
     wire(cog, monkeypatch, make_messages(10), make_pulse())
 
-    assert await cog.process_channel(config, channel) == "edited"
-    channel.edit.assert_awaited_once()
-    kwargs = channel.edit.await_args.kwargs
-    assert kwargs["name"] == "python-packaging"
-    assert kwargs["topic"] == "Talking about wheels"
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("no_permission", "edited")
     channel.send.assert_not_awaited()
+    channel.edit.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# the baseline: a summary message
+
+
+async def test_summary_is_posted_and_rename_is_off_by_default(cog, monkeypatch):
+    config = make_config()
+    channel = make_channel()
+    wire(cog, monkeypatch, make_messages(10), make_pulse(summary="Wheels!"))
+
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "disabled")
+    channel.send.assert_awaited_once_with("Wheels!")
+    channel.edit.assert_not_awaited()
 
     saved = TrendingChannelConfig.get()
-    assert saved.last_name == "python-packaging"
-    assert saved.last_topic == "Talking about wheels"
+    # the summary must not count as new activity on the next poll
+    assert saved.last_seen_message_id == channel.send.return_value.id
     assert saved.last_analyzed_message_id == 109
     assert saved.last_updated_at is not None
 
 
-async def test_unchanged_name_and_topic_are_not_resent(cog, monkeypatch):
+async def test_empty_summary_is_not_posted(cog, monkeypatch):
     config = make_config()
-    channel = make_channel(name="python-packaging", topic="Talking about wheels")
-    wire(cog, monkeypatch, make_messages(10), make_pulse())
+    channel = make_channel()
+    wire(cog, monkeypatch, make_messages(10), make_pulse(summary="   "))
 
-    assert await cog.process_channel(config, channel) == "unchanged"
-    channel.edit.assert_not_awaited()
+    outcome = await cog.process_channel(config, channel)
+    assert outcome.summary == "empty"
     channel.send.assert_not_awaited()
 
 
-async def test_only_changed_fields_are_sent(cog, monkeypatch):
+async def test_model_failure_still_starts_cooldown(cog, monkeypatch):
     config = make_config()
+    channel = make_channel()
+    wire(cog, monkeypatch, make_messages(10), None)
+
+    assert await cog.process_channel(config, channel) == Outcome("failed")
+    channel.send.assert_not_awaited()
+    channel.edit.assert_not_awaited()
+    assert TrendingChannelConfig.get().last_updated_at is not None
+
+
+# ---------------------------------------------------------------------------
+# the extra: renaming the channel
+
+
+async def test_rename_sets_name_and_topic_and_records_state(cog, monkeypatch):
+    config = make_config(rename_enabled=True)
+    channel = make_channel()
+    wire(cog, monkeypatch, make_messages(10), make_pulse(summary="Wheels!"))
+
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "edited")
+    channel.send.assert_awaited_once_with("Wheels!")
+    channel.edit.assert_awaited_once()
+    kwargs = channel.edit.await_args.kwargs
+    assert kwargs["name"] == "python-packaging"
+    assert kwargs["topic"] == "Talking about wheels"
+
+    saved = TrendingChannelConfig.get()
+    assert saved.last_name == "python-packaging"
+    assert saved.last_topic == "Talking about wheels"
+
+
+async def test_unchanged_name_and_topic_are_not_resent(cog, monkeypatch):
+    config = make_config(rename_enabled=True)
+    channel = make_channel(name="python-packaging", topic="Talking about wheels")
+    wire(cog, monkeypatch, make_messages(10), make_pulse())
+
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "unchanged")
+    channel.edit.assert_not_awaited()
+    channel.send.assert_awaited_once()
+
+
+async def test_only_changed_fields_are_sent(cog, monkeypatch):
+    config = make_config(rename_enabled=True)
     channel = make_channel(name="python-packaging", topic="old topic")
     wire(cog, monkeypatch, make_messages(10), make_pulse())
 
@@ -231,7 +313,7 @@ async def test_only_changed_fields_are_sent(cog, monkeypatch):
 
 
 async def test_unusable_name_keeps_current_name(cog, monkeypatch):
-    config = make_config()
+    config = make_config(rename_enabled=True)
     channel = make_channel(name="general", topic="old topic")
     wire(cog, monkeypatch, make_messages(10), make_pulse(name="!!!"))
 
@@ -239,34 +321,32 @@ async def test_unusable_name_keeps_current_name(cog, monkeypatch):
     assert "name" not in channel.edit.await_args.kwargs
 
 
-async def test_no_manage_channels_announces_instead(cog, monkeypatch):
-    config = make_config()
+async def test_no_manage_channels_keeps_the_summary(cog, monkeypatch):
+    config = make_config(rename_enabled=True)
     channel = make_channel(manage_channels=False)
     wire(cog, monkeypatch, make_messages(10), make_pulse(summary="Wheels!"))
 
-    assert await cog.process_channel(config, channel) == "announced"
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "no_permission")
     channel.edit.assert_not_awaited()
     channel.send.assert_awaited_once_with("Wheels!")
-    # the announcement must not count as new activity on the next poll
-    assert (
-        TrendingChannelConfig.get().last_seen_message_id == channel.send.return_value.id
-    )
 
 
-async def test_rejected_edit_announces_instead(cog, monkeypatch):
-    config = make_config()
+async def test_rejected_edit_keeps_the_summary(cog, monkeypatch):
+    config = make_config(rename_enabled=True)
     channel = make_channel()
     response = SimpleNamespace(status=400, reason="Bad Request")
     channel.edit = AsyncMock(side_effect=discord.HTTPException(response, "nope"))
     wire(cog, monkeypatch, make_messages(10), make_pulse(summary="Wheels!"))
 
-    assert await cog.process_channel(config, channel) == "announced"
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "failed")
     channel.send.assert_awaited_once_with("Wheels!")
 
 
-async def test_stalled_edit_announces_instead(cog, monkeypatch):
+async def test_stalled_edit_keeps_the_summary(cog, monkeypatch):
     """discord.py sleeps through an exhausted bucket; the cog must not."""
-    config = make_config()
+    config = make_config(rename_enabled=True)
     channel = make_channel()
 
     async def hang(**kwargs):
@@ -278,27 +358,9 @@ async def test_stalled_edit_announces_instead(cog, monkeypatch):
     )
     wire(cog, monkeypatch, make_messages(10), make_pulse(summary="Wheels!"))
 
-    assert await cog.process_channel(config, channel) == "announced"
+    outcome = await cog.process_channel(config, channel)
+    assert outcome == Outcome("announced", "failed")
     channel.send.assert_awaited_once_with("Wheels!")
-
-
-async def test_no_permissions_at_all_is_skipped(cog, monkeypatch):
-    config = make_config()
-    channel = make_channel(manage_channels=False, send_messages=False)
-    wire(cog, monkeypatch, make_messages(10), make_pulse())
-
-    assert await cog.process_channel(config, channel) == "skipped"
-    channel.send.assert_not_awaited()
-
-
-async def test_model_failure_still_starts_cooldown(cog, monkeypatch):
-    config = make_config()
-    channel = make_channel()
-    wire(cog, monkeypatch, make_messages(10), None)
-
-    assert await cog.process_channel(config, channel) == "failed"
-    channel.edit.assert_not_awaited()
-    assert TrendingChannelConfig.get().last_updated_at is not None
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +377,7 @@ async def test_unavailable_channel_does_not_block_the_others(cog, monkeypatch):
     wire(cog, monkeypatch, make_messages(10), make_pulse())
 
     await cog.update_channels.coro(cog)
-    good.edit.assert_awaited_once()
+    good.send.assert_awaited_once()
 
 
 async def test_raising_channel_does_not_block_the_others(cog, monkeypatch):
@@ -330,22 +392,18 @@ async def test_raising_channel_does_not_block_the_others(cog, monkeypatch):
     fetch.side_effect = [RuntimeError("boom"), make_messages(10)]
 
     await cog.update_channels.coro(cog)
-    good.edit.assert_awaited_once()
+    good.send.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
-# persistence
+# commands and persistence
 
 
 async def test_toggle_persists_across_instances(cog, monkeypatch):
     """The old cog kept enabled channels in a class-level list, lost on restart."""
     channel = make_channel()
     monkeypatch.setattr(discord, "TextChannel", SimpleNamespace)
-    interaction = SimpleNamespace(
-        channel=channel,
-        user=SimpleNamespace(id=7),
-        response=SimpleNamespace(send_message=AsyncMock()),
-    )
+    interaction = make_interaction(channel)
 
     await cog.toggle.callback(cog, interaction)
     fresh = TrendingChannel(cog.bot)
@@ -358,6 +416,42 @@ async def test_toggle_persists_across_instances(cog, monkeypatch):
 
     await cog.toggle.callback(cog, interaction)
     assert TrendingChannelConfig.select().count() == 0
+
+
+async def test_rename_requires_summaries_first(cog):
+    channel = make_channel()
+    interaction = make_interaction(channel)
+
+    await cog.rename.callback(cog, interaction)
+    assert TrendingChannelConfig.select().count() == 0
+    text = interaction.response.send_message.await_args.args[0]
+    assert "/trending toggle" in text
+
+
+async def test_rename_toggle_flips_the_flag(cog):
+    make_config()
+    channel = make_channel(manage_channels=False)
+    interaction = make_interaction(channel)
+
+    await cog.rename.callback(cog, interaction)
+    assert TrendingChannelConfig.get().rename_enabled is True
+    # enabling without Manage Channels is allowed but warned about
+    text = interaction.response.send_message.await_args.args[0]
+    assert "Manage Channels" in text
+
+    await cog.rename.callback(cog, interaction)
+    assert TrendingChannelConfig.get().rename_enabled is False
+
+
+async def test_describe_reports_both_steps():
+    assert TrendingChannel.describe(None) == "Nothing to do."
+    assert TrendingChannel.describe(Outcome("announced", "disabled")) == (
+        "Summary posted."
+    )
+    assert TrendingChannel.describe(Outcome("announced", "no_permission")) == (
+        "Summary posted.\n"
+        "Renaming is on, but I can't edit this channel (missing Manage Channels)."
+    )
 
 
 async def test_deleted_channel_is_forgotten(cog):

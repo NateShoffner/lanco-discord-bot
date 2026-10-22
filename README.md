@@ -40,7 +40,7 @@ The bot is built around a modular cog system. Each cog is self-contained and can
 | [Summarize](app/cogs/summarize) - Channel topic and vibe summaries | [System](app/cogs/system) - Bot status and admin info |
 | [TechLanc](app/cogs/TechLanc) - Tech Lancaster meetup announcements | [TikTokEmbed](app/cogs/tiktokembed) - TikTok embed fix |
 | [TipCalc](app/cogs/tipcalc) - Tip calculator | [TraceMoe](app/cogs/tracemoe) - Identify anime from screenshots |
-| [Transcribe](app/cogs/transcribe) - Transcribe audio files and voice messages | [TrendingChannel](app/cogs/trendingchannel) - Channel name and topic follow the conversation |
+| [Transcribe](app/cogs/transcribe) - Transcribe audio files and voice messages | [TrendingChannel](app/cogs/trendingchannel) - Summarize the conversation and optionally rename the channel to match |
 | [TruthSocial](app/cogs/TruthSocial) - TruthSocial embed support | [Twitter/X Embed](app/cogs/twitterembed) - Twitter/X embed fix |
 | [User](app/cogs/user) - User opt-in/opt-out | [Verification](app/cogs/verification) - Vote-based member verification |
 | [Weather](app/cogs/weather) - Weather lookup | [WebPreview](app/cogs/webpreview) - Web link previews |
