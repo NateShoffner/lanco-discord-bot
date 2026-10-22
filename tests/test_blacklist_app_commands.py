@@ -28,11 +28,21 @@ class _FakeUser:
         self.id = user_id
 
 
+class _FakeClient:
+    def __init__(self):
+        from utils.killswitch import Killswitch
+
+        self.killswitch = Killswitch(self)
+
+
 class _FakeInteraction:
-    """Only the attribute interaction_check() actually reads."""
+    """Only the attributes interaction_check() actually reads."""
 
     def __init__(self, user_id: int):
         self.user = _FakeUser(user_id)
+        self.client = _FakeClient()
+        self.command = None
+        self.extras = {}
 
 
 async def test_interaction_check_blocks_blacklisted_user(test_db):

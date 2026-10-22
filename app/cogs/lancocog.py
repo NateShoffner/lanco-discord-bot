@@ -49,6 +49,15 @@ class LancoCog(commands.Cog, name="LancoCog", description="Base class for all co
 
         @functools.wraps(original)
         async def guarded(*args, **kwargs):
+            # The owner's killswitch skips the iteration rather than cancelling
+            # the loop: nothing is interrupted mid-write, and nothing needs
+            # restarting on the way back. getattr because test stubs for the
+            # bot have no killswitch.
+            killswitch = getattr(self.bot, "killswitch", None)
+            if killswitch is not None and not killswitch.allows_loop_iteration(
+                original.__qualname__
+            ):
+                return
             try:
                 await original(*args, **kwargs)
             except Exception:

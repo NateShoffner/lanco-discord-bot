@@ -19,6 +19,7 @@ from peewee import *
 from utils import apm, env
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash, get_service_version
+from utils.killswitch import Killswitch
 from utils.logs import WinTimedRotatingFileHandler, add_ecs_file_handler
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
@@ -374,6 +375,23 @@ class LancoBot(commands.Bot):
             process_all_images=os.getenv("IMAGE_ROUTER_ALL_IMAGES", "").lower()
             == "true",
         )
+        # Owner's emergency stop. Loaded from the database here so a restart
+        # comes up in the state the owner left it in. See utils.killswitch.
+        self.killswitch = Killswitch(self)
+        self.killswitch.load()
+
+    def dispatch(self, event_name: str, /, *args, **kwargs) -> None:
+        """Every gateway event funnels through here, which makes it the one
+        place the killswitch can stop all listeners, the router, and the URL
+        handlers at once. While engaged, ``message`` is the sole exception and
+        only reaches the command parser (the bot's own ``on_message``), not
+        the listeners: that is how ``.killswitch off`` still gets through,
+        while the global check refuses every other command.
+        """
+        if self.killswitch.allows_event(event_name):
+            super().dispatch(event_name, *args, **kwargs)
+        elif event_name == "message":
+            self._schedule_event(self.on_message, "on_message", *args, **kwargs)
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
@@ -526,11 +544,49 @@ class LancoBot(commands.Bot):
         if not self._inventory_reported:
             self._inventory_reported = True
             apm.emit_inventory(self)
+        # Presence is not persisted across a reconnect, but the switch is.
+        if self.killswitch.engaged:
+            await self.killswitch.apply_presence()
 
     async def setup_hook(self):
         self.add_listener(self.router.handle_message, "on_message")
+        self._gate_components()
         if self.dev_mode:
             self.loop.create_task(self._hot_reload_watcher())
+
+    def _gate_components(self) -> None:
+        """Put the killswitch in front of buttons, selects, and modals.
+
+        Component and modal interactions never pass through ``dispatch`` or
+        the command tree: the connection state hands them straight to its view
+        store. Wrapping the store's two entry points on the instance is the
+        narrowest hook there is. The store lives as long as the connection
+        state (READY recreates everything else but keeps the views), so this
+        runs once. Private API, so it degrades to a logged warning rather than
+        a crash if a discord.py upgrade moves it.
+        """
+        store = getattr(getattr(self, "_connection", None), "_view_store", None)
+        for name in ("dispatch_view", "dispatch_modal"):
+            original = getattr(store, name, None)
+            if original is None:
+                logger.warning(
+                    f"Cannot gate {name} behind the killswitch: view store "
+                    "entry point not found"
+                )
+                continue
+
+            def gated(*args, _original=original, **kwargs):
+                if self.killswitch.engaged:
+                    # Dropped whatever the arguments are; the interaction is
+                    # only looked up so the user gets told why.
+                    interaction = next(
+                        (a for a in args if isinstance(a, discord.Interaction)), None
+                    )
+                    self.killswitch.refuse_component(interaction)
+                    return None
+                return _original(*args, **kwargs)
+
+            setattr(store, name, gated)
 
     async def _hot_reload_watcher(self):
         async for changes in awatch(COGS_DIR):
@@ -567,6 +623,13 @@ class InstrumentedCommandTree(discord.app_commands.CommandTree):
         # App-command counterpart of global_block_check, which bot.check only
         # applies to prefix commands. Silent, like a CheckFailure there.
         if BlacklistedUser.get_or_none(user_id=interaction.user.id):
+            return False
+        if not interaction.client.killswitch.allows_interaction(interaction):
+            # The tree raises nothing on a refused check, so park one for
+            # _call's bookkeeping or APM would file this as a success.
+            interaction.extras[apm.ERROR_EXTRA] = discord.app_commands.CheckFailure(
+                "killswitch engaged"
+            )
             return False
         return True
 
@@ -818,7 +881,79 @@ async def devmode(interaction: discord.Interaction):
 async def global_block_check(ctx):
     if BlacklistedUser.get_or_none(user_id=ctx.author.id):
         return False
+    if not ctx.bot.killswitch.allows_command(ctx.command):
+        return False
     return True
+
+
+# --- killswitch ------------------------------------------------------------
+#
+# Defined here rather than in a cog so it cannot be unloaded, and offered as
+# both a prefix command and a slash command: the prefix form works even when
+# the command tree has never been synced, which is exactly the kind of state
+# an emergency control has to work in.
+
+
+@bot.group(name="killswitch", invoke_without_command=True)
+@commands.is_owner()
+async def killswitch_status(ctx: commands.Context):
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed())
+
+
+@killswitch_status.command(name="on")
+@commands.is_owner()
+async def killswitch_on(ctx: commands.Context, *, reason: Optional[str] = None):
+    changed = await ctx.bot.killswitch.engage(ctx.author.id, reason)
+    embed = ctx.bot.killswitch.build_status_embed()
+    if not changed:
+        embed.set_footer(text="Already engaged")
+    await ctx.send(embed=embed)
+
+
+@killswitch_status.command(name="off")
+@commands.is_owner()
+async def killswitch_off(ctx: commands.Context):
+    changed = await ctx.bot.killswitch.disengage(ctx.author.id)
+    embed = ctx.bot.killswitch.build_status_embed()
+    if not changed:
+        embed.set_footer(text="Was not engaged")
+    await ctx.send(embed=embed)
+
+
+async def _is_owner_interaction(interaction: discord.Interaction) -> bool:
+    return await interaction.client.is_owner(interaction.user)
+
+
+@bot.tree.command(name="killswitch", description="Owner only: stop or resume the bot")
+@discord.app_commands.describe(
+    action="on stops everything but this command, off resumes",
+    reason="Why, shown in the status readout",
+)
+@discord.app_commands.choices(
+    action=[
+        discord.app_commands.Choice(name="status", value="status"),
+        discord.app_commands.Choice(name="on", value="on"),
+        discord.app_commands.Choice(name="off", value="off"),
+    ]
+)
+@discord.app_commands.check(_is_owner_interaction)
+async def killswitch_slash(
+    interaction: discord.Interaction,
+    action: str = "status",
+    reason: Optional[str] = None,
+):
+    killswitch = interaction.client.killswitch
+    footer = None
+    if action == "on":
+        if not await killswitch.engage(interaction.user.id, reason):
+            footer = "Already engaged"
+    elif action == "off":
+        if not await killswitch.disengage(interaction.user.id):
+            footer = "Was not engaged"
+    embed = killswitch.build_status_embed()
+    if footer:
+        embed.set_footer(text=footer)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 def _install_shutdown_handlers() -> None:
