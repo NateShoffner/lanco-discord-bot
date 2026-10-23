@@ -2333,14 +2333,14 @@ files = [
 
 [[package]]
 name = "logtail-python"
-version = "0.3.4"
-description = "Logtail.com client library"
+version = "0.5.2"
+description = "Better Stack client library"
 optional = false
-python-versions = "*"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "logtail_python-0.3.4-py2.py3-none-any.whl", hash = "sha256:db5cf6b93f8de2352904519d9502021d3af3a81e6a27336b45a62358b35bbc16"},
-    {file = "logtail_python-0.3.4.tar.gz", hash = "sha256:284fffda6b54892ce9a2d0cade04cd61b7a1900c01d583abbdfe0dfee366e1c3"},
+    {file = "logtail_python-0.5.2-py2.py3-none-any.whl", hash = "sha256:cc5cbb5d2458e0ef227d2f38420ec890ceb4eb238788adfb8acae2f6e5dfa42a"},
+    {file = "logtail_python-0.5.2.tar.gz", hash = "sha256:f83f3c7abc3142838025a1401789b9bff290fde3f0dc5c991c5f0e31d18cd9d4"},
 ]
 
 [package.dependencies]
@@ -5699,4 +5699,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.14"
-content-hash = "5d0af9fd371031cfbb26197dcdf46b71001c94134b9640a1d124df486ba772b3"
+content-hash = "238f3ca8584763b8b3bd2b8bc6198e810aba7b80745c27a9fbcb35feacc19794"
