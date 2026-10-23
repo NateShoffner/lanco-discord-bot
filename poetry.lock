@@ -5419,26 +5419,30 @@ dev = ["black (>=19.3b0) ; python_version >= \"3.6\"", "pytest (>=4.6.2)"]
 
 [[package]]
 name = "wolframalpha"
-version = "5.1.3"
+version = "5.1.4"
 description = "Wolfram|Alpha 2.0 API client"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "wolframalpha-5.1.3-py3-none-any.whl", hash = "sha256:549b44e64595c5845be4c94f2b306a84832157bef422b20937cbca44b48ee117"},
-    {file = "wolframalpha-5.1.3.tar.gz", hash = "sha256:56226efeca0f55acec5e17dd2f6537a178d0bf4feec4df0615165e2968bb49b8"},
+    {file = "wolframalpha-5.1.4-py3-none-any.whl", hash = "sha256:8bcb419bd9be19ad5b9a7a00245685d44c246d83dfca082c53f263f594650de2"},
+    {file = "wolframalpha-5.1.4.tar.gz", hash = "sha256:3a888a2f92b517b52dcbabca268258ad5a4a210f14d3b6fd3dec8330da80f3ec"},
 ]
 
 [package.dependencies]
 httpx = "*"
 "jaraco.context" = "*"
-more-itertools = "*"
+more_itertools = "*"
 multidict = "*"
 xmltodict = "*"
 
 [package.extras]
+check = ["pytest-checkdocs (>=2.14)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
+cover = ["pytest-cov"]
 doc = ["furo", "jaraco.packaging (>=9.3)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
-test = ["keyring", "pmxbot", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
+enabler = ["pytest-enabler (>=3.4)"]
+test = ["keyring", "pmxbot ; sys_platform != \"win32\"", "pytest (>=6,!=8.1.*)"]
+type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\"", "types-xmltodict"]
 
 [[package]]
 name = "wrapt"
