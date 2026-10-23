@@ -198,3 +198,51 @@ def test_failed_migration_leaves_no_trace(legacy_db, monkeypatch):
         migrate.run_migrations()
 
     assert schema_of(legacy_db) == before
+
+
+TRENDING_LEGACY_SCHEMA = """
+CREATE TABLE trending_channel_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    guild_id INT NOT NULL UNIQUE,
+    channel_id INT,
+    last_message_id INT
+);
+INSERT INTO trending_channel_config (guild_id, channel_id, last_message_id)
+    VALUES (1, 10, 100), (2, NULL, NULL);
+"""
+
+
+def test_rebuilds_trending_channel_config(legacy_db):
+    """The old per-guild table is rebuilt in the per-channel shape, keeping the
+    configured channels with renaming on, since renaming was all it did."""
+    conn = sqlite3.connect(legacy_db)
+    conn.executescript(TRENDING_LEGACY_SCHEMA)
+    conn.commit()
+    conn.close()
+
+    migrate.run_migrations()
+
+    cols = columns(legacy_db, "trending_channel_config")
+    assert {"rename_enabled", "last_seen_message_id", "last_topic"} <= set(cols)
+    assert "last_message_id" not in cols
+
+    tables = {row[1] for row in schema_of(legacy_db) if row[0] == "table"}
+    assert "trending_channel_config_legacy" not in tables
+
+    conn = sqlite3.connect(legacy_db)
+    try:
+        rows = conn.execute(
+            "SELECT guild_id, channel_id, rename_enabled FROM trending_channel_config"
+        ).fetchall()
+        # channel_id is unique, guild_id no longer is
+        insert = (
+            "INSERT INTO trending_channel_config "
+            "(guild_id, channel_id, rename_enabled) VALUES (?, ?, 0)"
+        )
+        conn.execute(insert, (1, 11))
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(insert, (3, 10))
+    finally:
+        conn.close()
+
+    assert rows == [(1, 10, 1)]
