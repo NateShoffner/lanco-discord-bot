@@ -19,6 +19,7 @@ from peewee import *
 from utils import apm, env
 from utils.command_utils import is_bot_owner
 from utils.dist_utils import get_bot_version, get_commit_hash, get_service_version
+from utils.killswitch import Killswitch
 from utils.logs import WinTimedRotatingFileHandler, add_ecs_file_handler
 from utils.router import ImageRouter, Intent
 from watchfiles import Change, awatch
@@ -374,6 +375,16 @@ class LancoBot(commands.Bot):
             process_all_images=os.getenv("IMAGE_ROUTER_ALL_IMAGES", "").lower()
             == "true",
         )
+        self.killswitch = Killswitch(self)
+        self.killswitch.load()
+
+    def dispatch(self, event_name: str, /, *args, **kwargs) -> None:
+        """Killswitch gate for every gateway event. While engaged, ``message``
+        reaches only the command parser, so ``.killswitch off`` gets through."""
+        if self.killswitch.allows_event(event_name):
+            super().dispatch(event_name, *args, **kwargs)
+        elif event_name == "message":
+            self._schedule_event(self.on_message, "on_message", *args, **kwargs)
 
     def set_dev_mode(self, mode: bool):
         self.dev_mode = mode
@@ -526,11 +537,40 @@ class LancoBot(commands.Bot):
         if not self._inventory_reported:
             self._inventory_reported = True
             apm.emit_inventory(self)
+        # Presence is not persisted across a reconnect, but the switch is.
+        if self.killswitch.engaged:
+            await self.killswitch.apply_presence()
 
     async def setup_hook(self):
         self.add_listener(self.router.handle_message, "on_message")
+        self._gate_components()
         if self.dev_mode:
             self.loop.create_task(self._hot_reload_watcher())
+
+    def _gate_components(self) -> None:
+        """Killswitch gate for buttons, selects, and modals, which skip both
+        ``dispatch`` and the command tree. Private API, so a missing entry point
+        logs rather than crashes."""
+        store = getattr(getattr(self, "_connection", None), "_view_store", None)
+        for name in ("dispatch_view", "dispatch_modal"):
+            original = getattr(store, name, None)
+            if original is None:
+                logger.warning(
+                    f"Cannot gate {name} behind the killswitch: view store "
+                    "entry point not found"
+                )
+                continue
+
+            def gated(*args, _original=original, **kwargs):
+                if self.killswitch.engaged:
+                    interaction = next(
+                        (a for a in args if isinstance(a, discord.Interaction)), None
+                    )
+                    self.killswitch.refuse_component(interaction)
+                    return None
+                return _original(*args, **kwargs)
+
+            setattr(store, name, gated)
 
     async def _hot_reload_watcher(self):
         async for changes in awatch(COGS_DIR):
@@ -567,6 +607,12 @@ class InstrumentedCommandTree(discord.app_commands.CommandTree):
         # App-command counterpart of global_block_check, which bot.check only
         # applies to prefix commands. Silent, like a CheckFailure there.
         if BlacklistedUser.get_or_none(user_id=interaction.user.id):
+            return False
+        if not interaction.client.killswitch.allows_interaction(interaction):
+            # park a failure so _call records this as denied, not a success
+            interaction.extras[apm.ERROR_EXTRA] = discord.app_commands.CheckFailure(
+                "killswitch engaged"
+            )
             return False
         return True
 
@@ -818,7 +864,68 @@ async def devmode(interaction: discord.Interaction):
 async def global_block_check(ctx):
     if BlacklistedUser.get_or_none(user_id=ctx.author.id):
         return False
+    if not ctx.bot.killswitch.allows_command(ctx.command):
+        return False
     return True
+
+
+# Killswitch. Not a cog, so it cannot be unloaded. Both a prefix and a slash
+# command: the prefix form works before the tree has ever been synced.
+
+
+@bot.group(name="killswitch", invoke_without_command=True)
+@commands.is_owner()
+async def killswitch_status(ctx: commands.Context):
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed())
+
+
+@killswitch_status.command(name="on")
+@commands.is_owner()
+async def killswitch_on(ctx: commands.Context, *, reason: Optional[str] = None):
+    changed = await ctx.bot.killswitch.engage(ctx.author.id, reason)
+    footer = None if changed else "Already engaged"
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed(footer))
+
+
+@killswitch_status.command(name="off")
+@commands.is_owner()
+async def killswitch_off(ctx: commands.Context):
+    changed = await ctx.bot.killswitch.disengage(ctx.author.id)
+    footer = None if changed else "Was not engaged"
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed(footer))
+
+
+async def _is_owner_interaction(interaction: discord.Interaction) -> bool:
+    return await interaction.client.is_owner(interaction.user)
+
+
+@bot.tree.command(name="killswitch", description="Owner only: stop or resume the bot")
+@discord.app_commands.describe(
+    action="on stops everything but this command, off resumes",
+    reason="Why, shown in the status readout",
+)
+@discord.app_commands.choices(
+    action=[
+        discord.app_commands.Choice(name="status", value="status"),
+        discord.app_commands.Choice(name="on", value="on"),
+        discord.app_commands.Choice(name="off", value="off"),
+    ]
+)
+@discord.app_commands.check(_is_owner_interaction)
+async def killswitch_slash(
+    interaction: discord.Interaction,
+    action: str = "status",
+    reason: Optional[str] = None,
+):
+    killswitch = interaction.client.killswitch
+    footer = None
+    if action == "on" and not await killswitch.engage(interaction.user.id, reason):
+        footer = "Already engaged"
+    elif action == "off" and not await killswitch.disengage(interaction.user.id):
+        footer = "Was not engaged"
+    await interaction.response.send_message(
+        embed=killswitch.build_status_embed(footer), ephemeral=True
+    )
 
 
 def _install_shutdown_handlers() -> None:

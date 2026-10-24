@@ -88,3 +88,9 @@ async def setup(bot):
 Use `poetry run cog create` to scaffold from the template rather than writing from scratch.
 
 In dev mode, saving any file under `app/cogs/` reloads the affected cog package (including submodules such as `models.py`) without restarting the bot.
+
+## Killswitch
+
+`.killswitch on [reason]` (or `/killswitch action:on`) is the owner's emergency stop: the bot stays connected but drops every event, command, component, and loop iteration until `.killswitch off`. Only the killswitch command still works, and only for the owner. The state persists across restarts, the presence goes DND, and `.killswitch` alone shows who engaged it, why, and what has been dropped.
+
+Implementation lives in `app/utils/killswitch.py` and is gated in `LancoBot.dispatch`, `InstrumentedCommandTree.interaction_check`, the view store wrapper in `setup_hook`, and `LancoCog.start_loop`.

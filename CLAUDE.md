@@ -99,6 +99,21 @@ Several cogs (Spotify, Twitter/X, Instagram, TikTok fixes) register themselves a
 
 Core bot functionality (`app/utils/router/`, not a cog) that owns the single `on_message` handler. It is a three-layer inheritance chain: `MessageRouter` (registry, cheap gate, score, arbitrate, dispatch) → `FileRouter` (extract attachments, download each once) → `ImageRouter` (filter to images, one shared vision call). Only `ImageRouter` is instantiated and it inherits the other levels; there is one registry (`bot.processors`) and one listener. Cogs subclass `ProcessorCog` and register an `Intent` at the `message`, `file`, or `image` level (cheap predicate, confidence scorer, processor; image intents add vision questions). The cog's own `cheap_predicate` is the arbiter of whether the router runs it for a message (channel, regex, user, content type, whatever the cog wants), checked before any download or model call. The router gates cheaply, downloads each file once, runs **one** shared vision call answering the union of all image intents' questions, scores, arbitrates by confidence (isolated by default; `conflict_group` for mutually exclusive outputs), and dispatches the winner(s). This prevents N cogs from each re-downloading and independently calling a vision model on the same image. See `app/utils/router/README.md` for the full contract and a worked cog example.
 
+### Killswitch
+
+`app/utils/killswitch.py` is the owner's emergency stop. `.killswitch on [reason]` (or `/killswitch action:on`) leaves the bot connected but inert: every gateway event, slash command, context menu, button, modal, and background loop iteration is dropped until `.killswitch off`. Only the killswitch command still works, and only for the owner. The prefix form works in a DM without a synced command tree, which is the state an emergency control has to work in.
+
+The state is persisted in the `killswitch` table, so a deploy or crash loop comes back still switched off. While engaged the presence is DND and startup logs a WARNING. `.killswitch` alone reports who engaged it, since when, why, and what has been dropped.
+
+It gates centrally rather than unloading cogs, which is destructive and leaves the core commands in `main.py` running. Each entry point checks the same flag:
+
+- `LancoBot.dispatch` for gateway events (listeners, router, URL handlers). `message` goes only to the command parser so the switch-off command gets through; the global check refuses every other command.
+- `InstrumentedCommandTree.interaction_check` for slash commands and context menus, with a short ephemeral refusal.
+- The view store, wrapped in `setup_hook`, for buttons, selects, and modals.
+- `LancoCog.start_loop`, which skips the iteration rather than cancelling the loop.
+
+Work already in flight when the switch is thrown is not interrupted.
+
 ### Environments
 
 `BOT_ENV` is the single source of truth for which environment a process is. It decides three things that used to be decided independently and could disagree: which dotenv file loads, whether dev mode (hot-reload, debug logging) is on, and the environment reported to Elastic APM.
