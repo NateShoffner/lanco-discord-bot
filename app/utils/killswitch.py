@@ -1,4 +1,4 @@
-"""Owner's emergency stop. See the Killswitch section of CLAUDE.md.
+"""Owner's emergency stop.
 
 Engaged, the bot stays connected but drops every gateway event, app command,
 component, and loop iteration. Only the killswitch command still works. The
