@@ -20,6 +20,9 @@ class SpotifyEmbed(
         name="spotifyembed", description="SpotifyEmbed commands", guild_only=True
     )
 
+    # Sentinel for a reply that has been claimed but not yet sent.
+    PENDING = object()
+
     spotify_url_pattern = re.compile(
         r"https?://open.spotify.com/(track|album|playlist|artist)/([a-zA-Z0-9]+)"
     )
@@ -31,7 +34,8 @@ class SpotifyEmbed(
             client_secret=os.getenv("SPOTIFY_SECRET"),
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
-        self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
+        # message_id -> fixed_message_id, or PENDING while the reply is in flight
+        self.fixed_messages = LRUCache(maxsize=1000)
 
         bot.register_url_handler(
             UrlHandler(
@@ -76,6 +80,12 @@ class SpotifyEmbed(
                 self.logger.info("Discord embedded the link, no need to fix it")
                 return
 
+            # Claim the slot before building and sending the embed. The Spotify
+            # lookup and the reply together take long enough that a late unfurl
+            # can land in between; without the claim on_raw_message_edit would
+            # find nothing registered yet and leave our embed next to Discord's.
+            self.fixed_messages[message.id] = self.PENDING
+
             if spotify_type == "track":
                 embed = self.generate_track_embed(spotify_id)
             elif spotify_type == "album":
@@ -86,7 +96,21 @@ class SpotifyEmbed(
                 embed = self.generate_artist_embed(spotify_id)
 
             fixed_msg = await message.reply(embed=embed)
-            self.fixed_messages[message.id] = fixed_msg.id
+
+            if self.fixed_messages.get(message.id, None) is self.PENDING:
+                self.fixed_messages[message.id] = fixed_msg.id
+                return
+
+            # The slot was consumed while we were sending, meaning the unfurl
+            # arrived and the edit handler deferred the delete to us.
+            self.logger.info(
+                f"Discord embedded message {message.id} while we were replying, "
+                "removing our embed"
+            )
+            try:
+                await fixed_msg.delete()
+            except discord.NotFound:
+                pass
 
     # Discord's own embed server adds the native embed asynchronously via a
     # MESSAGE_UPDATE. Raw variant is used since on_message_edit is skipped if
@@ -95,14 +119,18 @@ class SpotifyEmbed(
     # (on_message_edit / on_raw_message_edit)
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
-        fixed_message_id = self.fixed_messages.get(payload.message_id)
-        if not fixed_message_id:
+        if payload.message_id not in self.fixed_messages:
             return
 
         if not payload.data.get("embeds"):
             return
 
-        del self.fixed_messages[payload.message_id]
+        fixed_message_id = self.fixed_messages.pop(payload.message_id)
+        if fixed_message_id is self.PENDING:
+            # on_message has not finished posting yet; it deletes its own reply
+            # once it sees the slot has been consumed.
+            return
+
         self.logger.info(
             f"Discord eventually embedded message {payload.message_id} in channel "
             f"{payload.channel_id}, removing our embed"
