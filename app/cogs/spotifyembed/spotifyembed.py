@@ -4,7 +4,7 @@ import re
 
 import discord
 import spotipy
-from cachetools import LRUCache
+from cachetools import TTLCache
 from cogs.lancocog import LancoCog, UrlHandler
 from discord import app_commands
 from discord.ext import commands
@@ -20,6 +20,10 @@ class SpotifyEmbed(
         name="spotifyembed", description="SpotifyEmbed commands", guild_only=True
     )
 
+    PENDING = object()
+    CLEANUP_WINDOW = 30 * 60
+    REPLY_SCAN_LIMIT = 50
+
     spotify_url_pattern = re.compile(
         r"https?://open.spotify.com/(track|album|playlist|artist)/([a-zA-Z0-9]+)"
     )
@@ -31,7 +35,8 @@ class SpotifyEmbed(
             client_secret=os.getenv("SPOTIFY_SECRET"),
         )
         self.sp = spotipy.Spotify(client_credentials_manager=creds)
-        self.fixed_messages = LRUCache(maxsize=1000)  # message_id -> fixed_message_id
+        # message_id -> fixed_message_id, or PENDING while the reply is in flight
+        self.fixed_messages = TTLCache(maxsize=1000, ttl=self.CLEANUP_WINDOW)
 
         bot.register_url_handler(
             UrlHandler(
@@ -76,6 +81,10 @@ class SpotifyEmbed(
                 self.logger.info("Discord embedded the link, no need to fix it")
                 return
 
+            # Claim the slot before the lookup and the reply; an unfurl landing
+            # in between would otherwise find nothing registered.
+            self.fixed_messages[message.id] = self.PENDING
+
             if spotify_type == "track":
                 embed = self.generate_track_embed(spotify_id)
             elif spotify_type == "album":
@@ -86,7 +95,19 @@ class SpotifyEmbed(
                 embed = self.generate_artist_embed(spotify_id)
 
             fixed_msg = await message.reply(embed=embed)
-            self.fixed_messages[message.id] = fixed_msg.id
+
+            if self.fixed_messages.get(message.id, None) is self.PENDING:
+                self.fixed_messages[message.id] = fixed_msg.id
+                return
+
+            self.logger.info(
+                f"Discord embedded message {message.id} while we were replying, "
+                "removing our embed"
+            )
+            try:
+                await fixed_msg.delete()
+            except discord.NotFound:
+                pass
 
     # Discord's own embed server adds the native embed asynchronously via a
     # MESSAGE_UPDATE. Raw variant is used since on_message_edit is skipped if
@@ -95,26 +116,54 @@ class SpotifyEmbed(
     # (on_message_edit / on_raw_message_edit)
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
-        fixed_message_id = self.fixed_messages.get(payload.message_id)
-        if not fixed_message_id:
+        if payload.message_id not in self.fixed_messages:
             return
 
         if not payload.data.get("embeds"):
             return
 
-        del self.fixed_messages[payload.message_id]
+        fixed_message_id = self.fixed_messages.pop(payload.message_id)
+        if fixed_message_id is self.PENDING:
+            # on_message deletes its own reply once it sees the slot is gone
+            return
+
         self.logger.info(
             f"Discord eventually embedded message {payload.message_id} in channel "
-            f"{payload.channel_id}, removing our embed"
+            f"{payload.channel_id}"
         )
         try:
             channel = self.bot.get_channel(
                 payload.channel_id
             ) or await self.bot.fetch_channel(payload.channel_id)
             fixed_msg = await channel.fetch_message(fixed_message_id)
+            if await self.has_engagement(fixed_msg):
+                self.logger.info("Keeping our embed, it has already been engaged with")
+                return
             await fixed_msg.delete()
+            self.logger.info("Removed our embed")
         except discord.NotFound:
             pass
+
+    async def has_engagement(self, fixed_msg: discord.Message) -> bool:
+        """True if our embed has become part of the conversation.
+
+        A reply left pointing at a deleted message reads as broken, and
+        deleting a thread starter takes the thread with it.
+        """
+        if fixed_msg.reactions:
+            return True
+
+        if fixed_msg.thread is not None:
+            return True
+
+        async for msg in fixed_msg.channel.history(
+            after=fixed_msg, limit=self.REPLY_SCAN_LIMIT
+        ):
+            ref = msg.reference
+            if ref is not None and ref.message_id == fixed_msg.id:
+                return True
+
+        return False
 
     def generate_track_embed(self, track_id: str) -> discord.Embed:
         track = self.sp.track(track_id)
