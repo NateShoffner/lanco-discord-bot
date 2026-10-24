@@ -91,8 +91,6 @@ In dev mode, saving any file under `app/cogs/` reloads the affected cog package 
 
 ## Killswitch
 
-`.killswitch on [reason]` (or `/killswitch action:on`) is the bot owner's emergency stop. The bot stays connected but drops every gateway event, slash command, context menu, button, modal, and background loop iteration until `.killswitch off`. Only the killswitch command itself still works, and only for the owner. The prefix form works in a DM and needs no command tree sync.
+`.killswitch on [reason]` (or `/killswitch action:on`) is the owner's emergency stop: the bot stays connected but drops every event, command, component, and loop iteration until `.killswitch off`. Only the killswitch command still works, and only for the owner. The state persists across restarts, the presence goes DND, and `.killswitch` alone shows who engaged it, why, and what has been dropped.
 
-The state lives in the `killswitch` table, so a deploy or a crash loop comes back up still switched off; only the owner re-arms the bot. While engaged the presence is DND with a "killswitch engaged" activity, startup logs a WARNING, and `.killswitch` with no argument reports who engaged it, since when, why, and what has been dropped. Work already in flight when the switch is thrown (a running game) is not interrupted.
-
-Implementation: `app/utils/killswitch.py`, gated in `LancoBot.dispatch` (events), `InstrumentedCommandTree.interaction_check` (app commands), the view store wrapper in `setup_hook` (components), and `LancoCog.start_loop` (loops skip their iteration rather than being cancelled).
+Implementation lives in `app/utils/killswitch.py` and is gated in `LancoBot.dispatch`, `InstrumentedCommandTree.interaction_check`, the view store wrapper in `setup_hook`, and `LancoCog.start_loop`. See the Killswitch section of CLAUDE.md.

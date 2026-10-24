@@ -1,14 +1,6 @@
-"""The owner's killswitch must stop everything except itself.
-
-Functionality enters the bot through four doors: gateway events (listeners,
-the router, URL handlers), the app command tree (slash commands, context
-menus), the view store (buttons, selects, modals), and background loops. Each
-door checks the same flag, and the one thing that still passes while engaged
-is the killswitch command, so the owner can switch it back on from Discord.
-The state survives a restart, because a deploy silently re-arming a bot the
-owner switched off would be the worst possible behaviour for an emergency
-control.
-"""
+"""The owner's killswitch must stop everything except itself: gateway events,
+app commands, components, and loops are all gated, and the state survives a
+restart."""
 
 import asyncio
 import os
@@ -27,26 +19,22 @@ import pytest_asyncio
 from cogs.lancocog import LancoCog
 from db import database_proxy
 from discord.ext import commands, tasks
+from utils.killswitch import Killswitch, is_exempt_command
 
 from tests.test_bot import test_db  # noqa: F401  (autouse fixture)
 
 pytestmark = pytest.mark.asyncio
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest_asyncio.fixture
 async def bot(test_db):
-    """A LancoBot carrying the killswitch commands and global check, with two
-    members: the first is the owner."""
+    """LancoBot with the killswitch commands and global check; member 0 is the
+    owner."""
     import main
     from main import BlacklistedUser, LancoBot
 
     database_proxy.initialize(test_db)
-    test_db.create_tables([BlacklistedUser])  # the global check reads it
+    test_db.create_tables([BlacklistedUser])
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -60,8 +48,7 @@ async def bot(test_db):
     dpytest.configure(b, members=2)
     b.owner_id = dpytest.get_config().members[0].id
 
-    # dpytest re-raises command errors; a refused check is the expected
-    # outcome here, as it is in main's own on_command_error
+    # dpytest re-raises command errors; a refused check is the expected outcome
     async def on_command_error(ctx, error):
         if not isinstance(error, commands.CheckFailure):
             raise error
@@ -74,8 +61,6 @@ async def bot(test_db):
 
 
 class _ListenerCog(LancoCog, name="ListenerCog"):
-    """Stands in for every cog that reacts to events."""
-
     def __init__(self, bot):
         super().__init__(bot)
         self.seen = []
@@ -90,7 +75,6 @@ class _ListenerCog(LancoCog, name="ListenerCog"):
 
 
 async def _settle():
-    """Let the tasks dispatch schedules run."""
     for _ in range(5):
         await asyncio.sleep(0.01)
 
@@ -103,11 +87,6 @@ def _other():
     return dpytest.get_config().members[1]
 
 
-# ---------------------------------------------------------------------------
-# Gateway events
-# ---------------------------------------------------------------------------
-
-
 async def test_engaged_drops_events_but_the_switch_still_works(bot):
     cog = _ListenerCog(bot)
     await bot.add_cog(cog)
@@ -116,8 +95,7 @@ async def test_engaged_drops_events_but_the_switch_still_works(bot):
     await _settle()
     assert cog.seen == ["before"]
 
-    # the engaging message itself is dispatched normally: the switch was off
-    # when it arrived
+    # the engaging message is dispatched normally: the switch was off on arrival
     await dpytest.message(".killswitch on spam in general", member=_owner())
     await _settle()
     assert bot.killswitch.engaged
@@ -132,7 +110,6 @@ async def test_engaged_drops_events_but_the_switch_still_works(bot):
     assert bot.killswitch.dropped["message"] >= 2
     assert bot.killswitch.dropped["command"] == 1
 
-    # while engaged, not even the disengaging message reaches a listener
     await dpytest.message(".killswitch off", member=_owner())
     await _settle()
     assert not bot.killswitch.engaged
@@ -155,8 +132,6 @@ async def test_only_the_owner_can_switch(bot):
 
 
 async def test_a_message_listener_is_not_scheduled_while_engaged(bot):
-    """The bot's own on_message (the command parser) is the only thing that
-    runs for a message, so an extra on_message listener never fires."""
     seen = []
 
     async def listener(message):
@@ -171,9 +146,6 @@ async def test_a_message_listener_is_not_scheduled_while_engaged(bot):
 
 
 def test_passthrough_is_limited_to_plumbing(bot):
-    """Lifecycle and command bookkeeping pass; anything user-facing does not."""
-    from utils.killswitch import Killswitch
-
     ks = Killswitch(bot)
     ks._engaged = True
     for event in ("ready", "resumed", "disconnect", "command_error"):
@@ -189,11 +161,6 @@ def test_passthrough_is_limited_to_plumbing(bot):
     ):
         assert not ks.allows_event(event), event
     assert ks.dropped["message"] == 1
-
-
-# ---------------------------------------------------------------------------
-# App commands
-# ---------------------------------------------------------------------------
 
 
 class _FakeResponse:
@@ -214,6 +181,10 @@ class _FakeInteraction:
         self.type = kind
         self.extras = {}
         self.response = _FakeResponse()
+
+
+async def _noop_app_command(interaction: discord.Interaction):
+    pass
 
 
 async def test_interaction_check_refuses_everything_but_the_switch(bot):
@@ -239,7 +210,6 @@ async def test_interaction_check_refuses_everything_but_the_switch(bot):
 
 
 async def test_autocomplete_is_refused_silently(bot):
-    """Autocomplete cannot be answered with a message, so no reply is tried."""
     await bot.killswitch.engage(1)
     interaction = _FakeInteraction(bot, kind=discord.InteractionType.autocomplete)
     assert not bot.killswitch.allows_interaction(interaction)
@@ -247,13 +217,8 @@ async def test_autocomplete_is_refused_silently(bot):
     assert interaction.response.sent == []
 
 
-async def _noop_app_command(interaction: discord.Interaction):
-    pass
-
-
 def test_subcommands_of_the_switch_are_exempt():
     import main
-    from utils.killswitch import is_exempt_command
 
     assert is_exempt_command(main.killswitch_status)
     assert is_exempt_command(main.killswitch_on)
@@ -261,11 +226,6 @@ def test_subcommands_of_the_switch_are_exempt():
     assert is_exempt_command(main.killswitch_slash)
     assert not is_exempt_command(main.guildsync)
     assert not is_exempt_command(None)
-
-
-# ---------------------------------------------------------------------------
-# Components and modals
-# ---------------------------------------------------------------------------
 
 
 async def test_components_are_gated_at_the_view_store(bot):
@@ -277,30 +237,24 @@ async def test_components_are_gated_at_the_view_store(bot):
 
     interaction = _FakeInteraction(bot, kind=discord.InteractionType.component)
 
-    bot._connection._view_store.dispatch_view(2, "custom", interaction)
+    store.dispatch_view(2, "custom", interaction)
     assert len(calls) == 1
 
     await bot.killswitch.engage(1)
-    bot._connection._view_store.dispatch_view(2, "custom", interaction)
-    bot._connection._view_store.dispatch_modal("custom", interaction, [], {})
+    store.dispatch_view(2, "custom", interaction)
+    store.dispatch_modal("custom", interaction, [], {})
     assert len(calls) == 1, "a component reached its view while engaged"
     assert bot.killswitch.dropped["component"] == 2
 
     await bot.killswitch.disengage(1)
-    bot._connection._view_store.dispatch_modal("custom", interaction, [], {})
+    store.dispatch_modal("custom", interaction, [], {})
     assert len(calls) == 2
-
-
-# ---------------------------------------------------------------------------
-# Background loops
-# ---------------------------------------------------------------------------
 
 
 class _StubBot:
     def __init__(self):
-        from utils.killswitch import Killswitch
-
         self.killswitch = Killswitch(self)
+        self.killswitch.load()
         self.guilds = []
 
     async def wait_until_ready(self):
@@ -340,14 +294,7 @@ async def test_loops_skip_iterations_while_engaged():
         cog.ticker.cancel()
 
 
-# ---------------------------------------------------------------------------
-# Persistence
-# ---------------------------------------------------------------------------
-
-
 async def test_state_survives_a_restart(bot):
-    from utils.killswitch import Killswitch
-
     await bot.killswitch.engage(42, "bad deploy")
 
     fresh = Killswitch(bot)

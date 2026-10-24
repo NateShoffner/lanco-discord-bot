@@ -101,18 +101,18 @@ Core bot functionality (`app/utils/router/`, not a cog) that owns the single `on
 
 ### Killswitch
 
-`app/utils/killswitch.py` is the owner's emergency stop. `.killswitch on [reason]` (or `/killswitch action:on`) leaves the bot connected but inert: every gateway event, slash command, context menu, button, modal, and background loop iteration is dropped until `.killswitch off`. The only thing that still works is the killswitch command itself, and only for the bot owner. Both forms exist on purpose: the prefix command works in a DM and does not need the command tree to have been synced, which is the kind of state an emergency control has to work in.
+`app/utils/killswitch.py` is the owner's emergency stop. `.killswitch on [reason]` (or `/killswitch action:on`) leaves the bot connected but inert: every gateway event, slash command, context menu, button, modal, and background loop iteration is dropped until `.killswitch off`. Only the killswitch command still works, and only for the owner. The prefix form works in a DM without a synced command tree, which is the state an emergency control has to work in.
 
-The state is persisted in the `killswitch` table, so a deploy or a crash loop comes back up still switched off. Nothing re-arms the bot except the owner. While engaged the presence is DND with a "killswitch engaged" activity, and startup logs a WARNING saying so.
+The state is persisted in the `killswitch` table, so a deploy or crash loop comes back still switched off. While engaged the presence is DND and startup logs a WARNING. `.killswitch` alone reports who engaged it, since when, why, and what has been dropped.
 
-It gates centrally rather than unloading cogs, which would be destructive and would still leave the core commands in `main.py` running. Functionality enters the bot through four doors and each one checks the same flag:
+It gates centrally rather than unloading cogs, which is destructive and leaves the core commands in `main.py` running. Each entry point checks the same flag:
 
-- `LancoBot.dispatch` for gateway events, which covers every cog listener, the router, and the URL embed handlers. `message` is scheduled straight to the command parser so the switch-off command can get through; the global check refuses every other command.
-- `InstrumentedCommandTree.interaction_check` for slash commands and context menus, which never pass through `dispatch`. A refused slash command gets a short ephemeral reply, because "This interaction failed" reads as a bug.
-- The view store, wrapped in `setup_hook`, for buttons, selects, and modals, which also bypass `dispatch`.
-- `LancoCog.start_loop`, which skips the iteration rather than cancelling the loop, so nothing is interrupted mid-write and nothing needs restarting on the way back. A loop with a long interval resumes on its next tick.
+- `LancoBot.dispatch` for gateway events (listeners, router, URL handlers). `message` goes only to the command parser so the switch-off command gets through; the global check refuses every other command.
+- `InstrumentedCommandTree.interaction_check` for slash commands and context menus, with a short ephemeral refusal.
+- The view store, wrapped in `setup_hook`, for buttons, selects, and modals.
+- `LancoCog.start_loop`, which skips the iteration rather than cancelling the loop.
 
-Work already in flight when the switch is thrown (a running game, a task started by a command) is not interrupted. `.killswitch` with no argument reports who engaged it, since when, why, and what has been dropped.
+Work already in flight when the switch is thrown is not interrupted.
 
 ### Environments
 

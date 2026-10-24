@@ -375,19 +375,12 @@ class LancoBot(commands.Bot):
             process_all_images=os.getenv("IMAGE_ROUTER_ALL_IMAGES", "").lower()
             == "true",
         )
-        # Owner's emergency stop. Loaded from the database here so a restart
-        # comes up in the state the owner left it in. See utils.killswitch.
         self.killswitch = Killswitch(self)
         self.killswitch.load()
 
     def dispatch(self, event_name: str, /, *args, **kwargs) -> None:
-        """Every gateway event funnels through here, which makes it the one
-        place the killswitch can stop all listeners, the router, and the URL
-        handlers at once. While engaged, ``message`` is the sole exception and
-        only reaches the command parser (the bot's own ``on_message``), not
-        the listeners: that is how ``.killswitch off`` still gets through,
-        while the global check refuses every other command.
-        """
+        """Killswitch gate for every gateway event. While engaged, ``message``
+        reaches only the command parser, so ``.killswitch off`` gets through."""
         if self.killswitch.allows_event(event_name):
             super().dispatch(event_name, *args, **kwargs)
         elif event_name == "message":
@@ -555,16 +548,9 @@ class LancoBot(commands.Bot):
             self.loop.create_task(self._hot_reload_watcher())
 
     def _gate_components(self) -> None:
-        """Put the killswitch in front of buttons, selects, and modals.
-
-        Component and modal interactions never pass through ``dispatch`` or
-        the command tree: the connection state hands them straight to its view
-        store. Wrapping the store's two entry points on the instance is the
-        narrowest hook there is. The store lives as long as the connection
-        state (READY recreates everything else but keeps the views), so this
-        runs once. Private API, so it degrades to a logged warning rather than
-        a crash if a discord.py upgrade moves it.
-        """
+        """Killswitch gate for buttons, selects, and modals, which skip both
+        ``dispatch`` and the command tree. Private API, so a missing entry point
+        logs rather than crashes."""
         store = getattr(getattr(self, "_connection", None), "_view_store", None)
         for name in ("dispatch_view", "dispatch_modal"):
             original = getattr(store, name, None)
@@ -577,8 +563,6 @@ class LancoBot(commands.Bot):
 
             def gated(*args, _original=original, **kwargs):
                 if self.killswitch.engaged:
-                    # Dropped whatever the arguments are; the interaction is
-                    # only looked up so the user gets told why.
                     interaction = next(
                         (a for a in args if isinstance(a, discord.Interaction)), None
                     )
@@ -625,8 +609,7 @@ class InstrumentedCommandTree(discord.app_commands.CommandTree):
         if BlacklistedUser.get_or_none(user_id=interaction.user.id):
             return False
         if not interaction.client.killswitch.allows_interaction(interaction):
-            # The tree raises nothing on a refused check, so park one for
-            # _call's bookkeeping or APM would file this as a success.
+            # park a failure so _call records this as denied, not a success
             interaction.extras[apm.ERROR_EXTRA] = discord.app_commands.CheckFailure(
                 "killswitch engaged"
             )
@@ -886,12 +869,8 @@ async def global_block_check(ctx):
     return True
 
 
-# --- killswitch ------------------------------------------------------------
-#
-# Defined here rather than in a cog so it cannot be unloaded, and offered as
-# both a prefix command and a slash command: the prefix form works even when
-# the command tree has never been synced, which is exactly the kind of state
-# an emergency control has to work in.
+# Killswitch. Not a cog, so it cannot be unloaded. Both a prefix and a slash
+# command: the prefix form works before the tree has ever been synced.
 
 
 @bot.group(name="killswitch", invoke_without_command=True)
@@ -904,20 +883,16 @@ async def killswitch_status(ctx: commands.Context):
 @commands.is_owner()
 async def killswitch_on(ctx: commands.Context, *, reason: Optional[str] = None):
     changed = await ctx.bot.killswitch.engage(ctx.author.id, reason)
-    embed = ctx.bot.killswitch.build_status_embed()
-    if not changed:
-        embed.set_footer(text="Already engaged")
-    await ctx.send(embed=embed)
+    footer = None if changed else "Already engaged"
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed(footer))
 
 
 @killswitch_status.command(name="off")
 @commands.is_owner()
 async def killswitch_off(ctx: commands.Context):
     changed = await ctx.bot.killswitch.disengage(ctx.author.id)
-    embed = ctx.bot.killswitch.build_status_embed()
-    if not changed:
-        embed.set_footer(text="Was not engaged")
-    await ctx.send(embed=embed)
+    footer = None if changed else "Was not engaged"
+    await ctx.send(embed=ctx.bot.killswitch.build_status_embed(footer))
 
 
 async def _is_owner_interaction(interaction: discord.Interaction) -> bool:
@@ -944,16 +919,13 @@ async def killswitch_slash(
 ):
     killswitch = interaction.client.killswitch
     footer = None
-    if action == "on":
-        if not await killswitch.engage(interaction.user.id, reason):
-            footer = "Already engaged"
-    elif action == "off":
-        if not await killswitch.disengage(interaction.user.id):
-            footer = "Was not engaged"
-    embed = killswitch.build_status_embed()
-    if footer:
-        embed.set_footer(text=footer)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    if action == "on" and not await killswitch.engage(interaction.user.id, reason):
+        footer = "Already engaged"
+    elif action == "off" and not await killswitch.disengage(interaction.user.id):
+        footer = "Was not engaged"
+    await interaction.response.send_message(
+        embed=killswitch.build_status_embed(footer), ephemeral=True
+    )
 
 
 def _install_shutdown_handlers() -> None:

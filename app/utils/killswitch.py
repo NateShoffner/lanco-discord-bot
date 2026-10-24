@@ -1,29 +1,8 @@
-"""Global killswitch: one lever that stops the bot doing anything.
+"""Owner's emergency stop. See the Killswitch section of CLAUDE.md.
 
-Engaged, the bot stays connected to the gateway but goes inert. Every message,
-reaction, member event, slash command, button, modal, and background loop is
-dropped on the floor, and the only thing that still works is the command that
-disengages it. The point is to have something the owner can reach for in the
-first minute of an incident (a cog spamming a channel, a leaked key, a model
-returning garbage) that is faster and safer than finding the host and stopping
-the container.
-
-Why gate centrally instead of unloading cogs: unloading is destructive (cog
-state goes, and a cog that fails to come back leaves the bot half-restored),
-and it still does nothing about the core commands in main. Gating sits in the
-few places every piece of functionality has to pass through:
-
-- ``LancoBot.dispatch`` for gateway events, which covers every listener, the
-  router, and the URL embed handlers.
-- ``InstrumentedCommandTree.interaction_check`` for slash commands and context
-  menus, which never go through ``dispatch``.
-- The view store for buttons, selects, and modals, which also bypass it.
-- ``LancoCog.start_loop`` for background loops, which skip their iteration
-  rather than being cancelled, so nothing needs restarting on the way back.
-
-The state is persisted. A deploy or a crash loop recreates the container, and a
-restart silently re-arming a bot the owner deliberately switched off would be
-the worst possible behaviour for an emergency control.
+Engaged, the bot stays connected but drops every gateway event, app command,
+component, and loop iteration. Only the killswitch command still works. The
+state is persisted so a restart cannot re-arm a bot the owner switched off.
 """
 
 from __future__ import annotations
@@ -43,20 +22,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Name of the prefix command and the slash command. The gate exempts a
-#: command whose root has this name, so subcommands (``.killswitch off``)
-#: pass too.
 COMMAND_NAME = "killswitch"
-
-#: What a refused slash command or component is told. Static text: the bot
-#: must not do work on behalf of a refused interaction.
 REFUSAL_TEXT = "The bot is currently switched off by its owner."
 
-#: Events that still reach listeners while engaged. Everything here is either
-#: gateway bookkeeping with no user-facing effect, or part of the command
-#: lifecycle that the disengage command needs. ``message`` is deliberately
-#: absent: the bot's own ``on_message`` is scheduled directly so the command
-#: parser still runs, but no listener sees the message.
+# Gateway plumbing and command bookkeeping still pass while engaged. "message"
+# is deliberately absent: LancoBot.dispatch routes it to the command parser only.
 PASSTHROUGH_EVENTS = frozenset(
     {
         "connect",
@@ -71,7 +41,6 @@ PASSTHROUGH_EVENTS = frozenset(
         "socket_raw_receive",
         "socket_raw_send",
         "error",
-        # command_error is how a refused prefix command reaches APM as denied
         "command",
         "command_completion",
         "command_error",
@@ -81,8 +50,6 @@ PASSTHROUGH_EVENTS = frozenset(
 
 
 class KillswitchState(BaseModel):
-    """Single-row table. ``id`` is always ``ROW_ID``."""
-
     id = IntegerField(primary_key=True)
     engaged = BooleanField(default=False)
     engaged_by = BigIntegerField(null=True)
@@ -97,9 +64,7 @@ ROW_ID = 1
 
 
 def is_exempt_command(command) -> bool:
-    """True for the killswitch command or any of its subcommands, on either
-    the prefix tree or the app command tree.
-    """
+    """The killswitch command or one of its subcommands, on either tree."""
     if command is None:
         return False
     root = getattr(command, "root_parent", None) or command
@@ -113,25 +78,15 @@ class Killswitch:
         self.engaged_by: Optional[int] = None
         self.engaged_at: Optional[datetime.datetime] = None
         self.reason: Optional[str] = None
-        #: What was refused since the switch was engaged, by kind: a gateway
-        #: event name, ``app_command``, ``component``, or ``loop``. Reset on
-        #: engage, so the status readout answers "what has it stopped".
-        self.dropped: Counter[str] = Counter()
+        self.dropped: Counter[str] = Counter()  # refusals by kind since engage
         self._saved_presence: Optional[tuple[discord.Status, object]] = None
 
     @property
     def engaged(self) -> bool:
         return self._engaged
 
-    # --- persistence -----------------------------------------------------
-
     def load(self) -> None:
-        """Create the table if needed and pick up the persisted state.
-
-        Called once at construction. Logged at WARNING when engaged, because a
-        bot that comes up inert and never says why is a confusing outage.
-        """
-        self._ensure_table()
+        KillswitchState.create_table(safe=True)
         row = KillswitchState.get_or_none(KillswitchState.id == ROW_ID)
         if row is None:
             return
@@ -141,20 +96,15 @@ class Killswitch:
         self.reason = row.reason
         if self._engaged:
             logger.warning(
-                "Killswitch is ENGAGED (by %s at %s, reason: %s): the bot will "
-                "ignore everything except the %s command",
+                "Killswitch is ENGAGED (by %s at %s, reason: %s): ignoring "
+                "everything except the %s command",
                 self.engaged_by,
                 self.engaged_at,
                 self.reason or "none given",
                 COMMAND_NAME,
             )
 
-    @staticmethod
-    def _ensure_table() -> None:
-        KillswitchState.create_table(safe=True)
-
     def _persist(self) -> None:
-        self._ensure_table()
         KillswitchState.insert(
             id=ROW_ID,
             engaged=self._engaged,
@@ -163,10 +113,8 @@ class Killswitch:
             reason=self.reason,
         ).on_conflict_replace().execute()
 
-    # --- switching -------------------------------------------------------
-
     async def engage(self, user_id: int, reason: Optional[str] = None) -> bool:
-        """Switch off. Returns False if it was already engaged."""
+        """Returns False if already engaged."""
         if self._engaged:
             return False
         self._engaged = True
@@ -182,7 +130,7 @@ class Killswitch:
         return True
 
     async def disengage(self, user_id: int) -> bool:
-        """Switch back on. Returns False if it was not engaged."""
+        """Returns False if not engaged."""
         if not self._engaged:
             return False
         self._engaged = False
@@ -195,58 +143,44 @@ class Killswitch:
         await self.apply_presence()
         return True
 
-    # --- gates -----------------------------------------------------------
-    #
-    # Each gate is one attribute read on the hot path. ``dispatch`` runs for
-    # every gateway event, so nothing here may touch the database.
+    # Gates. dispatch runs for every gateway event, so none of these may touch
+    # the database.
 
     def allows_event(self, event: str) -> bool:
         if not self._engaged or event in PASSTHROUGH_EVENTS:
             return True
-        self.note_dropped(event)
+        self.dropped[event] += 1
         return False
 
     def allows_command(self, command) -> bool:
-        """Prefix command gate, for the global check."""
         if not self._engaged or is_exempt_command(command):
             return True
-        self.note_dropped("command")
+        self.dropped["command"] += 1
         return False
 
     def allows_interaction(self, interaction: discord.Interaction) -> bool:
-        """App command gate, for the tree's interaction_check. Refuses with an
-        ephemeral notice rather than silently, because an unanswered slash
-        command renders as "This interaction failed", which reads as a bug.
-        """
+        """Refuses with an ephemeral notice: an unanswered slash command
+        renders as "This interaction failed", which reads as a bug."""
         if not self._engaged or is_exempt_command(interaction.command):
             return True
-        self.note_dropped("app_command")
+        self.dropped["app_command"] += 1
         if interaction.type is discord.InteractionType.application_command:
             self.refuse_interaction(interaction)
         return False
 
     def refuse_component(self, interaction: Optional[discord.Interaction]) -> None:
-        """Record a dropped button, select, or modal, and tell the user if the
-        view store wrapper managed to find the interaction among its arguments.
-        """
-        self.note_dropped("component")
+        self.dropped["component"] += 1
         if interaction is not None:
             self.refuse_interaction(interaction)
 
-    def allows_loop_iteration(self, name: str) -> bool:
+    def allows_loop_iteration(self) -> bool:
         if not self._engaged:
             return True
-        self.note_dropped("loop")
-        logger.debug("Killswitch engaged, skipping loop iteration %s", name)
+        self.dropped["loop"] += 1
         return False
 
-    def note_dropped(self, kind: str) -> None:
-        self.dropped[kind] += 1
-
     def refuse_interaction(self, interaction: discord.Interaction) -> None:
-        """Answer a refused interaction from sync code. Best effort: the
-        refusal must never become a new failure mode.
-        """
+        """Best effort, from sync code: a refusal must not become a new failure."""
 
         async def respond():
             try:
@@ -257,17 +191,11 @@ class Killswitch:
         try:
             asyncio.get_running_loop().create_task(respond())
         except RuntimeError:
-            logger.debug("No running loop to answer refused interaction")
-
-    # --- presence --------------------------------------------------------
+            pass
 
     async def apply_presence(self) -> None:
-        """Show the state on the bot's profile: DND with a "killswitch engaged"
-        activity while engaged, and whatever it was before when disengaged.
-        Called on switch and from on_ready, since presence is not persisted
-        across a reconnect. Failure here is logged and otherwise ignored; the
-        switch itself has already flipped.
-        """
+        """DND while engaged, the previous presence otherwise. Also called from
+        on_ready, since presence does not survive a reconnect."""
         try:
             if self._engaged:
                 if self._saved_presence is None:
@@ -284,17 +212,14 @@ class Killswitch:
             logger.warning("Failed to update presence for killswitch", exc_info=True)
 
     def _current_presence(self) -> tuple[discord.Status, object]:
-        # Client.activity is the identify-time value, not what /activity set
-        # later; the member object in any guild carries the live presence.
+        # guild.me carries the live presence; Client.activity is only the
+        # identify-time value.
         for guild in self.bot.guilds:
-            me = guild.me
-            if me is not None:
-                return (me.status, me.activity)
+            if guild.me is not None:
+                return (guild.me.status, guild.me.activity)
         return (discord.Status.online, None)
 
-    # --- reporting -------------------------------------------------------
-
-    def build_status_embed(self) -> discord.Embed:
+    def build_status_embed(self, footer: Optional[str] = None) -> discord.Embed:
         if self._engaged:
             embed = discord.Embed(
                 title="Killswitch: ENGAGED",
@@ -307,20 +232,22 @@ class Killswitch:
             )
             if self.engaged_at:
                 embed.add_field(
-                    name="Since",
-                    value=f"<t:{int(self.engaged_at.timestamp())}:R>",
+                    name="Since", value=f"<t:{int(self.engaged_at.timestamp())}:R>"
                 )
             embed.add_field(name="Reason", value=self.reason or "none given")
-            total = sum(self.dropped.values())
-            if total:
-                top = ", ".join(
-                    f"{kind}: {count}" for kind, count in self.dropped.most_common(5)
+            if self.dropped:
+                top = ", ".join(f"{k}: {n}" for k, n in self.dropped.most_common(5))
+                embed.add_field(
+                    name=f"Dropped ({sum(self.dropped.values())})",
+                    value=top,
+                    inline=False,
                 )
-                embed.add_field(name=f"Dropped ({total})", value=top, inline=False)
         else:
             embed = discord.Embed(
                 title="Killswitch: off",
                 description="The bot is running normally.",
                 color=discord.Color.green(),
             )
+        if footer:
+            embed.set_footer(text=footer)
         return embed

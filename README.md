@@ -104,7 +104,7 @@ poetry run cog create --name MyCog --description "..."      # scaffold a cog
 poetry run black . && poetry run isort .                    # format
 ```
 
-The bot owner has a global killswitch: `.killswitch on` (or `/killswitch`) stops every command, listener, embed fix, button, and background loop until `.killswitch off`, and the state survives a restart. See the Killswitch section of [DEVELOPMENT.md](DEVELOPMENT.md).
+The owner's `.killswitch on` (or `/killswitch`) stops everything the bot does until `.killswitch off`. See the Killswitch section of [DEVELOPMENT.md](DEVELOPMENT.md).
 
 Cogs that react to message content register an `Intent` with the [router](app/utils/router/README.md) rather than adding their own `on_message` listener. The router owns the single listener for the whole bot: it gates cheaply, downloads each attachment once, makes one shared vision call for all image intents, then dispatches the highest-confidence match.
 
