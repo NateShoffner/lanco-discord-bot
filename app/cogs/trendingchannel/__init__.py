@@ -1,0 +1,1 @@
+from .trendingchannel import setup
