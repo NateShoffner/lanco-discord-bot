@@ -9,6 +9,7 @@ from cogs.lancocog import LancoCog, UrlHandler
 from discord import app_commands
 from discord.ext import commands
 from utils.command_utils import is_bot_owner_or_admin
+from utils.markdown_utils import escape_markdown, markdown_link
 
 from .models import SpotifyEmbedConfig
 
@@ -171,7 +172,7 @@ class SpotifyEmbed(
         artist_urls = []
         for artist in track["artists"]:
             artist_urls.append(
-                f"[{artist['name']}]({artist['external_urls']['spotify']})"
+                markdown_link(artist["name"], artist["external_urls"]["spotify"])
             )
 
         embed = discord.Embed(
@@ -181,7 +182,9 @@ class SpotifyEmbed(
         )
         embed.add_field(
             name="Album",
-            value=f"[{track['album']['name']}]({track['album']['external_urls']['spotify']})",
+            value=markdown_link(
+                track["album"]["name"], track["album"]["external_urls"]["spotify"]
+            ),
             inline=False,
         )
         embed.add_field(name="Artist(s)", value=", ".join(artist_urls), inline=False)
@@ -199,23 +202,17 @@ class SpotifyEmbed(
     def generate_album_embed(self, album_id: str) -> discord.Embed:
         album = self.sp.album(album_id)
 
-        track_info = []
-        for i, track in enumerate(album["tracks"]["items"]):
-            track_info.append(
-                f"{track['track_number']}. [{track['name']}]({track['external_urls']['spotify']})"
-            )
-
         artist_urls = []
         for artist in album["artists"]:
             artist_urls.append(
-                f"[{artist['name']}]({artist['external_urls']['spotify']})"
+                markdown_link(artist["name"], artist["external_urls"]["spotify"])
             )
 
         track_info = []
-        for i, track in enumerate(album["tracks"]["items"]):
-            track_info.append(
-                f"[{track['track_number']}]: [{track['name']}]({track['external_urls']['spotify']}) - ({self.milliseconds_to_minutes(track['duration_ms'])}"
-            )
+        for track in album["tracks"]["items"]:
+            link = markdown_link(track["name"], track["external_urls"]["spotify"])
+            length = self.milliseconds_to_minutes(track["duration_ms"])
+            track_info.append(f"[{track['track_number']}]: {link} - ({length})")
 
         embed = discord.Embed(
             title=album["name"],
@@ -234,17 +231,22 @@ class SpotifyEmbed(
         track_info = []
         # TODO - decide on a better method of showing tracks that doesn't take up so much space
         for i, track in enumerate(playlist["tracks"]["items"][:max_tracks]):
-            track_info.append(
-                f"{i + 1}. [{track['track']['name']}]({track['track']['external_urls']['spotify']}) by [{track['track']['artists'][0]['name']}]({track['track']['artists'][0]['external_urls']['spotify']}) - {self.milliseconds_to_minutes(track['track']['duration_ms'])}"
+            item = track["track"]
+            artist = item["artists"][0]
+            track_link = markdown_link(item["name"], item["external_urls"]["spotify"])
+            artist_link = markdown_link(
+                artist["name"], artist["external_urls"]["spotify"]
             )
+            length = self.milliseconds_to_minutes(item["duration_ms"])
+            track_info.append(f"{i + 1}. {track_link} by {artist_link} - {length}")
 
         track_info.append(f"... and {playlist['tracks']['total'] - max_tracks} more")
 
         desc = [
-            f"Created by: [{playlist['owner']['display_name']}]({playlist['owner']['external_urls']['spotify']})".encode(
-                "utf-8"
-            ).decode(
-                "utf-8"
+            "Created by: "
+            + markdown_link(
+                playlist["owner"]["display_name"],
+                playlist["owner"]["external_urls"]["spotify"],
             ),
             f"Followers: {playlist['followers']['total']}",
             f"Tracks: {playlist['tracks']['total']}",
@@ -266,7 +268,7 @@ class SpotifyEmbed(
         # TODO - add top tracks
 
         desc = [
-            f"Genre(s): {', '.join(artist['genres'])}",
+            f"Genre(s): {escape_markdown(', '.join(artist['genres']))}",
             f"Followers: {artist['followers']['total']}",
         ]
 

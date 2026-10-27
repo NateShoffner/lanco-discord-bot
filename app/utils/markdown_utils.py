@@ -1,10 +1,52 @@
 import re
 
+import discord
 from bs4 import BeautifulSoup
 
 
 def _looks_like_html(text: str) -> bool:
     return bool(re.search(r"<[a-zA-Z][^>]*>", text))
+
+
+def escape_markdown(text: str) -> str:
+    """Neutralize Discord markdown in text that should be read literally.
+
+    Anything quoted from somewhere else (a username, a place name, a track
+    title) is plain text at the source and formatting here, so the Reddit
+    user `spell_i_cup` renders as "spellicup" with an italic i. Use this
+    wherever external text lands in an embed description or field value;
+    embed titles, author names, and footers do not render markdown and do
+    not need it.
+    """
+    if not text:
+        return text
+    return discord.utils.escape_markdown(text)
+
+
+def escape_link_label(text: str) -> str:
+    """Escape text used as the label of a ``[label](url)`` link.
+
+    A label has to survive the brackets as well as the usual formatting
+    characters, which ``escape_markdown`` leaves alone: an unescaped ``]``
+    closes the label early and lets the rest of the external text supply its
+    own URL.
+    """
+    if not text:
+        return text
+    return escape_markdown(text).replace("[", r"\[").replace("]", r"\]")
+
+
+def markdown_link(label: str, url: str, *, suppress_embed: bool = False) -> str:
+    """Build a ``[label](url)`` link that external text cannot break out of.
+
+    Parentheses in the URL are percent-encoded because a bare ``)`` ends the
+    link target, which is a real shape for article URLs. ``suppress_embed``
+    wraps the target in angle brackets so Discord does not unfurl it.
+    """
+    target = url.replace("(", "%28").replace(")", "%29")
+    if suppress_embed:
+        target = f"<{target}>"
+    return f"[{escape_link_label(label)}]({target})"
 
 
 def reddit_to_discord(text: str) -> str:

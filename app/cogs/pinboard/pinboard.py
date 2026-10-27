@@ -3,6 +3,7 @@ import peewee
 from cogs.lancocog import LancoCog
 from discord import app_commands
 from discord.ext import commands
+from utils.markdown_utils import escape_markdown
 
 from .models import PinboardPost
 
@@ -91,7 +92,7 @@ class Pinboard(
 
         body = ""
         for i, pinned_message in enumerate(pinned_messages):
-            excerpt = pinned_message.content[:50]
+            excerpt = escape_markdown(pinned_message.content[:50])
             body += f"{i+1}. {excerpt} [View]({pinned_message.jump_url})\n"
 
         embed = discord.Embed(

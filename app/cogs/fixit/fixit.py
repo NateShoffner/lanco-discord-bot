@@ -8,6 +8,7 @@ from discord.ext import commands, tasks
 from seeclickfix.client import SeeClickFixClient
 from seeclickfix.models.issue import Issue, Status
 from utils.command_utils import is_bot_owner_or_admin
+from utils.markdown_utils import markdown_link
 
 from .models import FixItConfig
 
@@ -142,7 +143,9 @@ class FixIt(LancoCog, name="FixIt", description="FixIt issue tracking"):
         embed.add_field(name="Issue ID", value=issue.id)
         embed.add_field(name="Status", value=issue.status)
         embed.add_field(
-            name="Address", value=f"[{issue.address}]({google_address})", inline=False
+            name="Address",
+            value=markdown_link(issue.address, google_address),
+            inline=False,
         )
 
         if issue.media:
