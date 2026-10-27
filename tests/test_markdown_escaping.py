@@ -1,10 +1,4 @@
-"""Markdown escaping for text quoted from outside Discord.
-
-A Reddit username, a place name, or a track title is plain text where it came
-from and markdown where we put it, so `spell_i_cup` used to render as
-"spellicup" with an italic i. These check the helpers that stop that, and the
-embed fields that were showing it.
-"""
+"""Markdown escaping for text quoted from outside Discord."""
 
 from types import SimpleNamespace
 
@@ -28,7 +22,6 @@ def test_empty_text_is_left_alone():
 
 
 def test_a_label_cannot_close_its_own_brackets():
-    # unescaped, the `]` ends the label and the rest supplies its own URL
     label = escape_link_label("x](https://evil.example)")
     assert label == "x\](https://evil.example)"
     assert markdown_link("x](https://evil.example)", "https://reddit.com/u/x") == (
@@ -57,8 +50,7 @@ def test_suppressed_embed_wraps_the_target():
 
 
 def test_self_post_domain_carries_the_subreddit_name():
-    # reddit reports a self post's domain as `self.<subreddit>`, so an
-    # underscore in the subreddit name lands in the link label
+    # a self post's domain is `self.<subreddit>`, underscores included
     post = SimpleNamespace(
         is_self=False,
         url="https://reddit.com/r/not_the_onion/comments/abc",
