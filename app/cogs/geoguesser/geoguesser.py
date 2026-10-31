@@ -14,6 +14,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ui import Select, View
 from utils.command_utils import is_bot_owner
+from utils.markdown_utils import markdown_link
 from utils.roundgame.dbmodels import RoundGameResult
 
 from .dbmodels import SCORING_VERSION
@@ -177,7 +178,7 @@ class GeoGuesser(
             name="Round", value=f"{r.number + 1} of {len(session.rounds)}", inline=True
         )
         embed.add_field(
-            name="Answer", value=f"[{location_label}]({maps_url})", inline=True
+            name="Answer", value=markdown_link(location_label, maps_url), inline=True
         )
 
         if sorted_guesses:
@@ -280,7 +281,7 @@ class GeoGuesser(
             # (base class sent the embed; we can't easily edit it here, so we send a follow-up)
             embed = discord.Embed(
                 title="Last round answer",
-                description=f"[{location_label}]({maps_url})",
+                description=markdown_link(location_label, maps_url),
                 color=discord.Color.red(),
             )
             try:

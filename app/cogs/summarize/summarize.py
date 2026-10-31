@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from utils.ai_utils import run_agent
 from utils.channel_lock import command_channel_lock
+from utils.markdown_utils import escape_markdown
 from utils.message_utils import get_user_messages
 from utils.tracked_message import track_message_ids
 
@@ -164,7 +165,7 @@ class Summarize(
             filtered_tags = [tag for tag in t.msg_ref_ids if tag in transcript.msg_map]
             topic_messages = [transcript.msg_map[tag] for tag in filtered_tags]
 
-            topic_str = f"**{t.subject}**"
+            topic_str = f"**{escape_markdown(t.subject)}**"
 
             # authors (limit to one reference per user)
             seen_users = set()
@@ -182,7 +183,8 @@ class Summarize(
                 user_links = []
                 for m in unique_topic_messages:
                     user_links.append(
-                        f"{m.author.display_name} [[{citation_count}]]({m.jump_url})"
+                        f"{escape_markdown(m.author.display_name)}"
+                        f" [[{citation_count}]]({m.jump_url})"
                     )
                     citation_count += 1
                 topic_str += "\n\t" + ", ".join(user_links)

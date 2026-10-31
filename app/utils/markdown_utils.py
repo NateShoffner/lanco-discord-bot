@@ -1,10 +1,33 @@
 import re
 
+import discord
 from bs4 import BeautifulSoup
 
 
 def _looks_like_html(text: str) -> bool:
     return bool(re.search(r"<[a-zA-Z][^>]*>", text))
+
+
+def escape_markdown(text: str) -> str:
+    """Escape Discord markdown in external text used in a description or field value."""
+    if not text:
+        return text
+    return discord.utils.escape_markdown(text)
+
+
+def escape_link_label(text: str) -> str:
+    """Escape markdown plus the brackets that would close a link label early."""
+    if not text:
+        return text
+    return escape_markdown(text).replace("[", r"\[").replace("]", r"\]")
+
+
+def markdown_link(label: str, url: str, *, suppress_embed: bool = False) -> str:
+    """Build a ``[label](url)`` link with the label escaped and parens in the URL encoded."""
+    target = url.replace("(", "%28").replace(")", "%29")
+    if suppress_embed:
+        target = f"<{target}>"
+    return f"[{escape_link_label(label)}]({target})"
 
 
 def reddit_to_discord(text: str) -> str:

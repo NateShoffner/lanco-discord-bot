@@ -13,7 +13,7 @@ from discord.ext import commands, tasks
 from utils.command_utils import is_bot_owner_or_admin, is_bot_owner_or_admin_ctx
 from utils.file_downloader import FileDownloader
 from utils.image_utils import blur_image
-from utils.markdown_utils import reddit_to_discord
+from utils.markdown_utils import escape_markdown, markdown_link, reddit_to_discord
 
 from .models import RedditFeedConfig, RedditPost
 
@@ -153,9 +153,9 @@ def format_link(source) -> str | None:
         return None
     domain = _get(source, "domain") or urllib.parse.urlparse(url).netloc
     domain = domain.removeprefix("www.")
-    value = f"[{domain}](<{url}>)"
+    value = markdown_link(domain, url, suppress_embed=True)
     # a markdown link cannot be truncated without breaking it
-    return value if len(value) <= FIELD_VALUE_LIMIT else domain
+    return value if len(value) <= FIELD_VALUE_LIMIT else escape_markdown(domain)
 
 
 def format_crosspost(submission) -> str | None:
@@ -166,8 +166,8 @@ def format_crosspost(submission) -> str | None:
     name = parent.get("subreddit_name_prefixed") or f"r/{parent.get('subreddit')}"
     permalink = parent.get("permalink")
     if not permalink:
-        return f"/{name}"
-    return f"[/{name}](https://reddit.com{permalink})"
+        return escape_markdown(f"/{name}")
+    return markdown_link(f"/{name}", f"https://reddit.com{permalink}")
 
 
 def format_media(source) -> str | None:
@@ -193,7 +193,10 @@ def format_poll(source) -> str | None:
     poll = _get(source, "poll_data")
     if not poll:
         return None
-    lines = [f"- {_get(option, 'text')}" for option in _get(poll, "options") or []]
+    lines = [
+        f"- {escape_markdown(_get(option, 'text') or '')}"
+        for option in _get(poll, "options") or []
+    ]
     if not lines:
         return None
     total = _get(poll, "total_vote_count")
@@ -554,7 +557,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         subreddit_url = f"https://reddit.com/r/{subreddit_name}"
         embed = discord.Embed(
             title=f"Subscribe to /r/{subreddit_name}",
-            description=f"Watching [/r/{subreddit_name}](<{subreddit_url}>) for new posts and sharing them in {interaction.channel.mention}",
+            description=(
+                f"Watching {markdown_link(f'/r/{subreddit_name}', subreddit_url, suppress_embed=True)}"
+                f" for new posts and sharing them in {interaction.channel.mention}"
+            ),
             color=discord.Color(0x00FF00),
         )
 
@@ -576,7 +582,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         if not reddit_config:
             embed = discord.Embed(
                 title=f"Unsubscribe from /r/{subreddit_name}",
-                description=f"[/r/{subreddit_name}](<{subreddit_url}>) is not being watched in {interaction.channel.mention}",
+                description=(
+                    f"{markdown_link(f'/r/{subreddit_name}', subreddit_url, suppress_embed=True)}"
+                    f" is not being watched in {interaction.channel.mention}"
+                ),
                 color=discord.Color(0xFF0000),
             )
             await interaction.response.send_message(embed=embed)
@@ -585,7 +594,10 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         embed = discord.Embed(
             title=f"Unsubscribe from /r/{subreddit_name}",
-            description=f"Stopped watching [/r/{subreddit_name}](<{subreddit_url}>) in {interaction.channel.mention}",
+            description=(
+                f"Stopped watching {markdown_link(f'/r/{subreddit_name}', subreddit_url, suppress_embed=True)}"
+                f" in {interaction.channel.mention}"
+            ),
             color=discord.Color(0x00FF00),
         )
 
@@ -665,7 +677,9 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
 
         author_name = submission.author.name if submission.author else None
         if author_name and author_name != "[deleted]":
-            author_value = f"[/u/{author_name}](https://reddit.com/u/{author_name})"
+            author_value = markdown_link(
+                f"/u/{author_name}", f"https://reddit.com/u/{author_name}"
+            )
         else:
             author_value = "[deleted]"
         embed.add_field(name="Post Author", value=author_value)
@@ -673,7 +687,11 @@ class RedditFeed(LancoCog, name="RedditFeed", description="Reddit feed polling")
         embed.add_field(
             name="Flair",
             value=(
-                f"[{submission.link_flair_text}](https://reddit.com/r/{submission.subreddit.display_name}/?f=flair_name%3A%22{urllib.parse.quote(submission.link_flair_text)}%22)"
+                markdown_link(
+                    submission.link_flair_text,
+                    f"https://reddit.com/r/{submission.subreddit.display_name}"
+                    f"/?f=flair_name%3A%22{urllib.parse.quote(submission.link_flair_text)}%22",
+                )
                 if submission.link_flair_text
                 else "None"
             ),
