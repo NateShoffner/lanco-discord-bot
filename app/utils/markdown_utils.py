@@ -15,11 +15,22 @@ def escape_markdown(text: str) -> str:
     return discord.utils.escape_markdown(text)
 
 
+_LABEL_FORMATTING = re.compile(r"[\\*_~`|]")
+
+
 def escape_link_label(text: str) -> str:
-    """Escape markdown plus the brackets that would close a link label early."""
+    """Neutralize markdown in a link label.
+
+    Backslash escapes render literally inside masked-link labels, so brackets
+    become fullwidth lookalikes and formatting characters are suppressed by
+    wrapping the label in a code span.
+    """
     if not text:
         return text
-    return escape_markdown(text).replace("[", r"\[").replace("]", r"\]")
+    text = text.replace("[", "［").replace("]", "］")
+    if _LABEL_FORMATTING.search(text):
+        text = "`" + text.replace("`", "ˋ") + "`"
+    return text
 
 
 def markdown_link(label: str, url: str, *, suppress_embed: bool = False) -> str:

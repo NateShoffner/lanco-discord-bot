@@ -23,15 +23,26 @@ def test_empty_text_is_left_alone():
 
 def test_a_label_cannot_close_its_own_brackets():
     label = escape_link_label("x](https://evil.example)")
-    assert label == "x\](https://evil.example)"
+    assert label == "x］(https://evil.example)"
     assert markdown_link("x](https://evil.example)", "https://reddit.com/u/x") == (
-        "[x\](https://evil.example)](https://reddit.com/u/x)"
+        "[x］(https://evil.example)](https://reddit.com/u/x)"
     )
+
+
+def test_a_plain_label_is_left_alone():
+    assert escape_link_label("Meetup") == "Meetup"
+
+
+def test_a_formatted_label_becomes_a_code_span():
+    # backslash escapes render literally inside masked-link labels
+    assert escape_link_label("spell_i_cup") == "`spell_i_cup`"
+    assert escape_link_label("**loud**") == "`**loud**`"
+    assert escape_link_label("back`tick") == "`backˋtick`"
 
 
 def test_link_keeps_the_label_inside_the_link():
     link = markdown_link("spell_i_cup", "https://reddit.com/u/spell_i_cup")
-    assert link == "[spell\_i\_cup](https://reddit.com/u/spell_i_cup)"
+    assert link == "[`spell_i_cup`](https://reddit.com/u/spell_i_cup)"
 
 
 def test_parentheses_in_the_url_do_not_end_the_link():
@@ -57,7 +68,7 @@ def test_self_post_domain_carries_the_subreddit_name():
         domain="self.not_the_onion",
     )
     assert format_link(post) == (
-        "[self.not\_the\_onion]" "(<https://reddit.com/r/not_the_onion/comments/abc>)"
+        "[`self.not_the_onion`]" "(<https://reddit.com/r/not_the_onion/comments/abc>)"
     )
 
 
@@ -71,7 +82,7 @@ def test_crosspost_subreddit_name_is_escaped():
         ]
     )
     assert format_crosspost(post) == (
-        "[/r/not\_the\_onion](https://reddit.com/r/not_the_onion/comments/abc/)"
+        "[`/r/not_the_onion`](https://reddit.com/r/not_the_onion/comments/abc/)"
     )
 
 
